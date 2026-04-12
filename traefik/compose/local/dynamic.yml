@@ -1,0 +1,55 @@
+http:
+  routers:
+    web-router:
+      rule: 'Host(`{{ env "DOMAIN" }}`) && (PathPrefix(`/api`) || PathPrefix(`/_allauth`) || PathPrefix(`/admin`) || PathPrefix(`/accounts`))'
+      service: "web-service"
+      entryPoints:
+        - websecure
+      tls: {}
+
+    frontend-router:
+      rule: 'Host(`{{ env "DOMAIN" }}`)'
+      service: "frontend-service"
+      entryPoints:
+        - websecure
+      tls: {}
+
+    mailpit-router:
+      rule: 'Host(`mail.{{ env "DOMAIN" }}`)'
+      service: "mailpit-service"
+      entryPoints:
+        - websecure
+      tls: {}
+
+    nginx-router:
+      rule: 'Host(`{{ env "DOMAIN" }}`) && (PathPrefix(`/static`) || PathPrefix(`/media`))'
+      service: "nginx-service"
+      entryPoints:
+        - websecure
+      tls: {}
+
+  services:
+    web-service:
+      loadBalancer:
+        servers:
+          - url: "http://web:8000"
+
+    frontend-service:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:5173"
+
+    mailpit-service:
+      loadBalancer:
+        servers:
+          - url: "http://mailpit:8025"
+
+    nginx-service:
+      loadBalancer:
+        servers:
+          - url: "http://nginx:80"
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/local-cert.pem
+      keyFile: /etc/traefik/certs/local-key.pem

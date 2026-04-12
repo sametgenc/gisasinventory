@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Optional: Apply migrations automatically on startup
+# (Usually handled by the web service, but making sure)
+
+
+# Run the Celery Worker
+celery -A config worker -l info

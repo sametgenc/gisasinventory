@@ -1,0 +1,116 @@
+services:
+  traefik:
+    build:
+      context: ./traefik
+      dockerfile: compose/production/Dockerfile
+    image: gisasinventory-traefik-prod
+    container_name: traefik_prod_container
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/compose/production/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/compose/production/dynamic.yml:/etc/traefik/conf/dynamic.yml:ro
+      - ./traefik/acme:/etc/traefik/acme
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./.envs/.env.traefik
+    restart: always
+    networks:
+      - webnet
+
+  redis:
+    image: redis:alpine
+    container_name: redis_prod_container
+    expose:
+      - 6379
+    volumes:
+      - redis_prod_data:/data
+    restart: always
+    networks:
+      - webnet
+
+  postgres:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/production/postgres/Dockerfile
+    image: gisasinventory-postgres-prod
+    container_name: postgres_prod_container
+    env_file:
+      - ./.envs/.env.postgres
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - webnet
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/production/Dockerfile
+    image: gisasinventory-django-prod
+    container_name: django_prod_container
+    expose:
+      - 8000
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./.envs/.env.local
+    environment:
+      - MIGRATIONS=true
+    restart: always
+    networks:
+      - webnet
+
+  celeryworker:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/production/Dockerfile
+    image: gisasinventory-django-prod
+    container_name: celery_worker_prod_container
+    command: celery -A config worker -l info
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - ./.envs/.env.local
+    restart: always
+    networks:
+      - webnet
+
+  celerybeat:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/production/Dockerfile
+    image: gisasinventory-django-prod
+    container_name: celery_beat_prod_container
+    command: celery -A config beat -l info
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - ./.envs/.env.local
+    restart: always
+    networks:
+      - webnet
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: compose/production/Dockerfile
+    image: gisasinventory-frontend-prod
+    container_name: frontend_prod_container
+    expose:
+      - 80
+    restart: always
+    networks:
+      - webnet
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+
+networks:
+  webnet:
+    driver: bridge

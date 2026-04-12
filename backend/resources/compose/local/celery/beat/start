@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Run the Celery Beat
+# --scheduler django_celery_beat.schedulers:DatabaseScheduler is set in settings.py
+celery -A config beat -l info

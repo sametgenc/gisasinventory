@@ -1,0 +1,133 @@
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #1e293b;
+  background-color: #f8fafc;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark {
+  color-scheme: dark;
+  background-color: #020617;
+  color: #f1f5f9;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Smooth scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.dark * {
+  scrollbar-color: #334155 transparent;
+}
+
+/* Focus visible for keyboard users */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Dropdown animation */
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-dropdown {
+  animation: dropdown-in 0.15s ease-out;
+}
+
+/* Slide-in for mobile menu */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+/* Theme transition with View Transition API */
+::view-transition-group(root) {
+  animation-duration: 0.7s;
+  animation-timing-function: ease-in-out;
+}
+
+::view-transition-new(root),
+::view-transition-old(root) {
+  mix-blend-mode: normal;
+  animation: none;
+}
+
+::view-transition-old(root) {
+  z-index: 9999;
+}
+
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+.dark::view-transition-new(root) {
+  z-index: 9999;
+}
+
+.dark::view-transition-old(root) {
+  z-index: 1;
+}
+
+/*
+ * The theme toggle button is pulled out of the root snapshot into its own
+ * view-transition group so it crossfades independently instead of being
+ * revealed by the circular clip-path — this prevents the icon flash at
+ * the end of the dark-to-light transition.
+ */
+::view-transition-group(theme-toggle) {
+  animation-duration: 0.35s;
+  animation-timing-function: ease-in-out;
+}
+
+::view-transition-old(theme-toggle),
+::view-transition-new(theme-toggle) {
+  mix-blend-mode: normal;
+}
+
+/*
+ * Kill all CSS transitions on elements while the view transition is active,
+ * so icons/colors snap instantly under the snapshot instead of animating
+ * and causing a flash when the pseudo-elements are removed.
+ */
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition-duration: 0s !important;
+}

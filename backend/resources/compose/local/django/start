@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Function to wait for postgres
+postgres_ready() {
+python << END
+import sys
+import socket
+import time
+import os
+from urllib.parse import urlparse
+
+db_url = os.environ.get('DATABASE_URL', '')
+if not db_url:
+    print("DATABASE_URL not set, skipping wait")
+    sys.exit(0)
+
+url = urlparse(db_url)
+host = url.hostname
+port = url.port or 5432
+
+print(f"Waiting for postgres at {host}:{port}...")
+
+start = time.time()
+while time.time() - start < 60:
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            print("Postgres is up!")
+            sys.exit(0)
+    except (socket.error, socket.timeout):
+        time.sleep(1)
+
+print("Postgres took too long to start")
+sys.exit(1)
+END
+}
+
+if [ "${MIGRATIONS:-false}" = "true" ] || [ "${DATABASE_WAIT:-true}" = "true" ]; then
+    postgres_ready
+fi
+
+if [ "${MIGRATIONS:-false}" = "true" ]; then
+    echo "Running startup tasks (collectstatic, migrations)..."
+    python manage.py collectstatic --noinput
+    python manage.py makemigrations
+    python manage.py migrate
+fi
+
+# Execute the passed command
+exec "$@"

@@ -1,0 +1,67 @@
+# ========================
+# Environment files
+# ========================
+.envs/.env.local
+.envs/.env.postgres
+.envs/.env.traefik
+!.envs/.env.*.example
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+
+# ========================
+# Node
+# ========================
+node_modules/
+dist/
+dist-ssr/
+.pnpm-store/
+.npm-cache/
+
+# ========================
+# SSL Certificates
+# ========================
+traefik/certs/*.pem
+
+# ========================
+# Let's Encrypt (ACME)
+# ========================
+traefik/acme/
+
+# ========================
+# Django collected files
+# ========================
+backend/resources/public/static/*
+backend/resources/public/media/*
+!backend/resources/public/static/.gitkeep
+!backend/resources/public/media/.gitkeep
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# IDE
+# ========================
+.idea/
+.vscode/
+*.sw?
+*.swo
+
+# ========================
+# Cursor / Agent
+# ========================
+.agent/
+
+# ========================
+# Logs
+# ========================
+*.log

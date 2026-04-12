@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <title>GisasInventory</title>
+</head>
+
+<body>
+  <script>
+    (function () {
+      try {
+        const storageKey = "vite-ui-theme";
+        const theme = localStorage.getItem(storageKey);
+        const supportDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        if (theme === "dark" || (!theme && supportDarkMode)) {
+          document.documentElement.classList.add("dark");
+          document.documentElement.style.backgroundColor = "#020617";
+        } else {
+          document.documentElement.classList.remove("dark");
+          document.documentElement.style.backgroundColor = "#f8fafc";
+        }
+      } catch (e) {
+        console.error("Theme script failed", e);
+      }
+    })();
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

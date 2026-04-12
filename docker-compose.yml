@@ -1,0 +1,151 @@
+services:
+  traefik:
+    build:
+      context: ./traefik
+      dockerfile: compose/local/Dockerfile
+    image: myproject-traefik
+    container_name: traefik_container
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
+    volumes:
+      - ./traefik/compose/local/traefik.yml:/etc/traefik/traefik.yml
+      - ./traefik/compose/local/dynamic.yml:/etc/traefik/conf/dynamic.yml:ro
+      - ./traefik/certs:/etc/traefik/certs:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./.envs/.env.traefik
+    networks:
+      - webnet
+
+  redis:
+    image: redis:alpine
+    container_name: redis_container
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - webnet
+
+  postgres:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/local/postgres/Dockerfile
+    image: myproject-postgres
+    container_name: postgres_container
+    env_file:
+      - ./.envs/.env.postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - webnet
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/local/django/Dockerfile
+    image: myproject-django
+    container_name: django_container
+    command: uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+      - django_uv_cache:/uv-cache
+      - django_static:/app/resources/public/static
+      - django_media:/app/resources/public/media
+    expose:
+      - 8000
+    depends_on:
+      - postgres
+    env_file:
+      - ./.envs/.env.local
+    environment:
+      - MIGRATIONS=true
+    networks:
+      - webnet
+
+  celeryworker:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/local/django/Dockerfile
+    image: myproject-django
+    container_name: celery_worker_container
+    command: celery -A config worker -l info
+    volumes:
+      - ./backend:/app
+      - django_uv_cache:/uv-cache
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - ./.envs/.env.local
+    networks:
+      - webnet
+
+  celerybeat:
+    build:
+      context: ./backend
+      dockerfile: resources/compose/local/django/Dockerfile
+    image: myproject-django
+    container_name: celery_beat_container
+    command: celery -A config beat -l info
+    volumes:
+      - ./backend:/app
+      - django_uv_cache:/uv-cache
+    depends_on:
+      - redis
+      - postgres
+    env_file:
+      - ./.envs/.env.local
+    networks:
+      - webnet
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: compose/local/Dockerfile
+    image: myproject-frontend
+    container_name: frontend_container
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - pnpm_store:/pnpm/store
+    expose:
+      - 5173
+    env_file:
+      - ./.envs/.env.traefik
+    networks:
+      - webnet
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_container
+    volumes:
+      - ./backend/resources/compose/local/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - django_static:/usr/share/nginx/html/static:ro
+      - django_media:/usr/share/nginx/html/media:ro
+    networks:
+      - webnet
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit_container
+    expose:
+      - "8025"
+      - "1025"
+    networks:
+      - webnet
+
+volumes:
+  postgres_data:
+  redis_data:
+  pnpm_store:
+  frontend_node_modules:
+  django_uv_cache:
+  django_static:
+  django_media:
+  traefik_certs:
+
+networks:
+  webnet:
