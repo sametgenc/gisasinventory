@@ -41,7 +41,17 @@
         "filter": "Filtrele",
         "required": "Zorunlu",
         "optional": "İsteğe Bağlı",
-        "update": "Güncelle"
+        "update": "Güncelle",
+        "processing": "İşleniyor..."
+    },
+    "pagination": {
+        "showing": "{{start}}–{{end}} / {{total}}",
+        "perPage": "Sayfa başına",
+        "page": "Sayfa {{page}} / {{total}}",
+        "first": "İlk",
+        "previous": "Önceki",
+        "next": "Sonraki",
+        "last": "Son"
     },
     "nav": {
         "appName": "GisasInventory",
@@ -301,7 +311,18 @@
         "never": "Hiç",
         "joined": "Katılım",
         "noUsersInTenant": "Bu tersanede kullanıcı yok",
-        "addUsersHint": "Kullanıcı atayarak veya yeni oluşturarak başlayın"
+        "addUsersHint": "Kullanıcı atayarak veya yeni oluşturarak başlayın",
+        "editUser": "Kullanıcıyı Düzenle",
+        "firstNamePlaceholder": "Ad",
+        "lastNamePlaceholder": "Soyad",
+        "changePassword": "Şifreyi Değiştir",
+        "passwordOptional": "Şifreyi yenilemek için doldurun, aksi halde boş bırakın.",
+        "generatePassword": "Şifre Üret",
+        "activeStatus": "Aktif",
+        "identityHeading": "Kimlik",
+        "credentialsHeading": "Kimlik Doğrulama",
+        "accessHeading": "Erişim",
+        "userUpdateFailed": "Kullanıcı güncellenemedi."
     },
     "users": {
         "title": "Kullanıcı Yönetimi",
@@ -330,7 +351,19 @@
         "superuser": "Süper kullanıcı",
         "createUnassignedHint": "Yeni kullanıcılar önce tersane olmadan oluşturulur. Tersane sayfasından atayın; ardından tersane yöneticisi yapılabilir. Tam platform arayüzü yalnızca Django süper kullanıcıları içindir (veritabanındaki platform_admin rolü değil).",
         "assignShipyardFirstHint": "Tersane yöneticisi seçmeden önce kullanıcıyı bir tersaneye atayın.",
-        "platformAdminRoleOption": "Platform yöneticisi (yalnızca rol; süper kullanıcı erişimi değil)"
+        "platformAdminRoleOption": "Platform yöneticisi (yalnızca rol; süper kullanıcı erişimi değil)",
+        "roleDesc": {
+            "tenant_user": "Tersane içinde varlıkları görüntüler ve yönetir.",
+            "tenant_admin": "Tersanenin kullanıcılarını ve ayarlarını yönetir.",
+            "platform_admin": "Tüm tersanelere erişim ve platform genelinde yönetim."
+        },
+        "passwordStrength": {
+            "veryWeak": "Çok zayıf",
+            "weak": "Zayıf",
+            "fair": "Orta",
+            "good": "İyi",
+            "strong": "Güçlü"
+        }
     },
     "assets": {
         "title": "Varlık Yönetimi",
@@ -338,6 +371,7 @@
         "subtitleSuperuser": "Tüm tersanelerin varlıklarını yönetin",
         "addNew": "Yeni Varlık",
         "createAsset": "Yeni Varlık Ekle",
+        "editAsset": "Varlığı Düzenle",
         "noAssets": "Varlık bulunamadı",
         "changeFilters": "Filtreleri değiştirin veya yeni varlık ekleyin",
         "addFirstAssetHint": "Yeni varlık ekleyerek başlayın",
@@ -387,7 +421,60 @@
         "exportFailed": "Dışa aktarma başarısız",
         "saveFailed": "Kaydetme hatası",
         "shipyardRequired": "Tersane seçilmeli",
-        "row": "Satır"
+        "row": "Satır",
+        "moreActions": "Diğer İşlemler",
+        "importExcel": "Excel'den İçe Aktar",
+        "exportExcel": "Excel'e Dışa Aktar",
+        "exportDialog": {
+            "title": "Excel'e Dışa Aktar",
+            "description": "Varlık tipi seçerek listeyi Excel olarak indirin.",
+            "selectTypeHelp": "İndirilecek listenin varlık tipi",
+            "downloadList": "Listeyi İndir",
+            "downloadTemplateHint": "Bu tip için içe aktarma şablonunu da indirebilirsiniz.",
+            "downloadTemplate": "Şablonu İndir"
+        },
+        "fields": {
+            "generalInfo": "Genel Bilgi",
+            "customFields": "Alanlar"
+        },
+        "wizard": {
+            "stepFile": "Dosya",
+            "stepPreview": "Önizle",
+            "stepResult": "Sonuç",
+            "dropOrClick": "Excel dosyası (.xlsx, .xls) seç veya buraya sürükle",
+            "droppedFile": "Değiştirmek için tıkla",
+            "headerRow": "Başlık Satırı",
+            "headerRowHelp": "Sütun başlıklarının bulunduğu satır numarası",
+            "skipRows": "Atlanan Satırlar",
+            "skipRowsHelp": "Bu değerlerle başlayan satırlar atlanır (örn. TOPLAM)",
+            "previewAction": "Önizle ve Devam Et",
+            "mapping": "Eşleştirme",
+            "preview": "Önizleme",
+            "excelColumn": "Excel Sütunu",
+            "systemField": "Sistem Alanı",
+            "ignore": "— Yoksay —",
+            "rowCount": "{{count}} satır",
+            "firstRowsShown": "İlk {{shown}} satır gösteriliyor — toplam {{total}} satır içe aktarılacak",
+            "uniqueKeyNotice": "Benzersiz İndeks: {{field}} — aynı değer mevcutsa kayıt güncellenir.",
+            "templateDetectedTitle": "Şablon algılandı",
+            "templateDetectedBody": "Bu dosya {{name}} için oluşturulmuş bir şablon gibi görünüyor. {{count}} satır içe aktarılacak.",
+            "runTemplateImport": "Şablon İçe Aktarmayı Başlat",
+            "importAction": "İçe Aktar",
+            "created": "Oluşturuldu",
+            "updated": "Güncellendi",
+            "skipped": "Atlandı",
+            "errors": "Hata",
+            "successCount": "{{count}} başarılı",
+            "errorCount": "{{count}} hatalı",
+            "close": "Kapat",
+            "newImport": "Yeni İçe Aktarma",
+            "back": "Geri",
+            "uploadFailed": "Dosya önizlenemedi.",
+            "autoMatched": "Otomatik eşleşti",
+            "ignored": "Yoksayıldı",
+            "mapsTo": "→ {{field}}",
+            "dataPreview": "Veri Önizleme"
+        }
     },
     "assetTypes": {
         "title": "Varlık Tipleri",
@@ -455,7 +542,31 @@
         "fieldsCount": "{{count}} alan",
         "createNewType": "Yeni tip oluştur",
         "noTypesYet": "Henüz varlık tipi yok",
-        "deleteConfirm": "Bu varlık tipini silmek istediğinizden emin misiniz?"
+        "deleteConfirm": "Bu varlık tipini silmek istediğinizden emin misiniz?",
+        "uniqueIndexField": "Benzersiz İndeks",
+        "uniqueIndexDisabled": "Başka bir alan zaten benzersiz indeks. Önce onu kapatın.",
+        "builder": {
+            "basicInfo": "Temel Bilgiler",
+            "fields": "Alanlar",
+            "fieldsHelp": "Bu tipin saklayacağı özel veri alanlarını tanımlayın.",
+            "addFieldBtn": "Alan Ekle",
+            "pickType": "Alan Tipi Seç",
+            "reorderHint": "Sıralamak için alanları sürükleyebilirsiniz.",
+            "fieldsCount": "{{count}} alan",
+            "emptyTitle": "Henüz alan yok",
+            "emptyDescription": "Bu varlık tipi için ilk özel alanı ekleyerek başlayın.",
+            "addOptionPlaceholder": "Seçenek ekleyin ve Enter'a basın",
+            "addOption": "Ekle",
+            "noOptions": "Henüz seçenek yok"
+        },
+        "list": {
+            "name": "Ad",
+            "description": "Açıklama",
+            "fieldsCol": "Alanlar",
+            "uniqueKey": "Benzersiz İndeks",
+            "actions": "İşlemler",
+            "view": "Görüntüle"
+        }
     },
     "bulkImport": {
         "title": "Toplu İçe Aktarma",
@@ -499,11 +610,66 @@
             "configured": "SMTP yapılandırılmış ve aktif",
             "status": "Durum",
             "testing": "Test e-postası gönderiliyor...",
-            "saving": "Kaydediliyor..."
+            "saving": "Kaydediliyor...",
+            "sectionSender": "Gönderen",
+            "sectionServer": "Sunucu",
+            "security": "Güvenlik",
+            "securityHelp": "STARTTLS (587) veya SSL (465) tavsiye edilir.",
+            "secNone": "Yok",
+            "showPassword": "Şifreyi göster",
+            "hidePassword": "Şifreyi gizle"
         }
     },
     "footer": {
         "copyright": "© {{year}} GisasInventory",
         "poweredBy": "Maritime Tech"
+    },
+    "account": {
+        "email": {
+            "title": "E-posta Adresleri",
+            "subtitle": "Hesabınıza bağlı e-posta adreslerini yönetin.",
+            "primary": "Birincil",
+            "verified": "Doğrulandı",
+            "unverifiedHint": "Doğrulanmamış — aşağıya doğrulama kodunu girin",
+            "makePrimary": "Birincil yap",
+            "remove": "Kaldır",
+            "addTitle": "E-posta Adresi Ekle",
+            "addPlaceholder": "Yeni bir e-posta adresi girin...",
+            "addBtn": "E-posta Ekle",
+            "adding": "Ekleniyor...",
+            "addedToast": "{{email}} adresi eklendi.",
+            "removedToast": "{{email}} adresi kaldırıldı.",
+            "primaryUpdated": "Birincil e-posta güncellendi.",
+            "addFailed": "E-posta eklenemedi.",
+            "removeFailed": "E-posta kaldırılamadı.",
+            "primaryFailed": "Birincil e-posta güncellenemedi.",
+            "tooManyRequests": "Çok fazla istek. Lütfen daha sonra tekrar deneyin.",
+            "enterCodeHint": "E-postanıza gönderilen 6 haneli doğrulama kodunu girin.",
+            "codePlaceholder": "6 haneli kod",
+            "verifyCode": "Kodu Doğrula",
+            "verifying": "Doğrulanıyor...",
+            "resendCode": "Kod gelmedi mi? Yeniden gönder",
+            "codeSent": "{{email}} adresine doğrulama kodu gönderildi.",
+            "verifiedToast": "{{email}} başarıyla doğrulandı!",
+            "sendCodeFailed": "Doğrulama kodu gönderilemedi",
+            "verifyCodeFailed": "Geçersiz doğrulama kodu",
+            "noEmails": "E-posta adresi bulunamadı.",
+            "deleteTitle": "E-posta adresini kaldırmak istiyor musunuz?",
+            "deleteMessage": "{{email}} adresini kaldırmak istediğinizden emin misiniz? Bu adresle artık giriş yapamayacak veya hesabınızı kurtaramayacaksınız.",
+            "yesRemove": "Evet, Kaldır"
+        }
+    },
+    "mfa": {
+        "recovery": {
+            "title": "Kurtarma Kodları",
+            "subtitle": "Telefonunuzu kaybederseniz hesabınıza erişmek için kurtarma kodları kullanabilirsiniz.",
+            "storeSafely": "Güvenli bir yerde saklayın!",
+            "print": "Yazdır",
+            "regenerate": "Yeniden Oluştur",
+            "generating": "Oluşturuluyor...",
+            "backToSecurity": "Güvenliğe Dön",
+            "generateFailed": "Kodlar oluşturulamadı",
+            "errorOccurred": "Bir hata oluştu"
+        }
     }
 }

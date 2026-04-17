@@ -51,7 +51,7 @@ class TenantViewSet(viewsets.ModelViewSet):
                           "export_tenants", "export_users",
                           "all_users", "create_user_unassigned"]:
             return [IsPlatformAdmin()]
-        if self.action in ["my_users", "update_user_role"]:
+        if self.action in ["my_users", "update_user_role", "update_user"]:
             return [IsTenantAdmin()]
         return super().get_permissions()
 
@@ -581,6 +581,82 @@ class TenantViewSet(viewsets.ModelViewSet):
             target_user.save(update_fields=["role"])
             return Response(TenantUserSerializer(target_user).data)
         return Response({"detail": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=["patch"], url_path="update-user/(?P<user_id>[^/.]+)")
+    def update_user(self, request, user_id=None):
+        """
+        Partial-update a single user record.
+
+        Accepts any subset of: `first_name`, `last_name`, `email`, `is_active`,
+        `role`, `password`. Same authorization rules as `update_user_role`:
+        platform admins can edit anyone, tenant admins can only edit users
+        within their own tenant and cannot grant the `platform_admin` role.
+        """
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        is_tenant_scope = (
+            not request.user.is_superuser
+            and request.user.is_tenant_admin
+            and target_user.tenant == request.user.tenant
+        )
+        if not request.user.is_superuser and not is_tenant_scope:
+            return Response(
+                {"detail": "You can only update users in your tenant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        data = request.data or {}
+        update_fields = []
+
+        for field in ("first_name", "last_name", "email"):
+            if field in data:
+                setattr(target_user, field, data[field] or "")
+                update_fields.append(field)
+
+        if "is_active" in data:
+            target_user.is_active = bool(data["is_active"])
+            update_fields.append("is_active")
+
+        if "role" in data:
+            new_role = data.get("role")
+            if new_role not in ("platform_admin", "tenant_admin", "tenant_user"):
+                return Response({"detail": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
+            if is_tenant_scope and new_role == "platform_admin":
+                return Response(
+                    {"detail": "You cannot assign platform admin role."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if new_role == UserRole.TENANT_ADMIN and target_user.tenant is None:
+                return Response(
+                    {
+                        "detail": (
+                            "Assign this user to a shipyard before making them a shipyard administrator."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            target_user.role = new_role
+            update_fields.append("role")
+
+        password = data.get("password")
+        if password:
+            if len(password) < 8:
+                return Response(
+                    {"detail": "Password must be at least 8 characters."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            target_user.set_password(password)
+            # set_password mutates password directly; include it in update_fields below
+            update_fields.append("password")
+
+        if not update_fields:
+            return Response(TenantUserSerializer(target_user).data)
+
+        target_user.save(update_fields=update_fields)
+        return Response(TenantUserSerializer(target_user).data)
 
     @action(detail=False, methods=["get"], url_path="export-users")
     def export_users(self, request):

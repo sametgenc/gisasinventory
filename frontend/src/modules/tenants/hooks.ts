@@ -170,3 +170,26 @@ export function useUpdateUserRole() {
         },
     });
 }
+
+export type UpdateUserInput = Partial<{
+    first_name: string;
+    last_name: string;
+    email: string;
+    is_active: boolean;
+    role: string;
+    password: string;
+}>;
+
+export function useUpdateUser() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ userId, data }: { userId: number; data: UpdateUserInput }) =>
+            tenantsApi.updateUser(userId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: tenantKeys.allUsers() });
+            queryClient.invalidateQueries({ queryKey: tenantKeys.myUsers() });
+            queryClient.invalidateQueries({ queryKey: tenantKeys.all });
+        },
+    });
+}

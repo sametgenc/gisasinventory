@@ -28,6 +28,7 @@ class AssetTypeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Schema must be a list of field definitions.")
         
         valid_types = ['text', 'number', 'date', 'select', 'checkbox', 'email', 'phone']
+        unique_key_count = 0
         
         for field in value:
             if not isinstance(field, dict):
@@ -41,6 +42,12 @@ class AssetTypeSerializer(serializers.ModelSerializer):
                 
             if field['type'] == 'select' and 'options' not in field:
                  raise serializers.ValidationError("Select fields must have 'options' list.")
+
+            if field.get('is_unique_key'):
+                unique_key_count += 1
+
+        if unique_key_count > 1:
+            raise serializers.ValidationError("Only one field can be marked as the unique index key (is_unique_key).")
                  
         return value
 

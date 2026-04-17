@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { useAuth } from '@/auth/context'
-import { Loader2, Plus, Trash2, Shield, AlertTriangle } from 'lucide-react'
+import { Loader2, Trash2, Shield, AlertTriangle } from 'lucide-react'
 
 export const Route = createFileRoute('/_auth/account/providers')({
     component: ManageProviders,
@@ -22,7 +22,7 @@ function ManageProviders() {
     const loadAccounts = async () => {
         try {
             const res = await ALLAUTH_API.getProviderAccounts()
-            if (res.status === 200 && res.data) {
+            if (res.status === 200 && Array.isArray(res.data)) {
                 setAccounts(res.data)
             }
         } catch (e) {
@@ -42,7 +42,7 @@ function ManageProviders() {
             if (res.status === 200) {
                 // Determine new list. The API returns the UPDATED list in data usually?
                 // Reference implementation says: if (resp.status === 200) setAccounts(resp.data)
-                if (res.data) {
+                if (Array.isArray(res.data)) {
                     setAccounts(res.data)
                 } else {
                     // Fallback if data not returned (should be though)

@@ -3,17 +3,24 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import {
     Building2, Package, Layers, TrendingUp,
     Users, Clock, ArrowRight, Shield, Bell,
-    ChevronRight, Calendar, Plus
+    ChevronRight, Calendar, Plus,
 } from 'lucide-react'
 import { useTenants, useAllUsers } from '@/modules/tenants'
 import { useAssetTypes, useAssets } from '@/modules/assets'
 import { useTranslation } from 'react-i18next'
+import {
+    PageHeader,
+    Card,
+    Button,
+    EmptyState,
+    cn,
+} from '@/components/ui'
 
 export const Route = createFileRoute('/_secured/dashboard')({
     component: DashboardComponent,
 })
 
-function StatCard({
+function NavStatCard({
     to,
     icon: Icon,
     iconColor,
@@ -21,20 +28,20 @@ function StatCard({
     label,
     linkText,
 }: {
-    to: string;
-    icon: React.ComponentType<{ size: number; className?: string }>;
-    iconColor: string;
-    value: number | string;
-    label: string;
-    linkText?: string;
+    to: string
+    icon: React.ComponentType<{ size: number; className?: string }>
+    iconColor: string
+    value: number | string
+    label: string
+    linkText?: string
 }) {
     return (
         <Link
             to={to}
-            className="group bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-800/50 transition-all"
+            className="group bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 hover:border-blue-200 dark:hover:border-blue-800/50 transition-all"
         >
             <div className="flex items-start justify-between">
-                <div className={`p-2.5 rounded-lg ${iconColor}`}>
+                <div className={cn('p-2.5 rounded-lg', iconColor)}>
                     <Icon size={20} />
                 </div>
                 <TrendingUp size={16} className="text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -44,13 +51,15 @@ function StatCard({
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{label}</p>
             </div>
             {linkText && (
-                <div className="mt-3 flex items-center text-indigo-600 dark:text-indigo-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="mt-3 flex items-center text-blue-600 dark:text-blue-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                     {linkText} <ChevronRight size={14} />
                 </div>
             )}
         </Link>
     )
 }
+
+type AuthUserWithTenant = { username: string; is_superuser: boolean; tenant_name?: string }
 
 function DashboardComponent() {
     const { user, loading } = useAuth()
@@ -63,7 +72,7 @@ function DashboardComponent() {
     const isSuperuser = user?.is_superuser || false
     const locale = i18n.language === 'tr' ? 'tr-TR' : 'en-US'
 
-    const activeTenants = tenants.filter((t: { is_active: boolean }) => t.is_active).length
+    const activeTenants = tenants.filter((tn: { is_active: boolean }) => tn.is_active).length
     const totalAssetTypes = assetTypes.length
     const totalAssets = assets.length
     const recentAssets = assets.slice(0, 5)
@@ -71,46 +80,42 @@ function DashboardComponent() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
         )
     }
 
     if (!user) return null
+    const u = user as unknown as AuthUserWithTenant
 
     return (
         <div className="w-full min-w-0 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        {t('dashboard.welcome', { name: user.username })}
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            <PageHeader
+                title={t('dashboard.welcome', { name: u.username })}
+                subtitle={
+                    <span>
                         {new Date().toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         {isSuperuser && (
-                            <span className="inline-flex items-center gap-1 ml-3 text-indigo-600 dark:text-indigo-400 font-medium">
+                            <span className="inline-flex items-center gap-1 ml-3 text-blue-600 dark:text-blue-400 font-medium">
                                 <Shield size={12} />
                                 {t('dashboard.platformAdmin')}
                             </span>
                         )}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Link
-                        to="/assets"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors shadow-sm shadow-indigo-500/20"
-                    >
-                        <Plus size={16} />
-                        {t('dashboard.addNewAsset')}
+                    </span>
+                }
+                actions={
+                    <Link to="/assets">
+                        <Button icon={<Plus size={16} />} as="span">
+                            {t('dashboard.addNewAsset')}
+                        </Button>
                     </Link>
-                </div>
-            </div>
+                }
+            />
 
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {isSuperuser && (
-                    <StatCard
+                    <NavStatCard
                         to="/platform/tenants"
                         icon={Building2}
                         iconColor="bg-sky-50 dark:bg-sky-900/20 text-sky-600 dark:text-sky-400"
@@ -119,8 +124,7 @@ function DashboardComponent() {
                         linkText={t('dashboard.viewTenants')}
                     />
                 )}
-
-                <StatCard
+                <NavStatCard
                     to="/assets/types"
                     icon={Layers}
                     iconColor="bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400"
@@ -128,8 +132,7 @@ function DashboardComponent() {
                     label={t('dashboard.assetTypes')}
                     linkText={t('dashboard.manageTypes')}
                 />
-
-                <StatCard
+                <NavStatCard
                     to="/assets"
                     icon={Package}
                     iconColor="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400"
@@ -137,9 +140,8 @@ function DashboardComponent() {
                     label={t('dashboard.totalAssets')}
                     linkText={t('dashboard.viewAssets')}
                 />
-
                 {isSuperuser ? (
-                    <StatCard
+                    <NavStatCard
                         to="/platform/users"
                         icon={Users}
                         iconColor="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
@@ -148,15 +150,15 @@ function DashboardComponent() {
                         linkText={t('users.title')}
                     />
                 ) : (
-                    <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-5 text-white">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white">
                         <div className="flex items-start">
                             <div className="bg-white/20 p-2.5 rounded-lg">
                                 <Shield size={20} />
                             </div>
                         </div>
                         <div className="mt-3">
-                            <p className="text-lg font-bold">{(user as any).tenant_name || t('dashboard.yourTenant')}</p>
-                            <p className="text-indigo-200 text-sm mt-0.5">{t('dashboard.activeMembership')}</p>
+                            <p className="text-lg font-bold">{u.tenant_name || t('dashboard.yourTenant')}</p>
+                            <p className="text-blue-100 text-sm mt-0.5">{t('dashboard.activeMembership')}</p>
                         </div>
                     </div>
                 )}
@@ -164,14 +166,13 @@ function DashboardComponent() {
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Recent Assets */}
-                <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <Card className="lg:col-span-2 overflow-hidden">
                     <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                             <Clock size={16} className="text-slate-400" />
                             {t('dashboard.recentAssets')}
                         </h2>
-                        <Link to="/assets" className="text-indigo-600 dark:text-indigo-400 text-xs font-medium flex items-center gap-1 hover:underline">
+                        <Link to="/assets" className="text-blue-600 dark:text-blue-400 text-xs font-medium flex items-center gap-1 hover:underline">
                             {t('dashboard.viewAll')} <ArrowRight size={12} />
                         </Link>
                     </div>
@@ -181,8 +182,8 @@ function DashboardComponent() {
                                 <div key={asset.id} className="px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg">
-                                                <Package size={16} className="text-emerald-600 dark:text-emerald-400" />
+                                            <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg">
+                                                <Package size={16} className="text-blue-600 dark:text-blue-400" />
                                             </div>
                                             <div>
                                                 <p className="font-medium text-sm text-slate-900 dark:text-white">
@@ -199,22 +200,25 @@ function DashboardComponent() {
                                 </div>
                             ))
                         ) : (
-                            <div className="p-10 text-center">
-                                <Package size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">{t('dashboard.noAssets')}</p>
-                                <Link to="/assets" className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-medium">
-                                    <Plus size={14} />
-                                    {t('dashboard.addFirstAsset')}
-                                </Link>
-                            </div>
+                            <EmptyState
+                                compact
+                                icon={<Package size={32} />}
+                                title={t('dashboard.noAssets')}
+                                action={
+                                    <Link to="/assets">
+                                        <Button as="span" size="sm" icon={<Plus size={14} />}>
+                                            {t('dashboard.addFirstAsset')}
+                                        </Button>
+                                    </Link>
+                                }
+                            />
                         )}
                     </div>
-                </div>
+                </Card>
 
                 {/* Sidebar */}
                 <div className="space-y-4">
-                    {/* Quick Actions */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <Card className="overflow-hidden">
                         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                             <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                                 {t('dashboard.quickActions')}
@@ -225,7 +229,7 @@ function DashboardComponent() {
                                 to="/assets"
                                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-sm"
                             >
-                                <Package size={16} className="text-emerald-500" />
+                                <Package size={16} className="text-blue-500" />
                                 <span className="font-medium">{t('dashboard.newAsset')}</span>
                             </Link>
                             <Link
@@ -245,10 +249,9 @@ function DashboardComponent() {
                                 </Link>
                             )}
                         </div>
-                    </div>
+                    </Card>
 
-                    {/* Status */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                    <Card className="overflow-hidden">
                         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                             <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                                 <Bell size={14} className="text-slate-400" />
@@ -266,12 +269,11 @@ function DashboardComponent() {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </Card>
 
-                    {/* Calendar Widget */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5">
+                    <Card padded>
                         <div className="flex items-center gap-3 mb-3">
-                            <Calendar size={18} className="text-indigo-500" />
+                            <Calendar size={18} className="text-blue-500" />
                             <div>
                                 <p className="text-sm font-semibold text-slate-900 dark:text-white">{t('dashboard.today')}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -283,7 +285,7 @@ function DashboardComponent() {
                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
                             {new Date().toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
                         </p>
-                    </div>
+                    </Card>
                 </div>
             </div>
         </div>

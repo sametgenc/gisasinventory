@@ -355,6 +355,281 @@ class AssetViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"detail": f"Dosya işlenirken hata: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'])
+    def preview_import(self, request):
+        """
+        Parse an Excel file and return its headers + first 5 data rows.
+        Also detects whether the file is an app-generated template by looking for
+        a hidden `_mapping` sheet. When detected, the caller can skip the
+        mapping step and run the existing `bulk_import` flow.
+
+        Multipart fields:
+          file        — xlsx/xls
+          header_row  — 1-based int (default 1; ignored when a template is detected)
+        """
+        file = request.FILES.get('file')
+        if not file:
+            return Response({"detail": "Dosya gerekli."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            header_row = int(request.data.get('header_row', 1))
+        except (ValueError, TypeError):
+            header_row = 1
+
+        try:
+            # Not read_only — we need access to sheet_state to detect hidden _mapping
+            wb = openpyxl.load_workbook(file, data_only=True)
+
+            # ── Template detection ──────────────────────────────────────────
+            detected_template = None
+            if '_mapping' in wb.sheetnames:
+                mapping_ws = wb['_mapping']
+                try:
+                    raw_at_id = mapping_ws.cell(row=2, column=1).value
+                    at_id = str(raw_at_id).strip() if raw_at_id else ''
+                    if at_id:
+                        try:
+                            at = AssetType.objects.get(id=at_id)
+                            detected_template = {
+                                "asset_type_id": str(at.id),
+                                "asset_type_name": at.name,
+                            }
+                        except (AssetType.DoesNotExist, ValueError, Exception):
+                            detected_template = None
+                except Exception:
+                    detected_template = None
+
+            # Templates always have headers on row 1 and data from row 4.
+            if detected_template:
+                header_row = 1
+
+            ws = wb.active
+
+            # Read headers
+            headers = []
+            for col_idx in range(1, ws.max_column + 1):
+                val = ws.cell(row=header_row, column=col_idx).value
+                headers.append(str(val).strip() if val is not None else f"Sütun {col_idx}")
+
+            # Trim trailing empty headers
+            while headers and headers[-1].startswith("Sütun "):
+                try:
+                    int(headers[-1].split()[-1])
+                    last_col = len(headers)
+                    if ws.cell(row=header_row, column=last_col).value is None:
+                        headers.pop()
+                    else:
+                        break
+                except ValueError:
+                    break
+
+            # For templates, data starts at row 4 (header + info + example rows above).
+            data_start = 4 if detected_template else header_row + 1
+
+            # Return up to 50 preview rows so the UI can paginate them client-side.
+            PREVIEW_ROW_LIMIT = 50
+            preview_rows = []
+            total_data_rows = 0
+            for row_idx in range(data_start, ws.max_row + 1):
+                row_values = [ws.cell(row=row_idx, column=col).value for col in range(1, len(headers) + 1)]
+                if all(v is None or str(v).strip() == '' for v in row_values):
+                    continue
+                total_data_rows += 1
+                if len(preview_rows) < PREVIEW_ROW_LIMIT:
+                    preview_rows.append([str(v) if v is not None else '' for v in row_values])
+
+            wb.close()
+
+            return Response({
+                "headers": headers,
+                "preview_rows": preview_rows,
+                "total_rows": total_data_rows,
+                "detected_template": detected_template,
+            })
+
+        except Exception as e:
+            return Response({"detail": f"Dosya okunamadı: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'])
+    def raw_import(self, request):
+        """
+        Import assets from an arbitrary Excel file using a user-supplied column mapping.
+
+        Multipart fields:
+          file         — xlsx/xls
+          asset_type   — UUID
+          tenant       — int (required for superuser)
+          mapping      — JSON: { "Excel Sütun Adı": "schema_field_key" | null, ... }
+                         null = ignore that column
+          header_row   — int (default 1)
+          skip_rows    — JSON array of first-cell string values to skip, e.g. ["TOPLAM"]
+        """
+        file = request.FILES.get('file')
+        asset_type_id = request.data.get('asset_type')
+        tenant_id = request.data.get('tenant')
+        mapping_raw = request.data.get('mapping', '{}')
+        skip_rows_raw = request.data.get('skip_rows', '[]')
+
+        if not file:
+            return Response({"detail": "Dosya gerekli."}, status=status.HTTP_400_BAD_REQUEST)
+        if not asset_type_id:
+            return Response({"detail": "Varlık tipi gerekli."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            mapping = json.loads(mapping_raw) if isinstance(mapping_raw, str) else mapping_raw
+        except (json.JSONDecodeError, TypeError):
+            return Response({"detail": "Geçersiz mapping JSON."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            skip_rows = json.loads(skip_rows_raw) if isinstance(skip_rows_raw, str) else skip_rows_raw
+            skip_rows = [str(s).strip().lower() for s in skip_rows if s]
+        except (json.JSONDecodeError, TypeError):
+            skip_rows = []
+
+        try:
+            header_row = int(request.data.get('header_row', 1))
+        except (ValueError, TypeError):
+            header_row = 1
+
+        try:
+            asset_type = AssetType.objects.get(id=asset_type_id)
+        except AssetType.DoesNotExist:
+            return Response({"detail": "Varlık tipi bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Determine tenant
+        user = request.user
+        if user.is_superuser or user.is_platform_admin:
+            if tenant_id:
+                from apps.tenants.models import Tenant
+                try:
+                    tenant = Tenant.objects.get(id=tenant_id)
+                except Tenant.DoesNotExist:
+                    return Response({"detail": "Tersane bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
+            else:
+                return Response({"detail": "Superuser için tersane seçimi gerekli."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            tenant = user.tenant
+            if not tenant:
+                return Response({"detail": "Kullanıcının tersanesi yok."}, status=status.HTTP_400_BAD_REQUEST)
+
+        schema = asset_type.schema or []
+        field_types = {f['key']: f.get('type', 'text') for f in schema}
+
+        # Find the unique key field (if any)
+        unique_key_field = next((f['key'] for f in schema if f.get('is_unique_key')), None)
+
+        try:
+            wb = openpyxl.load_workbook(file, data_only=True, read_only=True)
+            ws = wb.active
+
+            # Read headers from the configured header row
+            excel_headers = []
+            for col_idx in range(1, ws.max_column + 1):
+                val = ws.cell(row=header_row, column=col_idx).value
+                excel_headers.append(str(val).strip() if val is not None else '')
+
+            # Build ordered list of schema field keys per column (None = ignore)
+            col_keys = [mapping.get(h) for h in excel_headers]
+
+            results = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
+
+            for row_idx in range(header_row + 1, ws.max_row + 1):
+                row_values = [ws.cell(row=row_idx, column=col).value for col in range(1, len(excel_headers) + 1)]
+
+                # Skip fully empty rows
+                if all(v is None or str(v).strip() == '' for v in row_values):
+                    continue
+
+                # Skip rows matching skip_rows patterns (check first non-None cell)
+                first_val = str(row_values[0]).strip().lower() if row_values[0] is not None else ''
+                if first_val in skip_rows:
+                    results["skipped"] += 1
+                    continue
+
+                custom_data = {}
+                row_errors = []
+
+                for col_idx, key in enumerate(col_keys):
+                    if not key:
+                        continue
+                    cell_value = row_values[col_idx] if col_idx < len(row_values) else None
+                    field_type = field_types.get(key, 'text')
+
+                    if cell_value is not None and str(cell_value).strip() != '':
+                        if field_type == 'checkbox':
+                            val_str = str(cell_value).lower().strip()
+                            custom_data[key] = val_str in ('evet', 'yes', 'true', '1', 'x', 'doğru')
+                        elif field_type == 'number':
+                            try:
+                                custom_data[key] = float(cell_value)
+                            except (ValueError, TypeError):
+                                row_errors.append(f"'{excel_headers[col_idx]}' sayı olmalı")
+                        elif field_type == 'date':
+                            if hasattr(cell_value, 'strftime'):
+                                custom_data[key] = cell_value.strftime('%Y-%m-%d')
+                            else:
+                                custom_data[key] = str(cell_value).strip()
+                        else:
+                            custom_data[key] = str(cell_value).strip()
+                    else:
+                        custom_data[key] = None
+
+                if row_errors:
+                    results["errors"].append({"row": row_idx, "errors": row_errors})
+                    continue
+
+                try:
+                    if unique_key_field and custom_data.get(unique_key_field):
+                        unique_val = custom_data[unique_key_field]
+                        lookup = {f"custom_data__{unique_key_field}": unique_val}
+                        existing = Asset.objects.filter(
+                            tenant=tenant,
+                            asset_type=asset_type,
+                            **lookup
+                        ).first()
+                        if existing:
+                            merged = {**existing.custom_data, **{k: v for k, v in custom_data.items() if v is not None}}
+                            existing.custom_data = merged
+                            existing.save(update_fields=['custom_data', 'updated_at'])
+                            results["updated"] += 1
+                        else:
+                            Asset.objects.create(
+                                asset_type=asset_type,
+                                tenant=tenant,
+                                custom_data=custom_data,
+                                created_by=user,
+                            )
+                            results["created"] += 1
+                    else:
+                        Asset.objects.create(
+                            asset_type=asset_type,
+                            tenant=tenant,
+                            custom_data=custom_data,
+                            created_by=user,
+                        )
+                        results["created"] += 1
+                except Exception as e:
+                    results["errors"].append({"row": row_idx, "errors": [str(e)]})
+
+            wb.close()
+
+            total = results["created"] + results["updated"]
+            msg = f"{total} satır işlendi: {results['created']} oluşturuldu, {results['updated']} güncellendi."
+            if results["skipped"]:
+                msg += f" {results['skipped']} satır atlandı."
+
+            return Response({
+                "message": msg,
+                "created_count": results["created"],
+                "updated_count": results["updated"],
+                "skipped_count": results["skipped"],
+                "error_count": len(results["errors"]),
+                "errors": results["errors"][:20],
+            })
+
+        except Exception as e:
+            return Response({"detail": f"Dosya işlenirken hata: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['get'])
     def export(self, request):
         """

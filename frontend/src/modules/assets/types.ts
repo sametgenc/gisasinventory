@@ -7,6 +7,31 @@ export interface SchemaField {
     required?: boolean;
     options?: string[]; // For select type
     default?: string | number | boolean;
+    is_unique_key?: boolean; // Marks this field as the uniqueness index for deduplication during import
+}
+
+/** Maps Excel column header → schema field key (null = ignore the column) */
+export type ColumnMapping = Record<string, string | null>
+
+export interface DetectedTemplate {
+    asset_type_id: string;
+    asset_type_name: string;
+}
+
+export interface ImportPreview {
+    headers: string[];
+    preview_rows: string[][];
+    total_rows: number;
+    detected_template?: DetectedTemplate | null;
+}
+
+export interface RawImportResult {
+    message: string;
+    created_count: number;
+    updated_count: number;
+    skipped_count: number;
+    error_count: number;
+    errors: { row: number; errors: string[] }[];
 }
 
 export interface AssetType {

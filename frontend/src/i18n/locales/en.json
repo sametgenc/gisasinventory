@@ -41,7 +41,17 @@
         "filter": "Filter",
         "required": "Required",
         "optional": "Optional",
-        "update": "Update"
+        "update": "Update",
+        "processing": "Processing..."
+    },
+    "pagination": {
+        "showing": "{{start}}–{{end}} of {{total}}",
+        "perPage": "Per page",
+        "page": "Page {{page}} of {{total}}",
+        "first": "First",
+        "previous": "Previous",
+        "next": "Next",
+        "last": "Last"
     },
     "nav": {
         "appName": "GisasInventory",
@@ -301,7 +311,18 @@
         "never": "Never",
         "joined": "Joined",
         "noUsersInTenant": "No users in this shipyard",
-        "addUsersHint": "Assign users or create new ones to get started"
+        "addUsersHint": "Assign users or create new ones to get started",
+        "editUser": "Edit user",
+        "firstNamePlaceholder": "First name",
+        "lastNamePlaceholder": "Last name",
+        "changePassword": "Change password",
+        "passwordOptional": "Fill to rotate the password, leave empty to keep the current one.",
+        "generatePassword": "Generate",
+        "activeStatus": "Active",
+        "identityHeading": "Identity",
+        "credentialsHeading": "Authentication",
+        "accessHeading": "Access",
+        "userUpdateFailed": "Could not update user."
     },
     "users": {
         "title": "User Management",
@@ -330,7 +351,19 @@
         "superuser": "Superuser",
         "createUnassignedHint": "New users are created without a shipyard. Open a shipyard to assign them; only then can they become a shipyard administrator. Full platform UI access is for Django superusers only (not the platform_admin database role).",
         "assignShipyardFirstHint": "Assign this user to a shipyard before choosing shipyard administrator.",
-        "platformAdminRoleOption": "Platform admin (role only, not superuser access)"
+        "platformAdminRoleOption": "Platform admin (role only, not superuser access)",
+        "roleDesc": {
+            "tenant_user": "Views and manages assets within a shipyard.",
+            "tenant_admin": "Manages users and settings for the shipyard.",
+            "platform_admin": "Full access across all shipyards and platform-wide admin."
+        },
+        "passwordStrength": {
+            "veryWeak": "Very weak",
+            "weak": "Weak",
+            "fair": "Fair",
+            "good": "Good",
+            "strong": "Strong"
+        }
     },
     "assets": {
         "title": "Asset Management",
@@ -338,6 +371,7 @@
         "subtitleSuperuser": "Manage assets across all shipyards",
         "addNew": "New Asset",
         "createAsset": "Add New Asset",
+        "editAsset": "Edit Asset",
         "noAssets": "No assets found",
         "changeFilters": "Change filters or add a new asset",
         "addFirstAssetHint": "Start by adding a new asset",
@@ -387,7 +421,60 @@
         "exportFailed": "Export failed",
         "saveFailed": "Save failed",
         "shipyardRequired": "Shipyard must be selected",
-        "row": "Row"
+        "row": "Row",
+        "moreActions": "More actions",
+        "importExcel": "Import from Excel",
+        "exportExcel": "Export to Excel",
+        "exportDialog": {
+            "title": "Export to Excel",
+            "description": "Pick an asset type to download the list as Excel.",
+            "selectTypeHelp": "Asset type for the exported list",
+            "downloadList": "Download list",
+            "downloadTemplateHint": "You can also download the import template for this type.",
+            "downloadTemplate": "Download template"
+        },
+        "fields": {
+            "generalInfo": "General info",
+            "customFields": "Fields"
+        },
+        "wizard": {
+            "stepFile": "File",
+            "stepPreview": "Preview",
+            "stepResult": "Result",
+            "dropOrClick": "Choose an Excel file (.xlsx, .xls) or drag it here",
+            "droppedFile": "Click to change",
+            "headerRow": "Header row",
+            "headerRowHelp": "Row number containing the column headers",
+            "skipRows": "Skip rows",
+            "skipRowsHelp": "Rows starting with these values are skipped (e.g. TOTAL)",
+            "previewAction": "Preview & continue",
+            "mapping": "Mapping",
+            "preview": "Preview",
+            "excelColumn": "Excel column",
+            "systemField": "System field",
+            "ignore": "— Ignore —",
+            "rowCount": "{{count}} rows",
+            "firstRowsShown": "First {{shown}} rows shown — {{total}} rows will be imported",
+            "uniqueKeyNotice": "Unique index: {{field}} — existing rows with the same value are updated.",
+            "templateDetectedTitle": "Template detected",
+            "templateDetectedBody": "This file looks like a template for {{name}}. {{count}} rows will be imported.",
+            "runTemplateImport": "Run template import",
+            "importAction": "Import",
+            "created": "Created",
+            "updated": "Updated",
+            "skipped": "Skipped",
+            "errors": "Errors",
+            "successCount": "{{count}} successful",
+            "errorCount": "{{count}} failed",
+            "close": "Close",
+            "newImport": "New import",
+            "back": "Back",
+            "uploadFailed": "Could not preview the file.",
+            "autoMatched": "Auto-matched",
+            "ignored": "Ignored",
+            "mapsTo": "→ {{field}}",
+            "dataPreview": "Data preview"
+        }
     },
     "assetTypes": {
         "title": "Asset Types",
@@ -455,7 +542,31 @@
         "fieldsCount": "{{count}} fields",
         "createNewType": "Create new type",
         "noTypesYet": "No asset types yet",
-        "deleteConfirm": "Are you sure you want to delete this asset type?"
+        "deleteConfirm": "Are you sure you want to delete this asset type?",
+        "uniqueIndexField": "Unique index",
+        "uniqueIndexDisabled": "Another field is already the unique index. Turn it off there first.",
+        "builder": {
+            "basicInfo": "Basic info",
+            "fields": "Fields",
+            "fieldsHelp": "Define the custom data fields this asset type will store.",
+            "addFieldBtn": "Add field",
+            "pickType": "Pick field type",
+            "reorderHint": "Drag fields to reorder them.",
+            "fieldsCount": "{{count}} fields",
+            "emptyTitle": "No fields yet",
+            "emptyDescription": "Start by adding the first custom field for this asset type.",
+            "addOptionPlaceholder": "Add an option and press Enter",
+            "addOption": "Add",
+            "noOptions": "No options yet"
+        },
+        "list": {
+            "name": "Name",
+            "description": "Description",
+            "fieldsCol": "Fields",
+            "uniqueKey": "Unique index",
+            "actions": "Actions",
+            "view": "View"
+        }
     },
     "bulkImport": {
         "title": "Bulk Import",
@@ -499,11 +610,66 @@
             "configured": "SMTP is configured and active",
             "status": "Status",
             "testing": "Sending test email...",
-            "saving": "Saving..."
+            "saving": "Saving...",
+            "sectionSender": "Sender",
+            "sectionServer": "Server",
+            "security": "Security",
+            "securityHelp": "STARTTLS (587) or SSL (465) recommended.",
+            "secNone": "None",
+            "showPassword": "Show password",
+            "hidePassword": "Hide password"
         }
     },
     "footer": {
         "copyright": "© {{year}} GisasInventory",
         "poweredBy": "Maritime Tech"
+    },
+    "account": {
+        "email": {
+            "title": "Email Addresses",
+            "subtitle": "Manage the email addresses associated with your account.",
+            "primary": "Primary",
+            "verified": "Verified",
+            "unverifiedHint": "Unverified — enter the verification code below",
+            "makePrimary": "Make primary",
+            "remove": "Remove",
+            "addTitle": "Add Email Address",
+            "addPlaceholder": "Enter a new email address...",
+            "addBtn": "Add email",
+            "adding": "Adding...",
+            "addedToast": "Email {{email}} added.",
+            "removedToast": "Email {{email}} removed.",
+            "primaryUpdated": "Primary email updated.",
+            "addFailed": "Failed to add email.",
+            "removeFailed": "Failed to remove email.",
+            "primaryFailed": "Failed to update primary email.",
+            "tooManyRequests": "Too many requests. Please try again later.",
+            "enterCodeHint": "Enter the 6-digit verification code sent to your email.",
+            "codePlaceholder": "Enter 6-digit code",
+            "verifyCode": "Verify code",
+            "verifying": "Verifying...",
+            "resendCode": "Didn't receive the code? Resend",
+            "codeSent": "Verification code sent to {{email}}.",
+            "verifiedToast": "{{email}} verified successfully!",
+            "sendCodeFailed": "Failed to send verification code",
+            "verifyCodeFailed": "Invalid verification code",
+            "noEmails": "No email addresses found.",
+            "deleteTitle": "Remove Email Address?",
+            "deleteMessage": "Are you sure you want to remove {{email}}? You will no longer be able to use it to login or recover your account.",
+            "yesRemove": "Yes, Remove"
+        }
+    },
+    "mfa": {
+        "recovery": {
+            "title": "Recovery Codes",
+            "subtitle": "Recovery codes can be used to access your account if you lose your phone.",
+            "storeSafely": "Store them safely!",
+            "print": "Print",
+            "regenerate": "Regenerate",
+            "generating": "Generating...",
+            "backToSecurity": "Back to Security",
+            "generateFailed": "Failed to generate codes",
+            "errorOccurred": "An error occurred"
+        }
     }
 }

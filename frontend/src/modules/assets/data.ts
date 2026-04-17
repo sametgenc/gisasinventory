@@ -1,5 +1,5 @@
 import api from '@/api/client';
-import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput } from './types';
+import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, ColumnMapping, ImportPreview, RawImportResult } from './types';
 
 export interface BulkImportResult {
     message: string;
@@ -77,6 +77,41 @@ export const assetsApi = {
             formData.append('tenant', String(tenantId));
         }
         const response = await api.post('/api/assets/items/bulk_import/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
+    // Preview headers and first rows from an arbitrary Excel file
+    previewImport: async (file: File, headerRow = 1): Promise<ImportPreview> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('header_row', String(headerRow));
+        const response = await api.post('/api/assets/items/preview_import/', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
+    // Import from arbitrary Excel with column mapping (upsert by unique key)
+    rawImport: async (
+        file: File,
+        assetTypeId: string,
+        mapping: ColumnMapping,
+        tenantId?: number,
+        headerRow = 1,
+        skipRows: string[] = [],
+    ): Promise<RawImportResult> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('asset_type', assetTypeId);
+        formData.append('mapping', JSON.stringify(mapping));
+        formData.append('header_row', String(headerRow));
+        formData.append('skip_rows', JSON.stringify(skipRows));
+        if (tenantId) {
+            formData.append('tenant', String(tenantId));
+        }
+        const response = await api.post('/api/assets/items/raw_import/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -20,12 +21,17 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     onConfirm,
     title,
     message,
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
+    confirmText,
+    cancelText,
     type = 'danger',
     isLoading = false,
 }) => {
+    const { t } = useTranslation();
     const modalRef = useRef<HTMLDivElement>(null);
+
+    const resolvedConfirmText = confirmText ?? t('common.confirm');
+    const resolvedCancelText = cancelText ?? t('common.cancel');
+    const processingText = t('common.processing', 'İşleniyor...');
 
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -89,14 +95,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                             disabled={isLoading}
                             className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
                         >
-                            {cancelText}
+                            {resolvedCancelText}
                         </button>
                         <button
                             onClick={onConfirm}
                             disabled={isLoading}
                             className={`px-4 py-2 text-sm text-white font-medium rounded-lg shadow-sm transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed ${buttonColors[type]}`}
                         >
-                            {isLoading ? 'Processing...' : confirmText}
+                            {isLoading ? processingText : resolvedConfirmText}
                         </button>
                     </div>
                 </div>

@@ -97,6 +97,22 @@ export const tenantsApi = {
         return response.data;
     },
 
+    // Partial user update (role, is_active, password, name, email)
+    updateUser: async (
+        userId: number,
+        data: Partial<{
+            first_name: string;
+            last_name: string;
+            email: string;
+            is_active: boolean;
+            role: string;
+            password: string;
+        }>,
+    ): Promise<TenantUser> => {
+        const response = await api.patch(`/api/tenants/update-user/${userId}/`, data);
+        return response.data;
+    },
+
     // ============ BULK IMPORT/EXPORT ============
 
     // Download tenant template
