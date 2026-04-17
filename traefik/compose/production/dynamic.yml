@@ -1,7 +1,7 @@
 http:
   routers:
     web-router:
-      rule: "Host(`api.{{ env "DOMAIN" }}`)"
+      rule: 'Host(`api.{{ env "DOMAIN" }}`)'
       service: "web-service"
       entryPoints:
         - websecure
@@ -9,7 +9,7 @@ http:
         certResolver: letsencrypt
 
     frontend-router:
-      rule: "Host(`{{ env "DOMAIN" }}`)"
+      rule: 'Host(`{{ env "DOMAIN" }}`)'
       service: "frontend-service"
       entryPoints:
         - websecure
