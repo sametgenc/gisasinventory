@@ -26,6 +26,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: inherit;
+  color: inherit;
 }
 
 /* Smooth scrollbar */
@@ -90,19 +92,11 @@ body {
 }
 
 ::view-transition-old(root) {
-  z-index: 9999;
+  z-index: 1;
 }
 
 ::view-transition-new(root) {
-  z-index: 1;
-}
-
-.dark::view-transition-new(root) {
   z-index: 9999;
-}
-
-.dark::view-transition-old(root) {
-  z-index: 1;
 }
 
 /*

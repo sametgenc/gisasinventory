@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react"
+import React, { createContext, useContext, useLayoutEffect, useState, useCallback, useRef } from "react"
 import { flushSync } from "react-dom"
 
 type Theme = "dark" | "light" | "system"
@@ -30,9 +30,11 @@ function resolveTheme(theme: Theme): "dark" | "light" {
 
 function applyThemeToRoot(theme: Theme) {
     const root = window.document.documentElement
+    const resolvedTheme = resolveTheme(theme)
     root.classList.remove("light", "dark")
-    root.classList.add(resolveTheme(theme))
-    root.style.removeProperty("background-color")
+    root.classList.add(resolvedTheme)
+    root.style.backgroundColor = resolvedTheme === "dark" ? "#020617" : "#f8fafc"
+    root.style.colorScheme = resolvedTheme
 }
 
 export function ThemeProvider({
@@ -45,7 +47,7 @@ export function ThemeProvider({
     )
     const isTransitioning = useRef(false)
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!isTransitioning.current) {
             applyThemeToRoot(theme)
         }
@@ -72,8 +74,6 @@ export function ThemeProvider({
         }
 
         isTransitioning.current = true
-        const isDark = resolveTheme(newTheme) === "dark"
-
         document.documentElement.classList.add("theme-transitioning")
 
         const transition = (document as any).startViewTransition(() => {
@@ -91,13 +91,11 @@ export function ThemeProvider({
             ]
 
             document.documentElement.animate(
-                { clipPath: isDark ? clipPath : [...clipPath].reverse() },
+                { clipPath },
                 {
                     duration: 700,
                     easing: "ease-in-out",
-                    pseudoElement: isDark
-                        ? "::view-transition-new(root)"
-                        : "::view-transition-old(root)",
+                    pseudoElement: "::view-transition-new(root)",
                 }
             )
         })
