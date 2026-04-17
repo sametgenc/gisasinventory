@@ -1,10 +1,11 @@
 http:
   routers:
-    web-router:
-      rule: 'Host(`api.{{ env "DOMAIN" }}`)'
+    api-router:
+      rule: 'Host(`{{ env "DOMAIN" }}`) && (PathPrefix(`/api`) || PathPrefix(`/_allauth`) || PathPrefix(`/admin`) || PathPrefix(`/static`) || PathPrefix(`/media`) || PathPrefix(`/accounts`))'
       service: "web-service"
       entryPoints:
         - websecure
+      priority: 100
       tls:
         certResolver: letsencrypt
 
@@ -13,6 +14,7 @@ http:
       service: "frontend-service"
       entryPoints:
         - websecure
+      priority: 1
       tls:
         certResolver: letsencrypt
 

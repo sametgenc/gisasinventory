@@ -31,7 +31,7 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG") == "True"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "myproject.co", os.environ.get("DOMAIN", "myproject.co")]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", os.environ.get("DOMAIN", "localhost")]
 DOMAIN = os.environ.get("DOMAIN", "myproject.co")
 
 CORS_ALLOWED_ORIGINS = [
@@ -246,11 +246,11 @@ CSRF_TRUSTED_ORIGINS = [
     f"https://{DOMAIN}",
 ]
 
-# Cookie settings for cross-subdomain auth
-SESSION_COOKIE_DOMAIN = f".{DOMAIN}"
-CSRF_COOKIE_DOMAIN = f".{DOMAIN}"
-SESSION_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SAMESITE = "None"
+# Cookie settings (single-origin setup)
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
