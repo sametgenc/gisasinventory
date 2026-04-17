@@ -201,7 +201,8 @@ sequenceDiagram
 
 ### `.env.traefik`
 ```properties
-DOMAIN=gisasassets.co
+DOMAIN=yourdomain.com
+LETS_ENCRYPT_EMAIL=you@example.com
 ```
 
 ### `.env.local`
@@ -209,7 +210,7 @@ DOMAIN=gisasassets.co
 DATABASE_URL=postgres://user:password@postgres:5432/myproject
 DJANGO_SECRET_KEY=...
 DJANGO_DEBUG=True
-DOMAIN=gisasassets.co
+DOMAIN=yourdomain.com
 EMAIL_HOST=mailpit
 REDIS_URL=redis://redis:6379/0
 ```
@@ -237,7 +238,7 @@ docker compose -f docker-compose.yml restart frontend
 # Generate SSL certs
 mkcert -cert-file ./traefik/certs/local-cert.pem \
        -key-file ./traefik/certs/local-key.pem \
-       gisasassets.co "*.gisasassets.co" localhost
+       yourdomain.com "*.yourdomain.com" localhost
 ```
 
 ---
@@ -268,7 +269,7 @@ mkcert -cert-file ./traefik/certs/local-cert.pem \
 
 > **Platform**: GİSAŞ Multi-Tenant Asset Platform  
 > **Target Users**: Shipyard workers, dockyard personnel  
-> **Domain**: `gisasassets.co`
+> **Domain**: configured via `DOMAIN` in `.envs/.env.traefik` and `.envs/.env.local`
 
 ### Related Documents
 

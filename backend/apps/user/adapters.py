@@ -15,9 +15,9 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
 class CustomMFAAdapter(DefaultMFAAdapter):
     def get_public_key_credential_rp_entity(self):
-        # We want the RP ID to be the base domain (myproject.co)
-        # even when requests come from different path prefixes
-        domain = getattr(settings, "DOMAIN", "myproject.co")
+        # RP ID must be the base domain so WebAuthn credentials stay valid
+        # regardless of request path prefix.
+        domain = getattr(settings, "DOMAIN", "localhost")
         name = self._get_site_name()
         return {
             "id": domain,

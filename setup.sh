@@ -211,13 +211,24 @@ if [[ "$MODE" == "local" ]]; then
 fi
 
 # ----------------------------------------------------------
-#  ACME setup (prod mode only)
+#  ACME setup + Traefik prod config render (prod mode only)
 # ----------------------------------------------------------
 if [[ "$MODE" == "prod" ]]; then
     info "Setting up Let's Encrypt ACME storage..."
+    rm -f ./traefik/acme/acme.json
     touch ./traefik/acme/acme.json
     chmod 600 ./traefik/acme/acme.json
     ok "traefik/acme/acme.json created with correct permissions"
+
+    info "Injecting Let's Encrypt email into traefik/compose/production/traefik.yml..."
+    ESCAPED_EMAIL=$(printf '%s\n' "$LETS_ENCRYPT_EMAIL" | sed -e 's/[\/&]/\\&/g')
+    if grep -q "__LETS_ENCRYPT_EMAIL__" ./traefik/compose/production/traefik.yml; then
+        sed -i.bak "s/__LETS_ENCRYPT_EMAIL__/${ESCAPED_EMAIL}/g" ./traefik/compose/production/traefik.yml
+        rm -f ./traefik/compose/production/traefik.yml.bak
+        ok "traefik.yml rendered with email: $LETS_ENCRYPT_EMAIL"
+    else
+        warn "Placeholder __LETS_ENCRYPT_EMAIL__ not found in traefik.yml; assuming it's already configured."
+    fi
 fi
 
 # ----------------------------------------------------------
@@ -252,8 +263,10 @@ else
     echo ""
     echo "  1. Point your domain's DNS A record to this server's IP address."
     echo "     Go to your domain registrar and add:"
-    echo -e "       ${CYAN}A record:  ${DOMAIN}     -> YOUR_SERVER_IP${NC}"
-    echo -e "       ${CYAN}A record:  api.${DOMAIN} -> YOUR_SERVER_IP${NC}"
+    echo -e "       ${CYAN}A record:  ${DOMAIN} -> YOUR_SERVER_IP${NC}"
+    echo ""
+    echo "     Verify propagation before continuing:"
+    echo -e "       ${CYAN}dig +short ${DOMAIN}${NC}"
     echo ""
     echo "  2. Make sure ports 80 and 443 are open in your firewall:"
     echo -e "     ${CYAN}sudo ufw allow 80/tcp && sudo ufw allow 443/tcp${NC}"
@@ -269,7 +282,8 @@ else
     echo -e "     ${CYAN}docker compose -f docker-compose.prod.yml ps${NC}"
     echo ""
     echo "  6. Access the application:"
-    echo -e "     App: ${CYAN}https://${DOMAIN}${NC}"
-    echo -e "     API: ${CYAN}https://api.${DOMAIN}${NC}"
+    echo -e "     App:   ${CYAN}https://${DOMAIN}${NC}"
+    echo -e "     API:   ${CYAN}https://${DOMAIN}/api/${NC}"
+    echo -e "     Admin: ${CYAN}https://${DOMAIN}/admin/${NC}"
     echo ""
 fi

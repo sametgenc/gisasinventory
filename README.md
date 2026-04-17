@@ -120,10 +120,10 @@ It will automatically:
 
 ### 3. Add domain to your hosts file
 
-Replace `yourdomain.co` with the domain you entered in step 2:
+Replace `yourdomain.com` with the domain you entered in step 2:
 
 ```bash
-echo "127.0.0.1 yourdomain.co mail.yourdomain.co" | sudo tee -a /etc/hosts
+echo "127.0.0.1 yourdomain.com mail.yourdomain.com" | sudo tee -a /etc/hosts
 ```
 
 ### 4. Build and start all services
@@ -144,10 +144,10 @@ All containers should show `running` status. First build may take a few minutes.
 
 | Service | URL |
 |---------|-----|
-| Frontend | `https://yourdomain.co` |
-| API | `https://yourdomain.co/api/` |
-| Admin Panel | `https://yourdomain.co/admin/` |
-| Mailpit (email testing) | `https://mail.yourdomain.co` |
+| Frontend | `https://yourdomain.com` |
+| API | `https://yourdomain.com/api/` |
+| Admin Panel | `https://yourdomain.com/admin/` |
+| Mailpit (email testing) | `https://mail.yourdomain.com` |
 | Traefik Dashboard | `http://localhost:8080` |
 
 ---
@@ -218,7 +218,7 @@ chmod +x setup.sh
 ```
 
 When prompted:
-- **Domain**: Enter your domain (e.g. `gisasassets.co`) or leave as `localhost`
+- **Domain**: Enter your domain (e.g. `yourdomain.com`) or leave as `localhost`
 - **PostgreSQL database name**: Press Enter for default (`learnwithai`)
 - **PostgreSQL user**: Press Enter for default (`learnwithai_user`)
 - **PostgreSQL password**: Press Enter to auto-generate a secure password
@@ -233,10 +233,10 @@ The script will:
 If you entered a custom domain (not `localhost`):
 
 ```bash
-echo "127.0.0.1 yourdomain.co mail.yourdomain.co" | sudo tee -a /etc/hosts
+echo "127.0.0.1 yourdomain.com mail.yourdomain.com" | sudo tee -a /etc/hosts
 ```
 
-Replace `yourdomain.co` with the domain you entered in step 5.
+Replace `yourdomain.com` with the domain you entered in step 5.
 
 ### 7. Open firewall ports
 
@@ -281,17 +281,17 @@ mailpit_container       running
 From your **local machine**, add the server IP to your hosts file so the domain resolves:
 
 ```bash
-echo "YOUR_SERVER_IP yourdomain.co mail.yourdomain.co" | sudo tee -a /etc/hosts
+echo "YOUR_SERVER_IP yourdomain.com mail.yourdomain.com" | sudo tee -a /etc/hosts
 ```
 
 Then open in your browser:
 
 | Service | URL |
 |---------|-----|
-| Frontend | `https://yourdomain.co` |
-| API | `https://yourdomain.co/api/` |
-| Admin Panel | `https://yourdomain.co/admin/` |
-| Mailpit | `https://mail.yourdomain.co` |
+| Frontend | `https://yourdomain.com` |
+| API | `https://yourdomain.com/api/` |
+| Admin Panel | `https://yourdomain.com/admin/` |
+| Mailpit | `https://mail.yourdomain.com` |
 
 Your browser will warn about the self-signed certificate -- click "Advanced" and "Proceed" to accept it.
 

@@ -20,7 +20,7 @@ export default defineConfig({
     react()
   ],
   server: {
-    allowedHosts: [(process.env as any).DOMAIN || 'myproject.co'],
+    allowedHosts: [(process.env as any).DOMAIN || 'localhost'],
     host: true,
     strictPort: true,
     port: 5173,

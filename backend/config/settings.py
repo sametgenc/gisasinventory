@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get("DJANGO_DEBUG") == "True"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", os.environ.get("DOMAIN", "localhost")]
-DOMAIN = os.environ.get("DOMAIN", "myproject.co")
+DOMAIN = os.environ.get("DOMAIN", "localhost")
 
 CORS_ALLOWED_ORIGINS = [
     f"https://{DOMAIN}",

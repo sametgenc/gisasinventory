@@ -19,7 +19,7 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "admin@gisasgemi.com"
+      email: "__LETS_ENCRYPT_EMAIL__"
       storage: /etc/traefik/acme/acme.json
       httpChallenge:
         entryPoint: web
