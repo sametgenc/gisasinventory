@@ -146,13 +146,25 @@ export function AssetFormModal({
         )
     }
 
+    const formId = 'asset-form'
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             title={mode === 'edit' ? t('assets.editAsset') : t('assets.createAsset')}
+            footer={
+                <FormFooter
+                    asSubmit
+                    formId={formId}
+                    loading={isLoading}
+                    disabled={!canSubmit}
+                    onCancel={onClose}
+                    primaryLabel={mode === 'edit' ? t('common.save') : t('common.create')}
+                />
+            }
         >
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                     <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                         {error}
@@ -207,14 +219,6 @@ export function AssetFormModal({
                         {(selectedType.schema || []).map(renderField)}
                     </FormSection>
                 )}
-
-                <FormFooter
-                    asSubmit
-                    loading={isLoading}
-                    disabled={!canSubmit}
-                    onCancel={onClose}
-                    primaryLabel={mode === 'edit' ? t('common.save') : t('common.create')}
-                />
             </form>
         </Modal>
     )

@@ -56,9 +56,25 @@ export function TenantFormModal({
         onSave(formData)
     }
 
+    const formId = 'tenant-form'
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={tenant ? t('tenants.editTenant') : t('tenants.addNew')}>
-            <form onSubmit={handleSubmit} className="space-y-5">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={tenant ? t('tenants.editTenant') : t('tenants.addNew')}
+            footer={
+                <FormFooter
+                    asSubmit
+                    formId={formId}
+                    loading={isLoading}
+                    disabled={!canSubmit}
+                    onCancel={onClose}
+                    primaryLabel={tenant ? t('tenants.update') : t('common.create')}
+                />
+            }
+        >
+            <form id={formId} onSubmit={handleSubmit} className="space-y-5">
                 {saveError && (
                     <div
                         className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm"
@@ -122,14 +138,6 @@ export function TenantFormModal({
                         </FormField>
                     </div>
                 </FormSection>
-
-                <FormFooter
-                    asSubmit
-                    loading={isLoading}
-                    disabled={!canSubmit}
-                    onCancel={onClose}
-                    primaryLabel={tenant ? t('tenants.update') : t('common.create')}
-                />
             </form>
         </Modal>
     )

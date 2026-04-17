@@ -354,9 +354,27 @@ function TestConnectionDialog({
         }
     }
 
+    const formId = 'smtp-test-form'
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('settings.smtp.testConnection')} size="md">
-            <form onSubmit={(e) => { e.preventDefault(); handleTest() }} className="space-y-5">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t('settings.smtp.testConnection')}
+            size="md"
+            footer={
+                <FormFooter
+                    asSubmit
+                    formId={formId}
+                    icon={<Send size={16} />}
+                    primaryLabel={t('settings.smtp.testConnection')}
+                    loading={testing}
+                    disabled={!testEmail.trim()}
+                    onCancel={onClose}
+                />
+            }
+        >
+            <form id={formId} onSubmit={(e) => { e.preventDefault(); handleTest() }} className="space-y-5">
                 <FormField
                     label={t('settings.smtp.testEmail')}
                     help={testing ? t('settings.smtp.testing') : undefined}
@@ -372,14 +390,6 @@ function TestConnectionDialog({
                         autoFocus
                     />
                 </FormField>
-                <FormFooter
-                    asSubmit
-                    icon={<Send size={16} />}
-                    primaryLabel={t('settings.smtp.testConnection')}
-                    loading={testing}
-                    disabled={!testEmail.trim()}
-                    onCancel={onClose}
-                />
             </form>
         </Modal>
     )

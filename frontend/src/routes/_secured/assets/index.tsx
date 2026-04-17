@@ -165,7 +165,22 @@ function ExportDialog({ isOpen, onClose, assetTypes, tenants, isSuperuser }: {
     }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('assets.exportDialog.title')} size="md">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t('assets.exportDialog.title')}
+            size="md"
+            footer={
+                <FormFooter
+                    primaryLabel={t('assets.exportDialog.downloadList')}
+                    icon={<Download size={16} />}
+                    loading={downloading === 'list'}
+                    disabled={!typeId}
+                    onPrimary={() => runDownload('list')}
+                    onCancel={onClose}
+                />
+            }
+        >
             <div className="space-y-5">
                 <p className="text-sm text-slate-500 dark:text-slate-400">{t('assets.exportDialog.description')}</p>
                 {error && (
@@ -209,15 +224,6 @@ function ExportDialog({ isOpen, onClose, assetTypes, tenants, isSuperuser }: {
                         {t('assets.exportDialog.downloadTemplate')}
                     </Button>
                 </div>
-
-                <FormFooter
-                    primaryLabel={t('assets.exportDialog.downloadList')}
-                    icon={<Download size={16} />}
-                    loading={downloading === 'list'}
-                    disabled={!typeId}
-                    onPrimary={() => runDownload('list')}
-                    onCancel={onClose}
-                />
             </div>
         </Modal>
     )
@@ -367,8 +373,52 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         { n: 3, label: t('assets.wizard.stepResult') },
     ]
 
+    // Per-step footer is rendered in the Modal's `footer` slot so it can
+    // never overlap the scrollable body content.
+    let footerNode: React.ReactNode = null
+    if (step === 1) {
+        footerNode = (
+            <FormFooter
+                primaryLabel={t('assets.wizard.previewAction')}
+                icon={null}
+                onPrimary={runPreview}
+                loading={previewing}
+                disabled={!file || (needsTenant && !tenantId)}
+                onCancel={onClose}
+            />
+        )
+    } else if (step === 2 && preview) {
+        footerNode = (
+            <FormFooter
+                primaryLabel={isTemplate ? t('assets.wizard.runTemplateImport') : t('assets.wizard.importAction')}
+                icon={<Upload size={16} />}
+                loading={importing}
+                disabled={!assetTypeId}
+                onPrimary={runImport}
+                onCancel={() => setStep(1)}
+                cancelLabel={t('assets.wizard.back')}
+            />
+        )
+    } else if (step === 3 && summary) {
+        footerNode = (
+            <FormFooter
+                primaryLabel={t('assets.wizard.newImport')}
+                icon={<RefreshCw size={16} />}
+                onPrimary={reset}
+                onCancel={onClose}
+                cancelLabel={t('assets.wizard.close')}
+            />
+        )
+    }
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={t('assets.bulkImportTitle')} size="xl">
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={t('assets.bulkImportTitle')}
+            size="xl"
+            footer={footerNode}
+        >
             <div className="space-y-5">
                 {/* Stepper */}
                 <div className="flex items-center">
@@ -489,15 +539,6 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                 </div>
                             </FormField>
                         </FormSection>
-
-                        <FormFooter
-                            primaryLabel={t('assets.wizard.previewAction')}
-                            icon={null}
-                            onPrimary={runPreview}
-                            loading={previewing}
-                            disabled={!file || (needsTenant && !tenantId)}
-                            onCancel={onClose}
-                        />
                     </div>
                 )}
 
@@ -614,16 +655,6 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                 <ImportPreviewTable preview={preview} mapping={{}} schema={[]} />
                             </div>
                         )}
-
-                        <FormFooter
-                            primaryLabel={isTemplate ? t('assets.wizard.runTemplateImport') : t('assets.wizard.importAction')}
-                            icon={<Upload size={16} />}
-                            loading={importing}
-                            disabled={!assetTypeId}
-                            onPrimary={runImport}
-                            onCancel={() => setStep(1)}
-                            cancelLabel={t('assets.wizard.back')}
-                        />
                     </div>
                 )}
 
@@ -673,14 +704,6 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                 ))}
                             </div>
                         )}
-
-                        <FormFooter
-                            primaryLabel={t('assets.wizard.newImport')}
-                            icon={<RefreshCw size={16} />}
-                            onPrimary={reset}
-                            onCancel={onClose}
-                            cancelLabel={t('assets.wizard.close')}
-                        />
                     </div>
                 )}
             </div>
@@ -751,7 +774,7 @@ function ImportPreviewTable({
             getRowId={(r) => r._idx}
             pageSize={10}
             pageSizeOptions={[10, 25, 50]}
-            maxBodyHeight="min(420px, 50vh)"
+            maxBodyHeight="min(440px, 55vh)"
         />
     )
 }

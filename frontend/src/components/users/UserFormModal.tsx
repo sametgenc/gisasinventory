@@ -177,14 +177,26 @@ export function UserFormModal({
 
     const displayUsername = username || user?.username || ''
 
+    const formId = 'user-form'
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             size="xl"
             title={mode === 'edit' ? t('tenants.editUser') : t('tenants.createUser')}
+            footer={
+                <FormFooter
+                    asSubmit
+                    formId={formId}
+                    loading={isLoading}
+                    onCancel={onClose}
+                    icon={mode === 'create' ? <UserPlus size={16} /> : undefined}
+                    primaryLabel={mode === 'edit' ? t('common.save') : t('tenants.createUserBtn')}
+                />
+            }
         >
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form id={formId} onSubmit={handleSubmit} className="space-y-6">
                 {(context || hint) && (
                     <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
                         {context && <p className="font-medium text-slate-600 dark:text-slate-300">{context}</p>}
@@ -356,14 +368,6 @@ export function UserFormModal({
                         </FormSection>
                     </div>
                 </div>
-
-                <FormFooter
-                    asSubmit
-                    loading={isLoading}
-                    onCancel={onClose}
-                    icon={mode === 'create' ? <UserPlus size={16} /> : undefined}
-                    primaryLabel={mode === 'edit' ? t('common.save') : t('tenants.createUserBtn')}
-                />
             </form>
         </Modal>
     )

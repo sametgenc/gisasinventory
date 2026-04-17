@@ -19,20 +19,32 @@ export interface FormFooterProps {
     variant?: 'primary' | 'danger';
     /** If true, renders the primary as `type=submit` so the parent `<form>` handles submit. */
     asSubmit?: boolean;
+    /**
+     * Form id to associate the submit button with. Allows the footer to live
+     * outside the `<form>` element (e.g. inside `Modal`'s `footer` slot).
+     * Requires `asSubmit`.
+     */
+    formId?: string;
     /** Optional leading icon on the primary button. Defaults to Save. Pass `null` to hide. */
     icon?: React.ReactNode | null;
     /** Extra content rendered on the left side of the footer (e.g. "Back" link). */
     leading?: React.ReactNode;
+    /**
+     * Placement mode:
+     * - `modal` (default): placed inside `Modal`'s `footer` slot as a flex child
+     *   (NOT sticky). Guaranteed to never overlap body content. Use this
+     *   whenever the form is rendered inside `<Modal>`.
+     * - `sticky`: legacy behaviour — `position: sticky` at the bottom of the
+     *   scroll container. Only use this for non-modal pages.
+     */
+    placement?: 'modal' | 'sticky';
     className?: string;
 }
 
 /**
- * Sticky footer row for forms inside a Modal.
- *
- *   <form onSubmit={submit}>
- *     <FormSection ...>...</FormSection>
- *     <FormFooter asSubmit loading={saving} onCancel={close} />
- *   </form>
+ * Footer row for forms. In the default `modal` placement, render it inside
+ * `<Modal footer={<FormFooter ... />}>` so the modal's flex layout keeps the
+ * action bar fixed at the bottom without overlapping body content.
  */
 export const FormFooter: React.FC<FormFooterProps> = ({
     primaryLabel,
@@ -43,8 +55,10 @@ export const FormFooter: React.FC<FormFooterProps> = ({
     disabled = false,
     variant = 'primary',
     asSubmit = false,
+    formId,
     icon,
     leading,
+    placement = 'modal',
     className = '',
 }) => {
     const { t } = useTranslation();
@@ -58,10 +72,14 @@ export const FormFooter: React.FC<FormFooterProps> = ({
 
     const leadingIcon = icon === null ? null : (icon ?? <Save size={16} />);
 
+    // In `modal` mode the footer is a regular layout row (parent owns the
+    // border/background); in `sticky` mode we overlay the scrollable content.
+    const wrapperClass = placement === 'sticky'
+        ? `sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_-6px_rgba(15,23,42,0.08)] dark:shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.4)] flex items-center gap-2`
+        : `px-5 py-3 flex items-center gap-2`;
+
     return (
-        <div
-            className={`sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 shadow-[0_-4px_12px_-6px_rgba(15,23,42,0.08)] dark:shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.4)] ${className}`}
-        >
+        <div className={`${wrapperClass} ${className}`}>
             <div className="flex-1 min-w-0 text-sm text-slate-500">{leading}</div>
             {onCancel && (
                 <button
@@ -75,6 +93,7 @@ export const FormFooter: React.FC<FormFooterProps> = ({
             )}
             <button
                 type={asSubmit ? 'submit' : 'button'}
+                form={asSubmit ? formId : undefined}
                 onClick={asSubmit ? undefined : onPrimary}
                 disabled={loading || disabled}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed ${primaryClass}`}

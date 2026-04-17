@@ -201,6 +201,20 @@ export function AssetTypeFormModal({
             onClose={onClose}
             size="xl"
             title={assetType ? t('assetTypes.editType') : t('assetTypes.createType')}
+            footer={
+                <FormFooter
+                    loading={isLoading}
+                    onPrimary={handleSave}
+                    onCancel={onClose}
+                    primaryLabel={assetType ? t('common.save') : t('common.create')}
+                    icon={null}
+                    leading={
+                        <span className="text-xs">
+                            {t('assetTypes.builder.fieldsCount', { count: formData.schema.length })}
+                        </span>
+                    }
+                />
+            }
         >
             <div className="space-y-6">
                 {displayError && (
@@ -270,19 +284,6 @@ export function AssetTypeFormModal({
                         </div>
                     )}
                 </FormSection>
-
-                <FormFooter
-                    loading={isLoading}
-                    onPrimary={handleSave}
-                    onCancel={onClose}
-                    primaryLabel={assetType ? t('common.save') : t('common.create')}
-                    icon={null}
-                    leading={
-                        <span className="text-xs">
-                            {t('assetTypes.builder.fieldsCount', { count: formData.schema.length })}
-                        </span>
-                    }
-                />
             </div>
         </Modal>
     )

@@ -8,6 +8,13 @@ interface ModalProps {
     title: string;
     children: React.ReactNode;
     size?: 'sm' | 'md' | 'lg' | 'xl';
+    /**
+     * Optional sticky footer slot. When supplied, the modal becomes a
+     * flex-column layout: header + scrollable body + fixed footer. The footer
+     * is part of the layout (not `position: sticky`) so it can never overlap
+     * content.
+     */
+    footer?: React.ReactNode;
 }
 
 const sizeClasses: Record<string, string> = {
@@ -23,6 +30,7 @@ export const Modal: React.FC<ModalProps> = ({
     title,
     children,
     size = 'lg',
+    footer,
 }) => {
     const modalRef = useRef<HTMLDivElement>(null);
 
@@ -52,12 +60,13 @@ export const Modal: React.FC<ModalProps> = ({
             <div className="relative min-h-full flex items-center justify-center p-4">
                 <div
                     ref={modalRef}
-                    className={`relative bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-dropdown`}
+                    className={`relative bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-dropdown flex flex-col`}
                     role="dialog"
                     aria-modal="true"
                     tabIndex={-1}
                 >
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
                         <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
                         <button
                             onClick={onClose}
@@ -66,9 +75,18 @@ export const Modal: React.FC<ModalProps> = ({
                             <X size={18} />
                         </button>
                     </div>
-                    <div className="p-5 overflow-y-auto max-h-[calc(90vh-72px)]">
+
+                    {/* Body (scrolls) */}
+                    <div className="p-5 overflow-y-auto flex-1 min-h-0">
                         {children}
                     </div>
+
+                    {/* Optional fixed footer */}
+                    {footer && (
+                        <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                            {footer}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
