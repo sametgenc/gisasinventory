@@ -45,6 +45,8 @@ export interface DataTableProps<Row> {
     className?: string
     /** Optional extra content rendered above the table (search, filters). */
     toolbar?: React.ReactNode
+    /** Cap the table body height (CSS value, e.g. "360px" or "50vh"). Useful inside modals so the sticky modal footer doesn't overlap rows. */
+    maxBodyHeight?: string
 }
 
 const alignClass: Record<ColumnAlign, string> = {
@@ -75,6 +77,7 @@ export function DataTable<Row>({
     onRowClick,
     className,
     toolbar,
+    maxBodyHeight,
 }: DataTableProps<Row>) {
     const [sort, setSort] = useState(initialSort)
     const [pageSize, setPageSize] = useState(initialPageSize)
@@ -133,9 +136,12 @@ export function DataTable<Row>({
             {toolbar && (
                 <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">{toolbar}</div>
             )}
-            <div className="overflow-x-auto">
+            <div
+                className="overflow-x-auto overflow-y-auto"
+                style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
+            >
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
                         <tr>
                             {columns.map((col) => {
                                 const isSorted = sort?.key === col.key

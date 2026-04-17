@@ -371,12 +371,13 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         <Modal isOpen={isOpen} onClose={onClose} title={t('assets.bulkImportTitle')} size="xl">
             <div className="space-y-5">
                 {/* Stepper */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center">
                     {steps.map((s, i) => {
                         const active = step === s.n
                         const done = step > s.n
+                        const isLast = i === steps.length - 1
                         return (
-                            <div key={s.n} className="flex items-center gap-2 flex-1 min-w-0">
+                            <div key={s.n} className={`flex items-center ${isLast ? '' : 'flex-1'}`}>
                                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-colors ${active
                                     ? 'bg-blue-600 text-white'
                                     : done
@@ -386,7 +387,9 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                     {done ? <CheckCircle size={12} /> : <span>{s.n}</span>}
                                     <span>{s.label}</span>
                                 </div>
-                                {i < steps.length - 1 && <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />}
+                                {!isLast && (
+                                    <div className={`flex-1 h-px mx-2 ${done ? 'bg-emerald-300 dark:bg-emerald-700' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                                )}
                             </div>
                         )
                     })}
@@ -748,6 +751,7 @@ function ImportPreviewTable({
             getRowId={(r) => r._idx}
             pageSize={10}
             pageSizeOptions={[10, 25, 50]}
+            maxBodyHeight="min(420px, 50vh)"
         />
     )
 }

@@ -60,7 +60,7 @@ export const FormFooter: React.FC<FormFooterProps> = ({
 
     return (
         <div
-            className={`sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 ${className}`}
+            className={`sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 shadow-[0_-4px_12px_-6px_rgba(15,23,42,0.08)] dark:shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.4)] ${className}`}
         >
             <div className="flex-1 min-w-0 text-sm text-slate-500">{leading}</div>
             {onCancel && (
