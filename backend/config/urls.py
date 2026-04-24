@@ -26,7 +26,7 @@ urlpatterns = [
     path("api/notifications/", include("apps.notifications.urls")),
     path("api/assets/", include("apps.assets.urls")),
     path("api/settings/", include("apps.settings.urls")),
-    path("api/platform-releases/", include("apps.platform_releases.urls")),
+    path("api/platform-feedback/", include("apps.platform_feedback.urls")),
 ]
 
 from django.conf import settings as _settings

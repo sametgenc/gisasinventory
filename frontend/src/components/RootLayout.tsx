@@ -1,10 +1,11 @@
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuth } from '../auth/context';
-import { LogOut, LogIn, LayoutDashboard, Settings, User, Shield, Key, Smartphone, Package, Layers, Building2, Menu, X, ChevronDown, Users, Megaphone } from 'lucide-react';
+import { LogOut, LogIn, LayoutDashboard, Settings, User, Shield, Key, Smartphone, Package, Layers, Building2, Menu, X, ChevronDown, Users } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationBell } from './NotificationBell';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { Logo } from './Logo';
+import { FeedbackBubble } from './FeedbackBubble';
 import { useTranslation } from 'react-i18next';
 import { useState, useCallback } from 'react';
 import { useClickOutside } from '../hooks/useClickOutside';
@@ -81,7 +82,6 @@ export const RootLayout: React.FC = () => {
                                         <NavItem to="/dashboard" icon={LayoutDashboard} label={t('nav.dashboard')} exact />
                                         <NavItem to="/assets/types" icon={Layers} label={t('nav.assetTypes')} />
                                         <NavItem to="/assets" icon={Package} label={t('nav.assets')} exact />
-                                        <NavItem to="/whats-new" icon={Megaphone} label={t('nav.whatsNew')} />
                                         {isPlatformAdmin && (
                                             <>
                                                 <NavItem to="/platform/tenants" icon={Building2} label={t('nav.tenants')} />
@@ -194,14 +194,6 @@ export const RootLayout: React.FC = () => {
                                                             {t('nav.tenants')}
                                                         </Link>
                                                         <Link
-                                                            to="/platform/releases"
-                                                            onClick={closeUserMenu}
-                                                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                                                        >
-                                                            <Megaphone size={16} className="text-slate-400" />
-                                                            {t('nav.releases')}
-                                                        </Link>
-                                                        <Link
                                                             to="/platform/settings"
                                                             onClick={closeUserMenu}
                                                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -274,10 +266,6 @@ export const RootLayout: React.FC = () => {
                                         <Package size={18} />
                                         {t('nav.assets')}
                                     </Link>
-                                    <Link to="/whats-new" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium">
-                                        <Megaphone size={18} />
-                                        {t('nav.whatsNew')}
-                                    </Link>
                                     {isPlatformAdmin && (
                                         <div className="border-t border-slate-200 dark:border-slate-800 pt-2 mt-1 space-y-1">
                                             <p className="px-3 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -290,10 +278,6 @@ export const RootLayout: React.FC = () => {
                                             <Link to="/platform/users" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium">
                                                 <Users size={18} />
                                                 {t('nav.users')}
-                                            </Link>
-                                            <Link to="/platform/releases" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium">
-                                                <Megaphone size={18} />
-                                                {t('nav.releases')}
                                             </Link>
                                             <Link to="/platform/settings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium">
                                                 <Settings size={18} />
@@ -354,6 +338,8 @@ export const RootLayout: React.FC = () => {
                     </p>
                 </div>
             </footer>
+
+            <FeedbackBubble />
         </div>
     );
 };

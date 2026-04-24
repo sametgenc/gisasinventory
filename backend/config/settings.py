@@ -68,7 +68,7 @@ INSTALLED_APPS = [
     "apps.notifications.apps.NotificationsConfig",
     "apps.assets.apps.AssetsConfig",
     "apps.settings.apps.SettingsConfig",
-    "apps.platform_releases.apps.PlatformReleasesConfig",
+    "apps.platform_feedback.apps.PlatformFeedbackConfig",
 ]
 
 MIDDLEWARE = [
