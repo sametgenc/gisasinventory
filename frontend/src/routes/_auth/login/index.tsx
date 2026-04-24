@@ -248,14 +248,6 @@ function LoginComponent() {
                             )}
                         </form>
 
-                        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                {t('login.noAccount')}{' '}
-                                <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
-                                    {t('login.createOne')}
-                                </Link>
-                            </p>
-                        </div>
                     </div>
                 </div>
             </div>

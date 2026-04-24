@@ -63,18 +63,12 @@ function HomeComponent() {
                         ) : (
                             <div className="flex flex-col sm:flex-row items-stretch justify-center gap-2.5">
                                 <Link
-                                    to="/register"
-                                    className="inline-flex flex-1 items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all shadow-sm shadow-indigo-500/20 min-h-[2.75rem]"
-                                >
-                                    {t('home.getStarted')}
-                                    <ArrowRight size={16} />
-                                </Link>
-                                <Link
                                     to="/login"
                                     search={{ redirect: undefined }}
-                                    className="inline-flex flex-1 items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-600 min-h-[2.75rem]"
+                                    className="inline-flex flex-1 items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-all shadow-sm shadow-indigo-500/20 min-h-[2.75rem]"
                                 >
                                     {t('nav.login')}
+                                    <ArrowRight size={16} />
                                 </Link>
                             </div>
                         )}
@@ -246,18 +240,12 @@ function HomeComponent() {
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 shrink-0 sm:ml-4">
                             <Link
-                                to="/register"
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
-                            >
-                                {t('home.bottomCtaPrimary')}
-                                <ArrowRight size={15} />
-                            </Link>
-                            <Link
                                 to="/login"
                                 search={{ redirect: undefined }}
-                                className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900 text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-white dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+                                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
                             >
-                                {t('home.bottomCtaSecondary')}
+                                {t('nav.login')}
+                                <ArrowRight size={15} />
                             </Link>
                         </div>
                     </div>
