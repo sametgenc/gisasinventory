@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
     Megaphone, Plus, Pencil, Trash2, Paperclip, Send,
-    Eye, EyeOff, Upload, FileText, Bug, Sparkles, Wrench, Info,
+    EyeOff, Upload, FileText, Bug, Sparkles, Wrench, Info,
     Download, X,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
