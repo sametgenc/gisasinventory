@@ -76,9 +76,7 @@ export const assetsApi = {
         if (tenantId) {
             formData.append('tenant', String(tenantId));
         }
-        const response = await api.post('/api/assets/items/bulk_import/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/api/assets/items/bulk_import/', formData);
         return response.data;
     },
 
@@ -87,9 +85,7 @@ export const assetsApi = {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('header_row', String(headerRow));
-        const response = await api.post('/api/assets/items/preview_import/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/api/assets/items/preview_import/', formData);
         return response.data;
     },
 
@@ -111,9 +107,7 @@ export const assetsApi = {
         if (tenantId) {
             formData.append('tenant', String(tenantId));
         }
-        const response = await api.post('/api/assets/items/raw_import/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/api/assets/items/raw_import/', formData);
         return response.data;
     },
 

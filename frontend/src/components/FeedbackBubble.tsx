@@ -94,9 +94,7 @@ export const FeedbackBubble: React.FC = () => {
             formData.append('user_agent', navigator.userAgent);
             for (const f of files) formData.append('files', f);
 
-            await api.post('/api/platform-feedback/', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            await api.post('/api/platform-feedback/', formData);
 
             setJustSubmitted(true);
             resetForm();

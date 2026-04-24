@@ -14,6 +14,19 @@ const api = axios.create({
 
 // CSRF Handling for Django
 api.interceptors.request.use((config: any) => {
+    // FormData must use multipart boundary set by the browser. The default
+    // `Content-Type: application/json` from the axios instance would break
+    // Django's MultiPartParser (empty FILES → preview/import fails or total_rows: 0).
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+        const h = config.headers;
+        if (h?.delete) {
+            h.delete('Content-Type');
+        } else {
+            delete h?.['Content-Type'];
+            delete h?.['content-type'];
+        }
+    }
+
     const csrfToken = document.cookie
         .split('; ')
         .find((row) => row.startsWith('csrftoken='))

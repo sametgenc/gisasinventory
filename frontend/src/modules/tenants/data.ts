@@ -135,9 +135,7 @@ export const tenantsApi = {
     bulkImportTenants: async (file: File): Promise<BulkImportResult> => {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await api.post('/api/tenants/bulk-import-tenants/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/api/tenants/bulk-import-tenants/', formData);
         return response.data;
     },
 
@@ -145,9 +143,7 @@ export const tenantsApi = {
     bulkImportUsers: async (file: File): Promise<BulkImportResult> => {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await api.post('/api/tenants/bulk-import-users/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const response = await api.post('/api/tenants/bulk-import-users/', formData);
         return response.data;
     },
 
