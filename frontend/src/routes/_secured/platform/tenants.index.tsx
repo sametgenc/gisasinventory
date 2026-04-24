@@ -3,8 +3,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import {
     Building2, Plus, Pencil, Trash2, Ship, Users,
     MapPin, Phone, Mail, Search, Eye,
-    Upload, Download, CheckCircle, AlertCircle,
+    Upload, Download, CheckCircle, AlertCircle, FileText,
 } from 'lucide-react'
+import { exportReport } from '@/utils/report'
 import {
     useTenants, useCreateTenant, useUpdateTenant, useDeleteTenant,
     tenantsApi,
@@ -121,6 +122,22 @@ function TenantsPage() {
             setIsImporting(false)
             if (fileInputRef.current) fileInputRef.current.value = ''
         }
+    }
+
+    const handleReportExport = () => {
+        exportReport(
+            filteredTenants,
+            [
+                { header: t('tenants.tableShipyard'), value: (r) => r.name },
+                { header: t('tenants.tableShipyard') + ' (slug)', value: (r) => r.slug },
+                { header: t('common.email'), value: (r) => r.email ?? '' },
+                { header: t('common.phone'), value: (r) => r.phone ?? '' },
+                { header: t('common.address'), value: (r) => r.address ?? '' },
+                { header: t('tenants.tableUsers'), value: (r) => r.user_count },
+                { header: t('common.status'), value: (r) => r.is_active ? t('common.active') : t('common.inactive') },
+            ],
+            'shipyards_report',
+        )
     }
 
     const handleExport = async (type: 'tenants' | 'users') => {
@@ -244,6 +261,15 @@ function TenantsPage() {
                 subtitle={t('tenants.subtitle')}
                 actions={
                     <>
+                        <Button
+                            variant="secondary"
+                            icon={<FileText size={16} />}
+                            onClick={handleReportExport}
+                            disabled={filteredTenants.length === 0}
+                            title={t('common.exportReportTitle')}
+                        >
+                            {t('common.exportReport')}
+                        </Button>
                         <Button
                             variant="secondary"
                             icon={<Download size={16} />}
@@ -420,11 +446,11 @@ function TenantsPage() {
                                     </div>
                                 )}
                             </div>
-                            {bulkImportResult.errors.length > 0 && (
+                            {(bulkImportResult.errors ?? []).length > 0 && (
                                 <div className="mt-3 max-h-32 overflow-y-auto text-xs">
-                                    {bulkImportResult.errors.map((err, idx) => (
+                                    {(bulkImportResult.errors ?? []).map((err, idx) => (
                                         <div key={idx} className="text-red-600 dark:text-red-400">
-                                            {t('tenants.row')} {err.row}: {err.errors.join(', ')}
+                                            {t('tenants.row')} {err.row}: {(err.errors ?? []).join(', ')}
                                         </div>
                                     ))}
                                 </div>

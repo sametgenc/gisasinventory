@@ -34,6 +34,8 @@
         "download": "İndir",
         "upload": "Yükle",
         "export": "Dışa Aktar",
+        "exportReport": "Rapor Al",
+        "exportReportTitle": "Görünen kayıtları CSV olarak indir",
         "import": "İçe Aktar",
         "template": "Şablon",
         "bulkImport": "Toplu İçe Aktar",

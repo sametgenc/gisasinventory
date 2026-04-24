@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
     Users, Search, Shield, Building2, Clock,
-    ChevronDown, UserPlus, Pencil,
+    ChevronDown, UserPlus, Pencil, FileText,
 } from 'lucide-react'
+import { exportReport } from '@/utils/report'
 import {
     useAllUsers,
     useCreateUnassignedUser,
@@ -206,9 +207,33 @@ function AllUsersPage() {
                 title={t('users.title')}
                 subtitle={`${t('users.subtitle')} · ${t('users.userCount', { count: users.length })}`}
                 actions={
-                    <Button icon={<UserPlus size={16} />} onClick={() => { setCreateError(null); setIsCreateOpen(true) }}>
-                        {t('tenants.createUser')}
-                    </Button>
+                    <>
+                        <Button
+                            variant="secondary"
+                            icon={<FileText size={16} />}
+                            disabled={filteredUsers.length === 0}
+                            title={t('common.exportReportTitle')}
+                            onClick={() => exportReport(
+                                filteredUsers,
+                                [
+                                    { header: t('tenants.username'), value: (u) => u.username },
+                                    { header: t('common.email'), value: (u) => u.email ?? '' },
+                                    { header: t('tenants.firstName'), value: (u) => u.first_name ?? '' },
+                                    { header: t('tenants.lastName'), value: (u) => u.last_name ?? '' },
+                                    { header: t('users.roleLabel'), value: (u) => u.role },
+                                    { header: t('users.tenantLabel'), value: (u) => u.tenant_name ?? '' },
+                                    { header: t('users.statusLabel'), value: (u) => u.is_active ? t('users.active') : t('users.inactive') },
+                                    { header: t('tenants.lastLogin'), value: (u) => u.last_login ? new Date(u.last_login).toLocaleString(locale) : '' },
+                                ],
+                                'platform_users_report',
+                            )}
+                        >
+                            {t('common.exportReport')}
+                        </Button>
+                        <Button icon={<UserPlus size={16} />} onClick={() => { setCreateError(null); setIsCreateOpen(true) }}>
+                            {t('tenants.createUser')}
+                        </Button>
+                    </>
                 }
             />
 

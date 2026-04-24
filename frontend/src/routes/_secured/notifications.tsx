@@ -3,7 +3,8 @@ import {
     useNotificationsQuery,
     useNotificationMutations,
 } from '../../modules/notification/hooks'
-import { Bell, CheckCheck, Trash2, Clock, Inbox } from 'lucide-react'
+import { Bell, CheckCheck, Trash2, Clock, Inbox, FileText } from 'lucide-react'
+import { exportReport } from '@/utils/report'
 import { formatDistanceToNow } from 'date-fns'
 import { useTranslation } from 'react-i18next'
 import {
@@ -35,6 +36,25 @@ function NotificationsPage() {
                 subtitle={t('notifications.subtitle')}
                 actions={
                     <>
+                        <Button
+                            variant="secondary"
+                            icon={<FileText size={16} />}
+                            disabled={notifications.length === 0}
+                            title={t('common.exportReportTitle')}
+                            onClick={() => exportReport(
+                                notifications,
+                                [
+                                    { header: t('common.type'), value: (n) => n.content?.type || 'SYSTEM' },
+                                    { header: t('notifications.title'), value: (n) => n.content?.title ?? '' },
+                                    { header: t('common.description'), value: (n) => n.content?.message ?? n.message ?? '' },
+                                    { header: t('common.status'), value: (n) => n.read_at ? t('common.active') : t('common.inactive') },
+                                    { header: t('common.createdAt'), value: (n) => n.created_at ? new Date(n.created_at).toLocaleString() : '' },
+                                ],
+                                'notifications_report',
+                            )}
+                        >
+                            {t('common.exportReport')}
+                        </Button>
                         <Button
                             variant="secondary"
                             icon={<CheckCheck size={16} className="text-blue-500" />}

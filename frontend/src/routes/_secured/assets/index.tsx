@@ -3,8 +3,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import {
     Package, Plus, Trash2, Eye, Pencil, Building2, Search,
     ChevronDown, Download, Upload, FileSpreadsheet, CheckCircle, AlertCircle,
-    X, KeyRound, RefreshCw, MoreHorizontal, Check,
+    X, KeyRound, RefreshCw, MoreHorizontal, Check, FileText,
 } from 'lucide-react'
+import { exportReport } from '@/utils/report'
 import { useAssetTypes, useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from '@/modules/assets'
 import { assetsApi, type BulkImportResult } from '@/modules/assets/data'
 import { useTenants } from '@/modules/tenants'
@@ -316,8 +317,10 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         const schema = selectedAssetType.schema || []
         const next: ColumnMapping = {}
         const matches = new Set<string>()
-        for (const h of preview.headers) {
-            const found = schema.find(f => f.label.toLowerCase() === h.toLowerCase())
+        const headers = preview.headers ?? []
+        for (const h of headers) {
+            if (!h) continue
+            const found = schema.find(f => (f.label ?? '').toLowerCase() === h.toLowerCase())
             next[h] = found ? found.key : null
             if (found) matches.add(h)
         }
@@ -355,14 +358,21 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     }
 
     const summary = (() => {
-        if (rawResult) return rawResult
+        if (rawResult) return {
+            created_count: rawResult.created_count ?? 0,
+            updated_count: rawResult.updated_count ?? 0,
+            skipped_count: rawResult.skipped_count ?? 0,
+            error_count: rawResult.error_count ?? 0,
+            errors: rawResult.errors ?? [],
+            message: rawResult.message ?? '',
+        }
         if (templateResult) return {
-            created_count: templateResult.success_count,
+            created_count: templateResult.success_count ?? 0,
             updated_count: 0,
             skipped_count: 0,
-            error_count: templateResult.error_count,
-            errors: templateResult.errors,
-            message: templateResult.message,
+            error_count: templateResult.error_count ?? 0,
+            errors: templateResult.errors ?? [],
+            message: templateResult.message ?? '',
         }
         return null
     })()
@@ -593,7 +603,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                     </h4>
                                     <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                                         <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                                            {preview.headers.map((header) => {
+                                            {(preview.headers ?? []).map((header) => {
                                                 const mapped = mapping[header] ?? ''
                                                 const mappedField = selectedAssetType?.schema?.find(f => f.key === mapped)
                                                 const wasAuto = autoMatched.has(header)
@@ -695,11 +705,11 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                             </div>
                         </div>
 
-                        {summary.errors.length > 0 && (
+                        {(summary.errors ?? []).length > 0 && (
                             <div className="max-h-40 overflow-y-auto border border-red-100 dark:border-red-900 rounded-lg divide-y divide-red-100 dark:divide-red-900">
-                                {summary.errors.map((err, idx) => (
+                                {(summary.errors ?? []).map((err, idx) => (
                                     <div key={idx} className="px-3 py-2 text-sm text-red-600 dark:text-red-400">
-                                        <span className="font-medium">{t('assets.row')} {err.row}:</span> {err.errors.join(', ')}
+                                        <span className="font-medium">{t('assets.row')} {err.row}:</span> {(err.errors ?? []).join(', ')}
                                     </div>
                                 ))}
                             </div>
@@ -729,12 +739,12 @@ function ImportPreviewTable({
     const { t } = useTranslation()
 
     const rows: PreviewRow[] = useMemo(
-        () => preview.preview_rows.map((cells, idx) => ({ _idx: idx, cells })),
+        () => (preview.preview_rows ?? []).map((cells, idx) => ({ _idx: idx, cells: cells ?? [] })),
         [preview.preview_rows],
     )
 
     const columns: ColumnDef<PreviewRow>[] = useMemo(() => {
-        return preview.headers.map((header, colIndex) => {
+        return (preview.headers ?? []).map((header, colIndex) => {
             const mappedKey = mapping[header]
             const field = mappedKey ? schema.find((f) => f.key === mappedKey) : null
             return {
@@ -1023,6 +1033,34 @@ function AssetsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [assetTypes, isSuperuser, locale, t])
 
+    const handleReportExport = () => {
+        const typeSchemas = new Map(assetTypes.map(at => [at.id, at.schema || []]))
+        const allKeys = new Set<string>()
+        filteredAssets.forEach(a => {
+            const schema = typeSchemas.get(a.asset_type) || []
+            schema.forEach(f => allKeys.add(f.key))
+        })
+        const keyLabel = new Map<string, string>()
+        assetTypes.forEach(at => (at.schema || []).forEach(f => {
+            if (!keyLabel.has(f.key)) keyLabel.set(f.key, f.label || f.key)
+        }))
+
+        const baseCols = [
+            { header: t('assets.tableType'), value: (r: Asset) => r.asset_type_name ?? '' },
+            ...(isSuperuser ? [{ header: t('assets.tableShipyard'), value: (r: Asset) => r.tenant_name ?? '' }] : []),
+            { header: t('assets.createdDate'), value: (r: Asset) => new Date(r.created_at).toLocaleString(locale) },
+        ]
+        const schemaCols = Array.from(allKeys).map(key => ({
+            header: keyLabel.get(key) || key,
+            value: (r: Asset) => {
+                const v = r.custom_data?.[key]
+                if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
+                return v === undefined || v === null ? '' : String(v)
+            },
+        }))
+        exportReport(filteredAssets, [...baseCols, ...schemaCols], 'assets_report')
+    }
+
     return (
         <div className="w-full min-w-0">
             <PageHeader
@@ -1031,6 +1069,15 @@ function AssetsPage() {
                 subtitle={isSuperuser ? t('assets.subtitleSuperuser') : t('assets.subtitle')}
                 actions={
                     <>
+                        <Button
+                            variant="secondary"
+                            icon={<FileText size={16} />}
+                            onClick={handleReportExport}
+                            disabled={filteredAssets.length === 0}
+                            title={t('common.exportReportTitle')}
+                        >
+                            {t('common.exportReport')}
+                        </Button>
                         <ActionsMenu onImport={() => setIsImportOpen(true)} onExport={() => setIsExportOpen(true)} />
                         <Button icon={<Plus size={16} />} onClick={openCreate}>
                             {t('assets.addNew')}

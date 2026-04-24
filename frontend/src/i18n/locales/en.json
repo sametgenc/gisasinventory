@@ -34,6 +34,8 @@
         "download": "Download",
         "upload": "Upload",
         "export": "Export",
+        "exportReport": "Download Report",
+        "exportReportTitle": "Download visible rows as CSV",
         "import": "Import",
         "template": "Template",
         "bulkImport": "Bulk Import",
