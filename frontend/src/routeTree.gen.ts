@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SecuredRouteRouteImport } from './routes/_secured/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SecuredWhatsNewRouteImport } from './routes/_secured/whats-new'
 import { Route as SecuredNotificationsRouteImport } from './routes/_secured/notifications'
 import { Route as SecuredDashboardRouteImport } from './routes/_secured/dashboard'
 import { Route as SecuredTenantRouteRouteImport } from './routes/_secured/tenant/route'
@@ -24,6 +25,7 @@ import { Route as SecuredTenantUsersRouteImport } from './routes/_secured/tenant
 import { Route as SecuredPlatformUsersRouteImport } from './routes/_secured/platform/users'
 import { Route as SecuredPlatformTenantsRouteImport } from './routes/_secured/platform/tenants'
 import { Route as SecuredPlatformSettingsRouteImport } from './routes/_secured/platform/settings'
+import { Route as SecuredPlatformReleasesRouteImport } from './routes/_secured/platform/releases'
 import { Route as SecuredAssetsTypesRouteImport } from './routes/_secured/assets/types'
 import { Route as SecuredAccountTotpSetupRouteImport } from './routes/_secured/account/totp-setup'
 import { Route as SecuredAccountPasswordRouteImport } from './routes/_secured/account/password'
@@ -59,6 +61,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SecuredWhatsNewRoute = SecuredWhatsNewRouteImport.update({
+  id: '/whats-new',
+  path: '/whats-new',
+  getParentRoute: () => SecuredRouteRoute,
 } as any)
 const SecuredNotificationsRoute = SecuredNotificationsRouteImport.update({
   id: '/notifications',
@@ -118,6 +125,11 @@ const SecuredPlatformTenantsRoute = SecuredPlatformTenantsRouteImport.update({
 const SecuredPlatformSettingsRoute = SecuredPlatformSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => SecuredPlatformRouteRoute,
+} as any)
+const SecuredPlatformReleasesRoute = SecuredPlatformReleasesRouteImport.update({
+  id: '/releases',
+  path: '/releases',
   getParentRoute: () => SecuredPlatformRouteRoute,
 } as any)
 const SecuredAssetsTypesRoute = SecuredAssetsTypesRouteImport.update({
@@ -247,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
   '/notifications': typeof SecuredNotificationsRoute
+  '/whats-new': typeof SecuredWhatsNewRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -254,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/account/password': typeof SecuredAccountPasswordRoute
   '/account/totp-setup': typeof SecuredAccountTotpSetupRoute
   '/assets/types': typeof SecuredAssetsTypesRoute
+  '/platform/releases': typeof SecuredPlatformReleasesRoute
   '/platform/settings': typeof SecuredPlatformSettingsRoute
   '/platform/tenants': typeof SecuredPlatformTenantsRouteWithChildren
   '/platform/users': typeof SecuredPlatformUsersRoute
@@ -283,6 +297,7 @@ export interface FileRoutesByTo {
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
   '/notifications': typeof SecuredNotificationsRoute
+  '/whats-new': typeof SecuredWhatsNewRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -290,6 +305,7 @@ export interface FileRoutesByTo {
   '/account/password': typeof SecuredAccountPasswordRoute
   '/account/totp-setup': typeof SecuredAccountTotpSetupRoute
   '/assets/types': typeof SecuredAssetsTypesRoute
+  '/platform/releases': typeof SecuredPlatformReleasesRoute
   '/platform/settings': typeof SecuredPlatformSettingsRoute
   '/platform/users': typeof SecuredPlatformUsersRoute
   '/tenant/users': typeof SecuredTenantUsersRoute
@@ -322,6 +338,7 @@ export interface FileRoutesById {
   '/_secured/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/_secured/dashboard': typeof SecuredDashboardRoute
   '/_secured/notifications': typeof SecuredNotificationsRoute
+  '/_secured/whats-new': typeof SecuredWhatsNewRoute
   '/_auth/account/providers': typeof AuthAccountProvidersRoute
   '/_auth/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/_secured/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -329,6 +346,7 @@ export interface FileRoutesById {
   '/_secured/account/password': typeof SecuredAccountPasswordRoute
   '/_secured/account/totp-setup': typeof SecuredAccountTotpSetupRoute
   '/_secured/assets/types': typeof SecuredAssetsTypesRoute
+  '/_secured/platform/releases': typeof SecuredPlatformReleasesRoute
   '/_secured/platform/settings': typeof SecuredPlatformSettingsRoute
   '/_secured/platform/tenants': typeof SecuredPlatformTenantsRouteWithChildren
   '/_secured/platform/users': typeof SecuredPlatformUsersRoute
@@ -361,6 +379,7 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/dashboard'
     | '/notifications'
+    | '/whats-new'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -368,6 +387,7 @@ export interface FileRouteTypes {
     | '/account/password'
     | '/account/totp-setup'
     | '/assets/types'
+    | '/platform/releases'
     | '/platform/settings'
     | '/platform/tenants'
     | '/platform/users'
@@ -397,6 +417,7 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/dashboard'
     | '/notifications'
+    | '/whats-new'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -404,6 +425,7 @@ export interface FileRouteTypes {
     | '/account/password'
     | '/account/totp-setup'
     | '/assets/types'
+    | '/platform/releases'
     | '/platform/settings'
     | '/platform/users'
     | '/tenant/users'
@@ -435,6 +457,7 @@ export interface FileRouteTypes {
     | '/_secured/tenant'
     | '/_secured/dashboard'
     | '/_secured/notifications'
+    | '/_secured/whats-new'
     | '/_auth/account/providers'
     | '/_auth/auth/reauthenticate'
     | '/_secured/account/authenticators'
@@ -442,6 +465,7 @@ export interface FileRouteTypes {
     | '/_secured/account/password'
     | '/_secured/account/totp-setup'
     | '/_secured/assets/types'
+    | '/_secured/platform/releases'
     | '/_secured/platform/settings'
     | '/_secured/platform/tenants'
     | '/_secured/platform/users'
@@ -494,6 +518,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_secured/whats-new': {
+      id: '/_secured/whats-new'
+      path: '/whats-new'
+      fullPath: '/whats-new'
+      preLoaderRoute: typeof SecuredWhatsNewRouteImport
+      parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/notifications': {
       id: '/_secured/notifications'
@@ -577,6 +608,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/platform/settings'
       preLoaderRoute: typeof SecuredPlatformSettingsRouteImport
+      parentRoute: typeof SecuredPlatformRouteRoute
+    }
+    '/_secured/platform/releases': {
+      id: '/_secured/platform/releases'
+      path: '/releases'
+      fullPath: '/platform/releases'
+      preLoaderRoute: typeof SecuredPlatformReleasesRouteImport
       parentRoute: typeof SecuredPlatformRouteRoute
     }
     '/_secured/assets/types': {
@@ -810,12 +848,14 @@ const SecuredPlatformTenantsRouteWithChildren =
   )
 
 interface SecuredPlatformRouteRouteChildren {
+  SecuredPlatformReleasesRoute: typeof SecuredPlatformReleasesRoute
   SecuredPlatformSettingsRoute: typeof SecuredPlatformSettingsRoute
   SecuredPlatformTenantsRoute: typeof SecuredPlatformTenantsRouteWithChildren
   SecuredPlatformUsersRoute: typeof SecuredPlatformUsersRoute
 }
 
 const SecuredPlatformRouteRouteChildren: SecuredPlatformRouteRouteChildren = {
+  SecuredPlatformReleasesRoute: SecuredPlatformReleasesRoute,
   SecuredPlatformSettingsRoute: SecuredPlatformSettingsRoute,
   SecuredPlatformTenantsRoute: SecuredPlatformTenantsRouteWithChildren,
   SecuredPlatformUsersRoute: SecuredPlatformUsersRoute,
@@ -841,6 +881,7 @@ interface SecuredRouteRouteChildren {
   SecuredTenantRouteRoute: typeof SecuredTenantRouteRouteWithChildren
   SecuredDashboardRoute: typeof SecuredDashboardRoute
   SecuredNotificationsRoute: typeof SecuredNotificationsRoute
+  SecuredWhatsNewRoute: typeof SecuredWhatsNewRoute
   SecuredAccountAuthenticatorsRoute: typeof SecuredAccountAuthenticatorsRoute
   SecuredAccountEmailRoute: typeof SecuredAccountEmailRoute
   SecuredAccountPasswordRoute: typeof SecuredAccountPasswordRoute
@@ -853,6 +894,7 @@ const SecuredRouteRouteChildren: SecuredRouteRouteChildren = {
   SecuredTenantRouteRoute: SecuredTenantRouteRouteWithChildren,
   SecuredDashboardRoute: SecuredDashboardRoute,
   SecuredNotificationsRoute: SecuredNotificationsRoute,
+  SecuredWhatsNewRoute: SecuredWhatsNewRoute,
   SecuredAccountAuthenticatorsRoute: SecuredAccountAuthenticatorsRoute,
   SecuredAccountEmailRoute: SecuredAccountEmailRoute,
   SecuredAccountPasswordRoute: SecuredAccountPasswordRoute,

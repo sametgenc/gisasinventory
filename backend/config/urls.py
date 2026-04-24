@@ -26,5 +26,13 @@ urlpatterns = [
     path("api/notifications/", include("apps.notifications.urls")),
     path("api/assets/", include("apps.assets.urls")),
     path("api/settings/", include("apps.settings.urls")),
+    path("api/platform-releases/", include("apps.platform_releases.urls")),
 ]
+
+from django.conf import settings as _settings
+from django.conf.urls.static import static as _static
+
+if _settings.DEBUG:
+    urlpatterns += _static(_settings.MEDIA_URL, document_root=_settings.MEDIA_ROOT)
+
 
