@@ -10,25 +10,29 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+        build-essential \
+        libpq-dev \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-install-project
+RUN uv sync --no-install-project --no-dev
 
 COPY . .
-RUN uv sync
+RUN uv sync --no-dev
 
-RUN uv pip install gunicorn
+RUN mkdir -p /app/resources/public/static /app/resources/public/media
 
-RUN python manage.py collectstatic --noinput 2>/dev/null || true
-
-COPY ./resources/compose/local/django/start /start
+COPY ./resources/compose/production/start /start
 RUN sed -i 's/\r$//g' /start && chmod +x /start
 
+EXPOSE 8000
+
 ENTRYPOINT ["/start"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD ["gunicorn", "config.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

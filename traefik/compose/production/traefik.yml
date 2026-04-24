@@ -1,6 +1,11 @@
 api:
   dashboard: false
 
+log:
+  level: INFO
+
+accessLog: {}
+
 entryPoints:
   web:
     address: ":80"
@@ -15,6 +20,7 @@ entryPoints:
 providers:
   file:
     filename: /etc/traefik/conf/dynamic.yml
+    watch: true
 
 certificatesResolvers:
   letsencrypt:

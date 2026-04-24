@@ -5,10 +5,13 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+# Production build uses relative URLs (same origin) by default.
+ENV VITE_API_BASE_URL=""
 RUN pnpm build
 
 # Stage 2: Production

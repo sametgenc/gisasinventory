@@ -12,7 +12,7 @@ services:
       - ./traefik/compose/production/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/compose/production/dynamic.yml:/etc/traefik/conf/dynamic.yml:ro
       - ./traefik/acme:/etc/traefik/acme
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     env_file:
       - ./.envs/.env.traefik
     restart: always
@@ -20,13 +20,18 @@ services:
       - webnet
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: redis_prod_container
     expose:
       - 6379
     volumes:
       - redis_prod_data:/data
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     networks:
       - webnet
 
@@ -41,6 +46,11 @@ services:
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - webnet
 
@@ -53,44 +63,46 @@ services:
     expose:
       - 8000
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ./.envs/.env.local
     environment:
       - MIGRATIONS=true
+    volumes:
+      - django_prod_media:/app/resources/public/media
     restart: always
     networks:
       - webnet
 
   celeryworker:
-    build:
-      context: ./backend
-      dockerfile: resources/compose/production/Dockerfile
     image: gisasinventory-django-prod
     container_name: celery_worker_prod_container
     command: celery -A config worker -l info
     depends_on:
-      - redis
-      - postgres
+      - web
     env_file:
       - ./.envs/.env.local
+    environment:
+      - MIGRATIONS=false
+    volumes:
+      - django_prod_media:/app/resources/public/media
     restart: always
     networks:
       - webnet
 
   celerybeat:
-    build:
-      context: ./backend
-      dockerfile: resources/compose/production/Dockerfile
     image: gisasinventory-django-prod
     container_name: celery_beat_prod_container
     command: celery -A config beat -l info
     depends_on:
-      - redis
-      - postgres
+      - web
     env_file:
       - ./.envs/.env.local
+    environment:
+      - MIGRATIONS=false
     restart: always
     networks:
       - webnet
@@ -110,6 +122,7 @@ services:
 volumes:
   postgres_prod_data:
   redis_prod_data:
+  django_prod_media:
 
 networks:
   webnet:

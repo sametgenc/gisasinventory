@@ -215,20 +215,13 @@ fi
 # ----------------------------------------------------------
 if [[ "$MODE" == "prod" ]]; then
     info "Setting up Let's Encrypt ACME storage..."
-    rm -f ./traefik/acme/acme.json
-    touch ./traefik/acme/acme.json
-    chmod 600 ./traefik/acme/acme.json
-    ok "traefik/acme/acme.json created with correct permissions"
-
-    info "Injecting Let's Encrypt email into traefik/compose/production/traefik.yml..."
-    ESCAPED_EMAIL=$(printf '%s\n' "$LETS_ENCRYPT_EMAIL" | sed -e 's/[\/&]/\\&/g')
-    if grep -q "__LETS_ENCRYPT_EMAIL__" ./traefik/compose/production/traefik.yml; then
-        sed -i.bak "s/__LETS_ENCRYPT_EMAIL__/${ESCAPED_EMAIL}/g" ./traefik/compose/production/traefik.yml
-        rm -f ./traefik/compose/production/traefik.yml.bak
-        ok "traefik.yml rendered with email: $LETS_ENCRYPT_EMAIL"
-    else
-        warn "Placeholder __LETS_ENCRYPT_EMAIL__ not found in traefik.yml; assuming it's already configured."
+    mkdir -p ./traefik/acme
+    if [[ ! -f ./traefik/acme/acme.json ]]; then
+        touch ./traefik/acme/acme.json
     fi
+    chmod 600 ./traefik/acme/acme.json
+    ok "traefik/acme/acme.json ready (permissions 600)"
+    info "Traefik production config uses env vars (DOMAIN, LETS_ENCRYPT_EMAIL) at runtime."
 fi
 
 # ----------------------------------------------------------

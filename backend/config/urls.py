@@ -32,7 +32,6 @@ urlpatterns = [
 from django.conf import settings as _settings
 from django.conf.urls.static import static as _static
 
-if _settings.DEBUG:
-    urlpatterns += _static(_settings.MEDIA_URL, document_root=_settings.MEDIA_ROOT)
+urlpatterns += _static(_settings.MEDIA_URL, document_root=_settings.MEDIA_ROOT)
 
 
