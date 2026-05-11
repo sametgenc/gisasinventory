@@ -202,8 +202,8 @@ SITE_ID = 1
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-# Link-based verification emails (HEADLESS account_confirm_email). Code-only mode hides the clickable link.
-ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = False
+# Code-based verification required when MFA_PASSKEY_SIGNUP_ENABLED=True (allauth E001).
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 ACCOUNT_ADAPTER = "apps.user.adapters.CustomAccountAdapter"
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
