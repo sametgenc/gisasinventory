@@ -3,6 +3,9 @@ import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
 import { pathForPendingFlow } from '@/modules/allauth/routing'
 import { Loader2, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { OtpInput } from '@/components/ui/OtpInput'
+
+const CODE_LENGTH = 6
 
 export const Route = createFileRoute('/_auth/login/code/confirm')({
     component: ConfirmLoginCodeComponent,
@@ -72,7 +75,7 @@ function ConfirmLoginCodeComponent() {
             setLoading(false)
         }
     }
-    58303657
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(255,255,255,0.8),_transparent)] dark:bg-[radial-gradient(circle_at_50%_50%,_rgba(30,30,40,0.5),_transparent)] pointer-events-none" />
@@ -115,27 +118,20 @@ function ConfirmLoginCodeComponent() {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            <div className="group/input">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 ml-1 transition-colors group-focus-within/input:text-indigo-600 dark:group-focus-within/input:text-indigo-400">Sign-in Code</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        required
-                                        autoFocus
-                                        className="w-full px-4 py-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all dark:text-white shadow-sm group-hover/input:border-gray-300 dark:group-hover/input:border-gray-600 text-center text-3xl tracking-[0.5em] font-mono"
-                                        placeholder="••••••"
-                                        maxLength={6}
-                                        value={code}
-                                        onChange={(e) => setCode(e.target.value)}
-                                    />
-                                    <div className="absolute inset-0 rounded-xl bg-indigo-500/5 opacity-0 group-focus-within/input:opacity-100 pointer-events-none transition-opacity duration-300" />
-                                </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">Sign-in Code</label>
+                                <OtpInput
+                                    value={code}
+                                    onChange={setCode}
+                                    length={CODE_LENGTH}
+                                    disabled={loading}
+                                />
                             </div>
 
                             <button
                                 type="submit"
-                                disabled={loading || code.length < 6}
+                                disabled={loading || code.length !== CODE_LENGTH}
                                 className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.98] transform"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify Code & Sign In'}

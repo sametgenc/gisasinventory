@@ -12,6 +12,7 @@ export { EmptyState } from './EmptyState';
 export { StatCard } from './StatCard';
 export { Pagination } from './Pagination';
 export { DataTable } from './DataTable';
+export { OtpInput } from './OtpInput';
 
 export { cn } from './tokens';
 

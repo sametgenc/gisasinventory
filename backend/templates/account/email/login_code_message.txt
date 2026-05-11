@@ -1,0 +1,14 @@
+{% extends "account/email/base_message.txt" %}
+{% load account %}
+{% load i18n %}
+
+{% block content %}{% autoescape off %}{% user_display user as user_display %}Hello {{ user_display }},
+
+Your sign-in code for {{ site_name }}:
+
+    {{ code }}
+
+Enter this code to complete sign-in.
+This code expires in 15 minutes.
+
+If you did not attempt to sign in, you can ignore this email.{% endautoescape %}{% endblock %}
