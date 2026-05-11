@@ -31,8 +31,10 @@ RUN sed -i 's/\r$//g' /start && chmod +x /start
 EXPOSE 8000
 
 ENTRYPOINT ["/start"]
-CMD ["gunicorn", "config.wsgi:application", \
+CMD ["gunicorn", "config.asgi:application", \
      "--bind", "0.0.0.0:8000", \
      "--workers", "3", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--timeout", "300", \
      "--access-logfile", "-", \
      "--error-logfile", "-"]
