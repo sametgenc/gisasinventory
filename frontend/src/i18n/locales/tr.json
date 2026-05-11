@@ -56,7 +56,7 @@
         "last": "Son"
     },
     "nav": {
-        "appName": "GisasInventory",
+        "appName": "Gisas Platform",
         "home": "Ana Sayfa",
         "dashboard": "Dashboard",
         "assetTypes": "Varlık Tipleri",
@@ -106,10 +106,10 @@
         "platformAdmin": "Platform Admin"
     },
     "home": {
-        "badge": "Tersane envanter yönetimi",
+        "badge": "Gisas Platform · Tersane envanter yönetimi",
         "titlePrefix": "Tersanenizi",
         "titleHighlight": "netlik ve kontrol ile yönetin",
-        "subtitleLead": "GisasInventory; varlıkları, ekipleri ve raporlamayı tek yerde toplar. Böylece tablolarla vakit kaybetmez, sahadaki işe odaklanırsınız.",
+        "subtitleLead": "Gisas Platform; varlıkları, ekipleri ve raporlamayı tek yerde toplar. Böylece tablolarla vakit kaybetmez, sahadaki işe odaklanırsınız.",
         "subtitleDetail": "Özel varlık tipleri tanımlayın, kiracı başına rolleri uygulayın ve vinçten yedek parçaya kadar ekipmanın girişten hurdaya tutarlı kaydını tutun.",
         "goToDashboard": "Panele git",
         "getStarted": "Hesap oluştur",
@@ -643,7 +643,7 @@
         }
     },
     "footer": {
-        "copyright": "© {{year}} GisasInventory",
+        "copyright": "© {{year}} Gisas Platform",
         "poweredBy": "Maritime Tech"
     },
     "account": {

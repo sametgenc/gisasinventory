@@ -202,9 +202,10 @@ SITE_ID = 1
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+# Link-based verification emails (HEADLESS account_confirm_email). Code-only mode hides the clickable link.
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = False
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True
-# ACCOUNT_ADAPTER = "apps.user.adapters.CustomAccountAdapter"
+ACCOUNT_ADAPTER = "apps.user.adapters.CustomAccountAdapter"
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_REAUTHENTICATION_TIMEOUT = 300
@@ -216,7 +217,7 @@ MFA_PASSKEY_SIGNUP_ENABLED = True
 MFA_PASSKEY_LOGIN_ENABLED = True
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
 MFA_WEBAUTHN_RP_ID = DOMAIN
-MFA_WEBAUTHN_RP_NAME = "MyProject"
+MFA_WEBAUTHN_RP_NAME = "Gisas Platform"
 MFA_ADAPTER = "apps.user.adapters.CustomMFAAdapter"
 
 SOCIALACCOUNT_PROVIDERS = {
@@ -273,6 +274,29 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Email settings — SMTP config is loaded from the database at runtime
 EMAIL_BACKEND = "apps.settings.email_backend.DatabaseEmailBackend"
 DEFAULT_FROM_EMAIL = f"noreply@{DOMAIN}"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "apps.user.adapters": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "apps.settings.email_backend": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "allauth": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}
 
 
 # Celery Configuration

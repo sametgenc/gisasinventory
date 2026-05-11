@@ -56,7 +56,7 @@
         "last": "Last"
     },
     "nav": {
-        "appName": "GisasInventory",
+        "appName": "Gisas Platform",
         "home": "Home",
         "dashboard": "Dashboard",
         "assetTypes": "Asset Types",
@@ -106,10 +106,10 @@
         "platformAdmin": "Platform Admin"
     },
     "home": {
-        "badge": "Shipyard inventory management",
+        "badge": "Gisas Platform · Shipyard inventory management",
         "titlePrefix": "Operate your shipyard with",
         "titleHighlight": "clarity and control",
-        "subtitleLead": "GisasInventory brings assets, teams, and reporting into one place so you spend less time reconciling spreadsheets and more time on the waterfront.",
+        "subtitleLead": "Gisas Platform brings assets, teams, and reporting into one place so you spend less time reconciling spreadsheets and more time on the waterfront.",
         "subtitleDetail": "Define custom asset types, enforce roles per tenant, and keep a consistent record of equipment, spares, and yard resources from intake to disposal.",
         "goToDashboard": "Go to dashboard",
         "getStarted": "Create account",
@@ -643,7 +643,7 @@
         }
     },
     "footer": {
-        "copyright": "© {{year}} GisasInventory",
+        "copyright": "© {{year}} Gisas Platform",
         "poweredBy": "Maritime Tech"
     },
     "account": {

@@ -67,7 +67,7 @@ class SmtpTestView(APIView):
 
         try:
             email = EmailMessage(
-                subject="SMTP Test - LearnWithAI",
+                subject="SMTP Test - Gisas Platform",
                 body="This is a test email to verify your SMTP configuration is working correctly.",
                 from_email=config.from_email,
                 to=[recipient],

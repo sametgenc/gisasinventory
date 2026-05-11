@@ -18,7 +18,7 @@ type LogoProps = {
  *   swapped via Tailwind's dark: utility so they always contrast with the
  *   current theme's background.
  */
-export const Logo: React.FC<LogoProps> = ({ variant = 'full', className, alt = 'GisasTech' }) => {
+export const Logo: React.FC<LogoProps> = ({ variant = 'full', className, alt = 'Gisas Platform' }) => {
     if (variant === 'icon') {
         return (
             <img
