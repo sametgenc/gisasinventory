@@ -94,7 +94,7 @@ export function OtpInput({
     }
 
     return (
-        <div className="flex justify-center gap-2 sm:gap-3" role="group" aria-label="One-time code">
+        <div className="flex justify-center gap-2" role="group" aria-label="One-time code">
             {cells.map((char, index) => (
                 <input
                     key={index}
@@ -111,7 +111,7 @@ export function OtpInput({
                     onPaste={(e) => handlePaste(index, e)}
                     onFocus={(e) => e.currentTarget.select()}
                     aria-label={`Digit ${index + 1}`}
-                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl sm:text-3xl font-bold font-mono rounded-2xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 outline-none transition-all shadow-sm disabled:opacity-50"
+                    className="w-11 h-12 sm:w-12 sm:h-13 text-center text-xl font-semibold font-mono rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all disabled:opacity-50"
                 />
             ))}
         </div>

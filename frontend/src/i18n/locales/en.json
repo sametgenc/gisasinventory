@@ -175,6 +175,44 @@
         "authRequired": "Authentication required",
         "requestFailed": "Failed to request password reset"
     },
+    "passwordReset": {
+        "title": "Reset password",
+        "subtitle": "Enter the {{length}}-digit code we sent to your email and choose a new password.",
+        "codeLabel": "Verification code",
+        "newPasswordLabel": "New password",
+        "newPasswordPlaceholder": "At least 8 characters",
+        "submit": "Reset password",
+        "resending": "Resend code",
+        "codeLengthError": "Code must be {{length}} digits",
+        "passwordTooShort": "Password must be at least 8 characters",
+        "invalidCredentials": "Invalid code or password",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password"
+    },
+    "emailVerify": {
+        "title": "Verify your email",
+        "subtitleCode": "Enter the {{length}}-digit code we sent to your inbox.",
+        "subtitleLink": "Check your inbox and click the verification link.",
+        "codeLabel": "Verification code",
+        "submit": "Verify code",
+        "verifying": "Verifying...",
+        "successTitle": "Email verified",
+        "successMessage": "Your email address has been verified.",
+        "continueToLogin": "Continue to login",
+        "errorTitle": "Verification failed",
+        "errorMessage": "Invalid or expired code.",
+        "tryAgain": "Try again",
+        "refreshHint": "Refresh this page after checking your email.",
+        "codeLengthError": "Code must be {{length}} digits"
+    },
+    "loginCodeConfirm": {
+        "title": "Enter sign-in code",
+        "subtitle": "We sent a {{length}}-digit code to {{email}}.",
+        "codeLabel": "Sign-in code",
+        "submit": "Verify & sign in",
+        "useDifferentEmail": "Use a different email",
+        "codeLengthError": "Code must be {{length}} digits"
+    },
     "register": {
         "createAccount": "Create an account",
         "getStarted": "Get started with the platform",

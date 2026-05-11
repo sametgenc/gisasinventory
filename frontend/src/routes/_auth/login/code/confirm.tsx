@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
 import { pathForPendingFlow } from '@/modules/allauth/routing'
 import { Loader2, AlertCircle, ShieldCheck, ArrowLeft } from 'lucide-react'
@@ -9,136 +10,103 @@ const CODE_LENGTH = 6
 
 export const Route = createFileRoute('/_auth/login/code/confirm')({
     component: ConfirmLoginCodeComponent,
-    validateSearch: (search: Record<string, unknown>) => {
-        return {
-            email: search.email as string | undefined,
-        }
-    },
+    validateSearch: (search: Record<string, unknown>) => ({
+        email: search.email as string | undefined,
+    }),
 })
 
 function ConfirmLoginCodeComponent() {
+    const { t } = useTranslation()
     const { loginByCode, user } = useAuth()
     const navigate = useNavigate()
     const { email } = Route.useSearch()
     const [code, setCode] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setMousePosition({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-        });
-    };
+    useEffect(() => {
+        if (user) navigate({ to: '/dashboard' })
+    }, [user, navigate])
 
-    // Redirect if already logged in
-    React.useEffect(() => {
-        if (user) {
-            navigate({ to: '/dashboard' })
+    const handleSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault()
+        if (code.length !== CODE_LENGTH) {
+            setError(t('loginCodeConfirm.codeLengthError', { length: CODE_LENGTH }))
+            return
         }
-    }, [user])
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
         setLoading(true)
         setError(null)
         try {
             const res = await loginByCode(code)
-
-            // Use loose equality to handle potential string/number mismatches
             if (res.status == 200) {
                 const nextStep = pathForPendingFlow(res)
-
-                if (nextStep) {
-                    await navigate({ to: nextStep, search: { redirect: undefined } } as any)
-                } else {
-                    await navigate({ to: '/dashboard' })
-                }
+                await navigate({ to: nextStep ?? '/dashboard', search: { redirect: undefined } } as any)
             } else if (res.status == 401) {
                 const nextStep = pathForPendingFlow(res)
-
                 if (nextStep) {
                     await navigate({ to: nextStep, search: { redirect: undefined } } as any)
                 } else {
-                    setError(`401 Received. Flow found but no path. Flows: ${res.data?.flows?.map(f => f.id).join(', ')}`)
+                    setError(res.errors?.[0]?.message || `Invalid code`)
                 }
             } else {
-
-                setError(res.errors?.[0]?.message || `Invalid code (Status: ${res.status})`)
+                setError(res.errors?.[0]?.message || `Invalid code (${res.status})`)
             }
         } catch (err: any) {
-
-            setError(err.message || 'An unexpected error occurred')
+            setError(err.message || t('login.unexpectedError'))
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(255,255,255,0.8),_transparent)] dark:bg-[radial-gradient(circle_at_50%_50%,_rgba(30,30,40,0.5),_transparent)] pointer-events-none" />
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-950">
+            <div className="w-full max-w-sm bg-white dark:bg-gray-900 p-7 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800">
+                <Link
+                    to="/login/code"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors mb-5"
+                >
+                    <ArrowLeft size={14} />
+                    {t('loginCodeConfirm.useDifferentEmail')}
+                </Link>
 
-            <div
-                className="max-w-md w-full relative group perspective-1000"
-                onMouseMove={handleMouseMove}
-            >
-                <div className="relative bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-gray-100 dark:border-gray-800 transition-all duration-300 transform-gpu overflow-hidden">
-                    <div
-                        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-                        style={{
-                            background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(255,255,255,0.06), transparent 40%)`
-                        }}
-                    />
-
-                    <div className="relative z-20">
-                        <Link
-                            to="/login/code"
-                            className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors mb-6 group/back"
-                        >
-                            <ArrowLeft size={16} className="group-hover/back:-translate-x-1 transition-transform" />
-                            Use a different email
-                        </Link>
-
-                        <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-inner">
-                                <ShieldCheck size={32} />
-                            </div>
-                            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Verify Code</h2>
-                            <p className="text-gray-500 dark:text-gray-400 mt-2">
-                                We've sent a 6-digit code to <span className="font-medium text-gray-900 dark:text-white">{email}</span>
-                            </p>
-                        </div>
-
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl flex items-center gap-3 text-sm animate-shake">
-                                <AlertCircle size={18} />
-                                <span>{error}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">Sign-in Code</label>
-                                <OtpInput
-                                    value={code}
-                                    onChange={setCode}
-                                    length={CODE_LENGTH}
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={loading || code.length !== CODE_LENGTH}
-                                className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 active:scale-[0.98] transform"
-                            >
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify Code & Sign In'}
-                            </button>
-                        </form>
+                <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                        <ShieldCheck size={22} />
                     </div>
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('loginCodeConfirm.title')}</h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
+                        {t('loginCodeConfirm.subtitle', { length: CODE_LENGTH, email: email ?? '' })}
+                    </p>
                 </div>
+
+                {error && (
+                    <div className="mb-5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-xs font-medium">
+                        <AlertCircle size={14} className="shrink-0" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 text-center uppercase tracking-wide">
+                            {t('loginCodeConfirm.codeLabel')}
+                        </label>
+                        <OtpInput
+                            value={code}
+                            onChange={setCode}
+                            length={CODE_LENGTH}
+                            disabled={loading}
+                            onComplete={() => handleSubmit()}
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={loading || code.length !== CODE_LENGTH}
+                        className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {loading ? <Loader2 className="animate-spin" size={16} /> : t('loginCodeConfirm.submit')}
+                    </button>
+                </form>
             </div>
         </div>
     )

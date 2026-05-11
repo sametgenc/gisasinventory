@@ -175,6 +175,44 @@
         "authRequired": "Kimlik doğrulama gerekli",
         "requestFailed": "Şifre sıfırlama isteği gönderilemedi"
     },
+    "passwordReset": {
+        "title": "Şifreyi sıfırla",
+        "subtitle": "E-postanıza gönderdiğimiz {{length}} haneli kodu girin ve yeni şifrenizi belirleyin.",
+        "codeLabel": "Doğrulama kodu",
+        "newPasswordLabel": "Yeni şifre",
+        "newPasswordPlaceholder": "En az 8 karakter",
+        "submit": "Şifreyi sıfırla",
+        "resending": "Kodu tekrar gönder",
+        "codeLengthError": "Kod {{length}} haneli olmalı",
+        "passwordTooShort": "Şifre en az 8 karakter olmalı",
+        "invalidCredentials": "Geçersiz kod veya şifre",
+        "showPassword": "Şifreyi göster",
+        "hidePassword": "Şifreyi gizle"
+    },
+    "emailVerify": {
+        "title": "E-postanızı doğrulayın",
+        "subtitleCode": "E-postanıza gönderdiğimiz {{length}} haneli kodu girin.",
+        "subtitleLink": "Gelen kutunuzu kontrol edip doğrulama bağlantısına tıklayın.",
+        "codeLabel": "Doğrulama kodu",
+        "submit": "Kodu doğrula",
+        "verifying": "Doğrulanıyor...",
+        "successTitle": "E-posta doğrulandı",
+        "successMessage": "E-posta adresiniz başarıyla doğrulandı.",
+        "continueToLogin": "Girişe devam et",
+        "errorTitle": "Doğrulama başarısız",
+        "errorMessage": "Geçersiz veya süresi dolmuş kod.",
+        "tryAgain": "Tekrar dene",
+        "refreshHint": "E-postanızı kontrol ettikten sonra sayfayı yenileyin.",
+        "codeLengthError": "Kod {{length}} haneli olmalı"
+    },
+    "loginCodeConfirm": {
+        "title": "Giriş kodunu girin",
+        "subtitle": "{{email}} adresine {{length}} haneli bir kod gönderdik.",
+        "codeLabel": "Giriş kodu",
+        "submit": "Doğrula ve giriş yap",
+        "useDifferentEmail": "Farklı bir e-posta kullan",
+        "codeLengthError": "Kod {{length}} haneli olmalı"
+    },
     "register": {
         "createAccount": "Hesap oluşturun",
         "getStarted": "Platforma başlayın",
