@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { useAuth } from '@/auth/context'
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { Loader2, Trash2, Shield, AlertTriangle } from 'lucide-react'
 
 export const Route = createFileRoute('/_auth/account/providers')({
@@ -9,6 +10,7 @@ export const Route = createFileRoute('/_auth/account/providers')({
 })
 
 function ManageProviders() {
+    const captcha = useCaptcha()
     const { config } = useAuth()
     const [accounts, setAccounts] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -59,6 +61,20 @@ function ManageProviders() {
     }
 
     const availableProviders = config?.socialaccount?.providers || []
+
+    const connect = (providerId: string) => {
+        if (!captcha.ready || actionLoading) return
+        setActionLoading(true)
+        setError(null)
+        try {
+            ALLAUTH_API.redirectToProvider(providerId, '/account/providers', 'connect', captcha.token)
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to connect account')
+            setActionLoading(false)
+        } finally {
+            captcha.reset()
+        }
+    }
 
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-8">
@@ -115,12 +131,14 @@ function ManageProviders() {
                 <p className="text-gray-500 dark:text-gray-400">Select a provider to connect to your account.</p>
             </div>
 
+            {availableProviders.length > 0 && <div className="mb-4">{captcha.widget}</div>}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {availableProviders.map((provider: any) => (
                     <button
                         key={provider.id}
-                        onClick={() => ALLAUTH_API.redirectToProvider(provider.id, '/account/providers', 'connect')}
-                        className="flex items-center justify-center gap-3 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all group"
+                        onClick={() => connect(provider.id)}
+                        disabled={actionLoading || !captcha.ready}
+                        className="flex items-center justify-center gap-3 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-indigo-500 dark:hover:border-indigo-500 hover:shadow-md transition-all group disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <img
                             src={`https://authjs.dev/img/providers/${provider.id === 'google' ? 'google' : 'github'}.svg`} // Fallback icon logic or use generic

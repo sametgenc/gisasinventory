@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
@@ -20,6 +21,7 @@ export const Route = createFileRoute('/_auth/auth/password/confirm/$key')({
 })
 
 function ConfirmResetPassword() {
+    const captcha = useCaptcha()
     const { isValid, key, error } = Route.useLoaderData()
     const navigate = useNavigate()
     const [password, setPassword] = useState('')
@@ -47,10 +49,11 @@ function ConfirmResetPassword() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setSubmitError(null)
         try {
-            const res = await ALLAUTH_API.resetPassword({ key, password })
+            const res = await ALLAUTH_API.resetPassword({ key, password }, captcha.token)
             if (res.status === 200 || res.status === 401) {
                 navigate({ to: '/login', search: { redirect: undefined } })
             } else {
@@ -60,6 +63,7 @@ function ConfirmResetPassword() {
             setSubmitError(err.message || 'An unexpected error occurred')
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -93,9 +97,10 @@ function ConfirmResetPassword() {
                         />
                         <p className="mt-2 text-xs text-gray-400 dark:text-gray-500 ml-1">Must be at least 8 characters</p>
                     </div>
+                    {captcha.widget}
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !captcha.ready}
                         className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                     >
                         {loading ? <Loader2 className="animate-spin" size={24} /> : 'Set New Password'}

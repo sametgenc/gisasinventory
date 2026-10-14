@@ -14,7 +14,7 @@ for (let attempt = 0; attempt < 20; attempt++) {
 }
 assert.ok(available, 'The production frontend did not become available.')
 
-for (const path of ['/login', '/help?task=inspect&step=0', '/assets', '/assets/types', '/assets/']) {
+for (const path of ['/login', '/help?task=inspect&step=0', '/assets', '/assets/types', '/assets/', '/shared-equipment', '/shared-usage']) {
     const response = await fetch(new URL(path, origin), { redirect: 'manual' })
     assert.equal(response.status, 200, `${path} must serve the app without redirecting.`)
     assert.match(response.headers.get('content-type') || '', /text\/html/, path)
@@ -29,4 +29,4 @@ const script = await fetch(new URL(asset, origin), { redirect: 'manual' })
 assert.equal(script.status, 200)
 assert.match(script.headers.get('cache-control') || '', /max-age=31536000/)
 assert.equal((await fetch(new URL('/assets/nonexistent.js', origin), { redirect: 'manual' })).status, 404)
-console.log('Production HTTP checks passed: five app URLs, cached built JavaScript, missing asset 404.')
+console.log('Production HTTP checks passed: seven app URLs, cached built JavaScript, missing asset 404.')

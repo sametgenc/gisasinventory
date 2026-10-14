@@ -26,10 +26,21 @@ if os.environ.get("CHECK_DEMO_MAIL") == "1":
     assert settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend"
     assert settings.EMAIL_HOST == settings.EMAIL_HOST_USER == settings.EMAIL_HOST_PASSWORD == ""
     assert settings.SMTP_CREDENTIAL_KEY == settings.MFA_CREDENTIAL_KEY == ""
+if os.environ.get('CHECK_MFA_POLICY'):
+    assert settings.ADMIN_REQUIRE_MFA is (os.environ['CHECK_MFA_POLICY'] == 'required')
 """
 
 
 class SecretKeyStartupTests(unittest.TestCase):
+    def test_administrator_mfa_remains_optional_unless_explicitly_required(self):
+        for policy in ['optional', 'required']:
+            with self.subTest(policy=policy):
+                options = {'DJANGO_SECRET_KEY': 'startup-only-configured-key', 'CHECK_MFA_POLICY': policy}
+                if policy == 'required':
+                    options['ADMIN_REQUIRE_MFA'] = 'true'
+                result = self.import_settings(**options)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def import_settings(self, module="config.settings", **overrides):
         # Do not inherit database URLs, service addresses, or actual credentials.
         env = {
@@ -38,6 +49,9 @@ class SecretKeyStartupTests(unittest.TestCase):
             "DJANGO_SETTINGS_MODULE": module,
         }
         env.update(overrides)
+        # Startup-only placeholders never contact Turnstile or authenticate.
+        env.setdefault("TURNSTILE_SITE_KEY", "startup-test-site-key")
+        env.setdefault("TURNSTILE_SECRET_KEY", "startup-test-secret-key")
         return subprocess.run(
             [sys.executable, "-c", IMPORT_SETTINGS, module],
             cwd=BACKEND_DIR,
@@ -95,3 +109,15 @@ class SecretKeyStartupTests(unittest.TestCase):
             MFA_CREDENTIAL_KEY='ExternalTestMfaKey',
         )
         self.assert_startup(result, 0)
+
+    def test_production_requires_captcha_configuration(self):
+        for fields in (
+            {"TURNSTILE_SITE_KEY": ""},
+            {"TURNSTILE_SECRET_KEY": ""},
+            {"TURNSTILE_ALLOWED_HOSTNAMES": ""},
+            {"TURNSTILE_ENABLED": "false"},
+        ):
+            with self.subTest(fields=fields):
+                self.assert_startup(self.import_settings(
+                    DJANGO_SECRET_KEY="production-placeholder-for-startup-only", **fields
+                ), 78)

@@ -32,7 +32,14 @@ for (const { width, theme } of [{ width: 1440, theme: 'light' }, { width: 390, t
         const tenantId = material.tenant
         const stockTypeIds = new Set(types.filter(type => type.tracking_mode === 'stock').map(type => type.id))
         const yardRecords = assets.filter(asset => asset.tenant === tenantId && stockTypeIds.has(asset.asset_type))
-        const totalQuantity = yardRecords.reduce((total, asset) => total + Number(asset.custom_data.quantity), 0)
+        const quantities = yardRecords.map(asset => {
+            const schema = types.find(type => type.id === asset.asset_type)?.schema ?? []
+            const field = schema.find(item => item.role === 'quantity')
+                ?? schema.find(item => item.key === 'quantity' && item.type === 'number' && item.role === undefined)
+            const value = field ? asset.custom_data[field.key] : undefined
+            return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
+        })
+        const totalQuantity = quantities.reduce<number>((total, quantity) => total + (quantity ?? 0), 0)
         expect(Number.isSafeInteger(totalQuantity)).toBe(true)
         const numberFormat = new Intl.NumberFormat('tr-TR')
         const quantityText = `${numberFormat.format(Number(material.custom_data.quantity))} adet`
@@ -44,7 +51,10 @@ for (const { width, theme } of [{ width: 1440, theme: 'light' }, { width: 390, t
         })
         await page.goto('/assets')
         await page.getByRole('combobox', { name: 'Tersane', exact: true }).selectOption(String(tenantId))
-        await expect(page.getByText(`${numberFormat.format(yardRecords.length)} stok kalemi · ${numberFormat.format(totalQuantity)} parça`).first()).toBeVisible()
+        const summary = quantities.includes(null)
+            ? `${numberFormat.format(yardRecords.length)} stok kalemi · Toplam adet kontrol edilmeli`
+            : `${numberFormat.format(yardRecords.length)} stok kalemi · ${numberFormat.format(totalQuantity)} parça`
+        await expect(page.getByText(summary).first()).toBeVisible()
         const materialDescription = [materialCode, stockType?.name || material.asset_type_name, material.tenant_name].filter(Boolean).join(' · ')
         const platform = page.getByRole('button', { name: `${materialName} · ${material.tenant_name} malzeme ayrıntısını aç`, exact: true })
             .filter({ has: page.getByText(materialDescription, { exact: true }) })

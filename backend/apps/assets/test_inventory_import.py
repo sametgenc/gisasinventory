@@ -33,6 +33,38 @@ def inventory_file(rows, *, sheets=None, merge=None):
 
 
 class InventoryWorkbookTests(APITestCase):
+    def test_raw_import_matches_numeric_and_legacy_string_ids_without_crossing_shipyards(self):
+        numeric = AssetType.objects.create(name='Invented raw numeric identifier', schema=[
+            {'key': 'code', 'label': 'Kod', 'type': 'number', 'role': 'identifier'},
+            {'key': 'note', 'label': 'Not', 'type': 'text'},
+        ])
+        existing = Asset.objects.create(tenant=self.tenant, asset_type=numeric,
+                                         custom_data={'code': '1.00', 'note': 'Before'})
+        foreign = Asset.objects.create(tenant=self.other, asset_type=numeric,
+                                        custom_data={'code': 1, 'note': 'Keep foreign'})
+        response = self.client.post('/api/assets/items/raw_import/', {
+            'file': inventory_file([['Kod', 'Not'], [1, 'After']]), 'asset_type': str(numeric.pk),
+            'mapping': json.dumps({'Kod': 'code', 'Not': 'note'}),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual((response.data['created_count'], response.data['updated_count']), (0, 1))
+        existing.refresh_from_db()
+        foreign.refresh_from_db()
+        self.assertEqual(existing.custom_data, {'code': '1', 'note': 'After'})
+        self.assertEqual(foreign.custom_data, {'code': 1, 'note': 'Keep foreign'})
+
+    def test_numeric_identifiers_are_deduplicated_before_raw_import(self):
+        numeric = AssetType.objects.create(name='Invented repeated raw numbers', schema=[
+            {'key': 'code', 'label': 'Kod', 'type': 'number', 'is_unique_key': True},
+        ])
+        response = self.client.post('/api/assets/items/raw_import/', {
+            'file': inventory_file([['Kod'], [1], ['1.00']]), 'asset_type': str(numeric.pk),
+            'mapping': json.dumps({'Kod': 'code'}),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['created_count'], 0)
+        self.assertEqual(response.data['error_count'], 2)
+
     def setUp(self):
         self.tenant = Tenant.objects.create(name='Invented inventory yard')
         self.other = Tenant.objects.create(name='Other invented yard')
@@ -176,7 +208,7 @@ class InventoryWorkbookTests(APITestCase):
                 rows += [['info'], ['example']]
             rows += [['001', 'Clamp', 0], ['TOPLAM', None, 0]]
             response = self.client.post(f'/api/assets/items/{"bulk_import" if template else "raw_import"}/', {
-                'asset_type': str(self.stock.pk), 'file': inventory_file(rows), 'tenant': self.other.pk,
+                'asset_type': str(self.stock.pk), 'file': inventory_file(rows), 'tenant': self.tenant.pk,
                 'mapping': json.dumps({'Malzeme kodu': 'material_code', 'Malzeme adı': 'material_name', 'Stok adedi': 'quantity'}),
             }, format='multipart')
             self.assertEqual(response.status_code, 200, response.data)

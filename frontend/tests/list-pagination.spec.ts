@@ -9,7 +9,7 @@ async function session(page: Page) {
         status: 200, meta: { is_authenticated: true }, data: route.request().url().endsWith('/config') ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'pagination', email: 'pagination@example.test', role: 'platform_admin', tenant_slug: 'sample-yard', tenant_name: 'Sample Yard' }, methods: [],
+            user: { id: '1', username: 'pagination', email: 'pagination@example.test', role: 'platform_admin', is_superuser: true, tenant_id: null, tenant_slug: null }, methods: [],
         },
     } }))
     await page.route(url => url.pathname.startsWith('/api/'), async route => {

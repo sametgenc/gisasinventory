@@ -1,6 +1,7 @@
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
+from django.utils.crypto import salted_hmac
 
 
 class UserRole(models.TextChoices):
@@ -47,3 +48,27 @@ class User(AbstractUser):
     @property
     def is_tenant_admin(self) -> bool:
         return self.role == UserRole.TENANT_ADMIN
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        changes_membership = update_fields is None or bool({"tenant", "tenant_id"}.intersection(update_fields))
+        if not self.pk or not changes_membership:
+            return super().save(*args, **kwargs)
+        with transaction.atomic():
+            previous = type(self).objects.select_for_update(no_key=True).filter(pk=self.pk).values("tenant_id").first()
+            result = super().save(*args, **kwargs)
+            if previous and previous["tenant_id"] != self.tenant_id:
+                from apps.assets.models import Asset
+
+                # Membership changes from admin or management code must not
+                # expose the transferred user's identity in the old inventory.
+                Asset.objects.filter(assigned_to_id=self.pk).exclude(tenant_id=self.tenant_id).update(assigned_to=None)
+            return result
+
+    def _get_session_auth_hash(self, secret=None):
+        """A shipyard or privilege change revokes previously authenticated sessions."""
+        password_hash = super()._get_session_auth_hash(secret=secret)
+        membership = f"{password_hash}:{self.tenant_id}:{self.role}:{self.is_staff}:{self.is_superuser}"
+        return salted_hmac(
+            "gisas.user.membership_session", membership, secret=secret, algorithm="sha256",
+        ).hexdigest()

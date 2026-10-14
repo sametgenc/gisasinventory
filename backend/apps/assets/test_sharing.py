@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from django.test import override_settings
 from rest_framework.test import APITestCase
 from rest_framework.exceptions import NotFound, ValidationError
 
@@ -26,6 +27,7 @@ def import_file(rows):
     return SimpleUploadedFile('inventory.xlsx', stream.getvalue())
 
 
+@override_settings(CROSS_TENANT_SHARING_ENABLED=True)
 class AssetSharingTests(APITestCase):
     def setUp(self):
         self.owner = Tenant.objects.create(name='Owner yard', email='private-yard@example.test')
@@ -136,7 +138,7 @@ class AssetSharingTests(APITestCase):
                 self.assertEqual(self.publish(is_shared=False).status_code, 403)
 
     def test_platform_admin_without_shipyard_can_read_and_manage_sharing(self):
-        admin = User.objects.create(username='platform', role='platform_admin')
+        admin = User.objects.create(username='platform', role='platform_admin', is_superuser=True)
         self.client.force_authenticate(admin)
         self.assertEqual(self.publish().status_code, 200)
         self.assertEqual(len(self.shared_rows()), 1)
@@ -168,7 +170,7 @@ class AssetSharingTests(APITestCase):
         self.owner.save(update_fields=['is_active'])
         self.client.force_authenticate(self.member)
         self.assertEqual(self.shared_rows(), [])
-        admin = User.objects.create(username='platform-disabled-owner', role='platform_admin')
+        admin = User.objects.create(username='platform-disabled-owner', role='platform_admin', is_superuser=True)
         self.client.force_authenticate(admin)
         self.assertEqual(self.publish().status_code, 400)
         self.assertEqual(self.publish(is_shared=False).status_code, 200)
@@ -193,7 +195,9 @@ class AssetSharingTests(APITestCase):
     def test_owner_transfer_resets_consent_note_and_publication_date(self):
         self.assertEqual(self.publish().status_code, 200)
         self.manager.role = 'platform_admin'
-        self.manager.save(update_fields=['role'])
+        self.manager.is_superuser = True
+        self.manager.tenant = None
+        self.manager.save(update_fields=['role', 'is_superuser', 'tenant'])
         response = self.client.patch(f'/api/assets/items/{self.asset.pk}/', {
             'tenant': self.other.pk, 'assigned_to': None, 'is_shared': True,
         }, format='json')
@@ -283,8 +287,9 @@ class AssetSharingTests(APITestCase):
 
     def test_shared_list_has_stable_pagination(self):
         Asset.objects.bulk_create([
-            Asset(tenant=self.owner, asset_type=self.asset_type, is_shared=True, shared_at=timezone.now())
-            for _ in range(25)
+            Asset(tenant=self.owner, asset_type=self.asset_type, custom_data={'code': f'PAGE-{number}'},
+                  is_shared=True, shared_at=timezone.now())
+            for number in range(25)
         ])
         first = self.client.get('/api/assets/items/shared/')
         self.assertEqual(first.status_code, 200, first.data)

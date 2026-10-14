@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { Building2, Package, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
 import { categoryCodes, useSharedEquipment, type SharedEquipment } from '@/modules/assets'
 import { Button, EmptyState, FormField, Modal, PageHeader, Pagination, formControlClass } from '@/components/ui'
 import { SharedEquipmentSummary } from '@/components/assets/SharedEquipmentSummary'
+import { UsageRequestModal } from '@/components/assets/UsageRequestModal'
+import { canRequestEquipment, canUseSharedUsage, usageCopy } from '@/modules/assets/usage'
 
 export const Route = createFileRoute('/_secured/shared-equipment')({
     component: SharedEquipmentPage,
@@ -14,13 +16,15 @@ export const Route = createFileRoute('/_secured/shared-equipment')({
 const PAGE_SIZE = 24
 
 function SharedEquipmentPage() {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
     const { user } = useAuth()
+    const usage = usageCopy[i18n.language.startsWith('tr') ? 'tr' : 'en']
     const [draftSearch, setDraftSearch] = useState('')
     const [search, setSearch] = useState('')
     const [category, setCategory] = useState('')
     const [page, setPage] = useState(1)
     const [selection, setSelection] = useState<{ id: string; dataUpdatedAt: number } | null>(null)
+    const [requestId, setRequestId] = useState<string | null>(null)
     const canBrowse = !!user && (!!user.is_superuser || user.role === 'platform_admin' || !!user.tenant_slug)
     const query = useSharedEquipment({
         search: search || undefined,
@@ -31,6 +35,8 @@ function SharedEquipmentPage() {
     // Read the current public response; never retain withdrawn details in modal state.
     const selectedEquipment = canBrowse && !query.isError && !query.isPending && !query.isFetching && selection?.dataUpdatedAt === query.dataUpdatedAt
         ? query.data?.results.find(equipment => equipment.id === selection?.id) : undefined
+    const requestEquipment = canUseSharedUsage(user) && !query.isError && !query.isPending
+        ? query.data?.results.find(equipment => equipment.id === requestId && canRequestEquipment(user, equipment)) : undefined
 
     function submitSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -49,7 +55,8 @@ function SharedEquipmentPage() {
 
     return (
         <div className="mx-auto max-w-6xl">
-            <PageHeader title={t('sharedEquipment.title')} subtitle={t('sharedEquipment.subtitle')} />
+            <PageHeader title={t('sharedEquipment.title')} subtitle={t('sharedEquipment.subtitle')}
+                actions={canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} className="inline-flex min-h-10 items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">{usage.title}</Link>} />
 
             {!canBrowse ? (
                 <div className="rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -115,10 +122,11 @@ function SharedEquipmentPage() {
                     </section>
                 </>
             )}
-            {selectedEquipment && <Modal isOpen onClose={() => setSelection(null)} title={t('sharingDetails.detailsTitle')} size="md" footer={<div className="flex justify-end px-5 py-4"><Button variant="secondary" onClick={() => setSelection(null)}>{t('common.close')}</Button></div>}>
+            {selectedEquipment && <Modal isOpen onClose={() => setSelection(null)} title={t('sharingDetails.detailsTitle')} size="md" footer={<div className="flex flex-wrap justify-end gap-2 px-5 py-4"><Button variant="secondary" onClick={() => setSelection(null)}>{t('common.close')}</Button>{canRequestEquipment(user, selectedEquipment) && <Button onClick={() => { setRequestId(selectedEquipment.id); setSelection(null) }}>{usage.request}</Button>}</div>}>
                 <SharedEquipmentSummary equipment={selectedEquipment} detailed />
                 <p className="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('inventory.publicationIsNotAvailability')}</p>
             </Modal>}
+            {requestEquipment && <UsageRequestModal key={requestEquipment.id} equipment={requestEquipment} onClose={() => setRequestId(null)} />}
         </div>
     )
 }

@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
@@ -18,6 +19,7 @@ export const Route = createFileRoute('/_auth/auth/email/confirm/$key')({
 })
 
 function ConfirmEmail() {
+    const captcha = useCaptcha()
     const { key, verification, error: loadError } = Route.useLoaderData()
     const navigate = useNavigate()
     const { updateFromResponse } = useAuth()
@@ -30,10 +32,11 @@ function ConfirmEmail() {
     }
 
     const handleConfirm = async () => {
+        if (!captcha.ready || submitting) return
         setSubmitting(true)
         setError(null)
         try {
-            const res = await ALLAUTH_API.verifyEmail(key)
+            const res = await ALLAUTH_API.verifyEmail(key, captcha.token)
             updateFromResponse(res)
             if (res.status === 200) {
                 navigate({ to: '/dashboard' })
@@ -47,6 +50,7 @@ function ConfirmEmail() {
             setError(err.message)
         } finally {
             setSubmitting(false)
+            captcha.reset()
         }
     }
 
@@ -64,9 +68,10 @@ function ConfirmEmail() {
                 <p className="text-gray-600 dark:text-gray-400 mb-8">
                     Please confirm that <span className="font-bold text-gray-900 dark:text-white">{verification.data.email}</span> is an email address for user <span className="font-bold text-gray-900 dark:text-white">{verification.data.user?.display || verification.data.user?.username}</span>.
                 </p>
+                {captcha.widget}
                 <button
                     onClick={handleConfirm}
-                    disabled={submitting}
+                    disabled={submitting || !captcha.ready}
                     className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                     {submitting ? <Loader2 className="animate-spin" size={20} /> : 'Confirm'}

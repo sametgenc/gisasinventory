@@ -1,85 +1,130 @@
-# GİSAŞ · Hızlı kullanım rehberi
+# GİSAŞ · Kullanım rehberi
 
-Tersanenizin envanterini tek yerde görün. Forklift gibi tek tek izlenen ekipmanlar marka/model ve toplam adetle gösterilir; **Listeyi aç** ile ayrı kayıtlarına ulaşılır. İskele parçaları gibi adetle tutulan malzemeler **malzeme adı, kodu ve stok adedi** ile gösterilir. Kurmaca örnekte bir stok satırında 500 adet bulunabilir; 500 ayrı kayıt açılmaz. Diğer tersanelere göstereceğiniz kayıtları ayrıca seçersiniz.
+Son güncelleme: 14 Ekim 2026.
 
-Adım adım ekranlarla anlatım: **[Resimli kullanım rehberini aç](kullanim-rehberi.html)**. Uygulamaya giriş yaptıktan sonra menüdeki **Kullanım rehberi** bağlantısından aynı işlemleri takip edebilirsiniz. Doğrudan bir rehber bağlantısı açarsanız önce giriş istenir; ardından seçtiğiniz adıma dönersiniz.
+Tersanenizin kayıtlarını ortak ekipman türleri altında toplayın. Diğer tersaneler yalnızca ayrıca paylaşıma açtığınız bilgileri görür. Ortak kullanım bedelsizdir; talebi ekipmanın sahibi tersanenin yöneticisi onaylar.
+
+Uygulamaya giriş yaptıktan sonra **Kullanım rehberi** menüsünden işlem seçip adımları takip edin. Doğrudan rehber bağlantısını açtığınızda önce giriş istenir; ardından seçtiğiniz adıma dönersiniz. Güncel ekran anlatımı uygulama içindedir.
+
+| Terim | Ne anlama gelir? | Kurmaca örnek |
+|---|---|---|
+| Ekipman türü | Bütün tersanelerin kullanabildiği ortak tanım ve bilgi alanları | Forklift |
+| Katalog kodu | Bu ortak tanımın kalıcı kodu | `ORNEK-FL-01` |
+| Envanter kaydı | Belirli tersanenin fiziksel ekipmanı veya adetli malzeme satırı | Mavi Körfez'in bir forklifti |
+| Tersanenin envanter kodu | Kendi kaydınızı tanıtan, isteğe bağlı yerel kod | `MK-FL-001` |
+| Ortak ekipman | Sahibinin paylaşmayı seçtiği kayıt ve açıkladığı adet | Kullanıma açılan forklift |
+
+Farklı tersaneler aynı yerel envanter kodunu kullanabilir. Kayıtlar başka tersanenin envanteriyle birleşmez. A–M kategori harfleri de katalog kodu değildir.
 
 ## 1. Envanterimi incele
 
-1. **Envanterim** ekranında marka, model ve toplam adedi görün; ilgili grubun **Listeyi aç** düğmesine basın.
-2. Açılan listede her satır bir ekipmandır. Ekipmanı açarak bütün bilgilerini görün; düzenleme veya paylaşım için o satırdaki **İşlemler** menüsünü kullanın.
-3. Başka model için **Özete dön**; tüm kayıtlar için **Tek tek ekipmanlar** seçin.
+1. **Envanterim** ekranında marka, model ve toplam adedi görün; ilgili grubun **Listeyi aç** düğmesini seçin.
+2. Açılan listede her satır bir ekipmandır. Ayrıntılarını açın; düzenleme veya paylaşım için satırdaki **İşlemler** menüsünü kullanın.
+3. Başka model için **Özete dön**; bütün ayrı kayıtlar için **Tek tek ekipmanlar** seçin.
 
-Uzun listelerde alttaki sayfa numaraları veya **Önceki / Sonraki** düğmeleriyle ilerleyin. **Sayfa başına** gösterilen satır sayısını değiştirir; modelin toplam adedini değiştirmez. Arama veya filtre değişince ilk sayfa açılır.
+Uzun listelerde **Önceki / Sonraki** veya sayfa numaralarıyla ilerleyin. **Sayfa başına**, görünen satır sayısını değiştirir; modelin toplam adedini değiştirmez. Arama ve filtre değişince ilk sayfa açılır.
 
-**Sonuç:** Önce modelin adedini, sonra o modeldeki ekipmanları tek tek görürsünüz. Adet, mevcut kayıtların sayısıdır; tek bir kayda 50 yazarak 50 ekipman oluşturulmaz. Modeli boş kayıtlar **Model belirtilmemiş** altında görünür. Diğer tersanelerin seçilmiş yayınları **Ortak ekipmanlar** ekranındadır. Platform hesabında kurum kayıtları **Birleşik envanter** altında, sahiplikleri korunarak toplanır.
+**Tek tek ekipman:** Bir modelde 50 adet görünmesi, 50 ayrı ekipman kaydı bulunduğu anlamına gelir. Bir kayda 50 yazmak 50 fiziksel ekipman oluşturmaz.
 
-[Ekran ve ayrıntılı adımlar](kullanim-rehberi.html#envanter)
+**Adetli malzeme:** Bir stok kaydı binlerce parçayı tutabilir. Kurmaca örnekte “Yürüme platformu · 500 adet” tek kayıttır; 500 ayrı satır açılmaz. Bilinmeyen adet sıfır sayılmaz. Toplam stok, paylaşıma açılan adetten ayrıdır.
+
+Platform hesabı aynı ekranı **Birleşik envanter** olarak görür; tersane filtresiyle sahibine göre inceler. **Güncelleme gerekli** işareti varsa **Eksik bilgili kayıtları göster** seçin; hangi zorunlu bilgiler eksikse kaydı açıp tamamlayın.
 
 ## 2. Ekipman ekle
 
 1. **Envanterim → Ekipman ekle** seçin.
-2. Türü, marka ve modeli, ekipman kodunu ve zorunlu bilgileri doldurun. Platform hesabında sahibi aktif tersaneyi de seçin.
-3. **Oluştur** seçip kayıt kartını kontrol edin. Sonraki düzenlemelerde **Kaydet** kullanın.
+2. Ortak türü seçin. Platform hesabında sahibi aktif tersaneyi de seçin.
+3. **Tersanenin envanter kodu** alanına varsa kendi kodunuzu yazın. Türün istediği bilgileri doldurun; yalnızca zorunlu işaretli alanların tamamlanması gerekir.
+4. **Oluştur** seçin. Sonraki düzenlemelerde **Kaydet** kullanın.
 
-**Sonuç:** Fiziksel ekipman envanterinize eklenir; diğer tersanelere otomatik açılmaz. Tür yoksa platform yöneticisinden ortak tanım isteyin. Aynı ekipman kodunu farklı fiziksel ekipmanlarda kullanmayın.
+Yeni kayıt özeldir; diğer tersanelere kendiliğinden açılmaz. Tür eksikse önce **Ekipman türleri** içinde arayın; uygun tanım yoksa platform yöneticisinden eklemesini isteyin. Aynı tersane ve tür içinde aynı envanter kodunu farklı kayıtlara vermeyin.
 
-[Form ve örnek bilgiler](kullanim-rehberi.html#ekle)
+## 3. Türü ve bilgi alanlarını hazırla · Platform yöneticisi
 
-## 3. Excel'den aktar
+1. **Ekipman türleri → Tür ekle** açın. Ortak adı, kategori ve ön paylaşım sınıfını seçin. Yeni türün katalog kodu boş bırakılırsa uygulama kod oluşturur; sonraki aktarımlarda bu kodu koruyun.
+2. **Tek tek ekipman** veya **Adetli malzeme stoku** takip biçimini seçin. Envanteri olan türün takip biçimi değiştirilemez; farklı takip için yeni tür açın.
+3. İhtiyaç duyulan alanları ekleyin. Yeni alanlar, stok için önerilen alanlar dahil, **isteğe bağlı** başlar. Gereksiz bilgileri zorunlu yapmayın.
+4. **Bu bilgi ne için kullanılacak?** altında görevi seçin: **Kayıtları eşleştiren kod**, **Listede görünen ad**, **Toplam stok adedi** veya **Ek bilgi**. Stok adedi için sayı alanı kullanın. Görev seçmek alanı zorunlu yapmaz.
+5. Mevcut türde zorunlu bilgi değiştirirken **Kaydetmeden önce kontrol** bölümündeki kayıt ve tersane sayılarını inceleyin; **Değişiklikleri uygula** ile tamamlayın.
 
-1. **Envanterim → Diğer İşlemler → Excel'e Dışa Aktar** açın; türü seçip **Şablonu İndir** kullanın.
-2. Gerçek ekipmanları **4. satırdan itibaren** yazın. İlk üç satırı, başlıkları ve gizli `_mapping` sayfasını koruyun.
-3. **Excel'den İçe Aktar** açın; dosyayı seçip **Önizle ve Devam Et** kullanın. **Dosyayı inceledik** bölümünde önerilen Excel sayfasını, başlık satırını, ekipman türünü ve sütun eşleşmelerini kontrol edin.
-4. Hazır, atlanan ve kontrol bekleyen satırları inceleyin. Güvenle ayırt edilen toplam/ara toplam, tekrarlanan sütun başlıkları ve bölüm başlıkları aktarılmaz; hangi Excel satırının neden atlandığı gösterilir. Belirsiz alanları düzeltin. Sorunlu satırları Excel’de düzeltip yeniden yükleyin veya tamamını bu aktarımda hariç tutmayı açıkça seçin.
-5. Tür, sütun veya dosya düzenini değiştirdiyseniz **Dosyayı yeniden kontrol et** kullanın. Hedef tersaneyi doğrulayın; **hazır kaydı aktar** düğmesiyle işlemi tamamlayın.
-6. **Oluşturuldu, Güncellendi, Atlandı, Hata** sonuçlarını inceleyin; envanterde birkaç kaydı doğrulayın.
+Alan adı değişse de kalıcı alan kodu korunur; eski değerler silinmez. Mevcut bir alanı değiştirmek için aynı alanı düzenleyin. Yeni alan açarak eski alanın yerine geçirmeyin.
 
-**Sonuç:** Geçerli ekipman satırları eklenir veya eşleşen kayıtlar güncellenir. Aktarım paylaşımı açmaz. Hata varsa başarılı satırlar kaydedilmiş olabilir; dosyayı tekrar göndermeden sonuçları kontrol edin. Benzersiz anahtar olmayan türlerde tekrar aktarım yeni kayıt oluşturabilir.
+Yeni zorunlu alan eksikse kayıtlar **Güncelleme gerekli** olarak görünür. Etkilenen aktif tersane yöneticilerine, alan değişikliği başına toplu bildirim gider; her ekipman için ayrı bildirim üretilmez. Bildirimden eksik kayıtlara gidip tamamlayın. Bu eksikler giderilmeden yeni paylaşım, kullanım onayı ve teslim yapılamaz; sürmekte olan kullanımın iadesi kaydedilebilir.
 
-[Önizleme ve eşleşme kuralları](kullanim-rehberi.html#excel)
+## 4. Tek Excel ile türleri ve envanteri aktar
 
-### Adetli malzeme dosyasını aktar
+Bu işlem farklı türleri ve seçilen tersanenin kayıtlarını aynı dosyada hazırlamak içindir.
 
-1. Platform yöneticisi **Ekipman türleri → Tür ekle** ekranında **Adetli malzeme stoku** takip biçimini seçer. Malzeme kodu, malzeme adı ve stok adedi alanları hazır gelir.
-2. Envanterde **Excel'den İçe Aktar** açılır; dosya seçilip önizlenir. Başlık ve Excel sayfası otomatik önerilir. Birden fazla sayfa uygunsa **Dosya düzeni** bölümünden seçim yapılır.
-3. Kaynak sütunları önerilir: **Seri Numarası → Malzeme kodu**, **İsim → Malzeme adı**, **Adet → Stok adedi**. Önerileri kontrol edin; eksik zorunlu eşleştirmeleri tamamlayın. Dosyadaki “Seri Numarası” burada ayrı parçaların seri numarası değildir.
-4. Doğru tersane ve stok türü seçilir; önizlemede ilk iki kayıt ve sıfır adetli kalem kontrol edilir. Aktarım sonucu kalem sayısı ile parça toplamı ayrı görünür.
+1. **Ekipman türleri → Katalogdan aktar** veya envanterde **Tür ve envanter dosyası** açın. **Boş Excel şablonu indir** seçin.
+2. Dosyanın üç veri sayfasını doldurun. Başlıkları koruyun; veriler ikinci satırdan başlar. Dosyadaki **Rehber** sayfası sütunları açıklar.
 
-**Kurmaca örnek:** **3 stok kalemi, 750 parça** vardır: `ORNEK-STOK-01` yürüme platformu 500 adet, `ORNEK-STOK-02` bariyer 250 adet, `ORNEK-STOK-03` diyagonal eleman 0 adet. “Örnek yürüme platformu · 500 adet” tek stok kaydıdır; **Ayrıntıyı aç** ile kodunu ve bilgilerini görürsünüz. Sıfır adetli kalem silinmez. Bu değerler gerçek envanterden alınmamıştır. Kaynak ID ve tarih ek bilgi olarak saklanabilir; uygulamanın kayıt kimliği veya oluşturulma tarihi yerine geçirilmez. Toplam stok, paylaşıma verilebilecek miktar değildir.
+| Sayfa | Her satır neyi tanımlar? | Bağlantı |
+|---|---|---|
+| Ekipman türleri | Ortak tür, kategori, takip biçimi ve ön sınıf | Katalog kodu |
+| Alanlar | Türün bir bilgi alanı; adı, türü, görevi ve zorunluluğu | Aynı katalog kodu + kalıcı alan kodu |
+| Envanter | Seçilen tersanenin ekipmanı veya stok kaydı | Aynı katalog kodu + yerel envanter kodu |
 
-Formüller, Excel hücre hataları, yinelenen ekipman kodları ve eksik/geçersiz değerler kontrol bekleyen satırlarda görünür. Aynı modeldeki farklı ekipman kodları normal kayıtlardır. Birden fazla ekipman türü aynı sayfadaysa türleri ayrı Excel sayfalarına veya dosyalara ayırın. Sıfır adet ve adında “toplam” geçen gerçek malzemeler korunur; belirsiz değerler tahminen değiştirilmez. Dosyadaki tersane sütunu sahiplik atamaz.
+3. **Envanter** sayfasına, türlerin alan adı veya alan koduyla ek sütunlar açın. Farklı türlere ait olmayan hücreler boş kalabilir. Seçim alanı seçeneklerini **Alanlar** sayfasında `İyi|Bakımda|Kullanım dışı` gibi `|` ile ayırın. Yeni alanda **Zorunlu** boşsa alan isteğe bağlıdır.
+4. Dosyayı seçin. Platform hesabında envanter varsa **Envanterin ekleneceği tersane** seçin; sadece tür oluşturuyorsanız **Yalnızca ekipman türleri** kullanın. Tersane hesabında hedef kendi tersanenizdir. Dosyadaki tersane adı sahiplik atamaz.
+5. **Dosyayı incele** seçin. Oluşturulacak/güncellenecek kayıtları, eski ve yeni değerleri, atlanan satırları ve seçim gereken satırları kontrol edin. Hata varsa dosyayı düzeltin. Tercih değişince yeniden inceleyin.
+6. **Kontrol edilen kayıtları aktar** seçin. Sonucu ve envanterden birkaç kaydı doğrulayın.
 
-Tek tek ekipman türünü stok türüne çevirmek mevcut kayıtların anlamını değiştirir. Kayıt içeren türlerde takip biçimi değiştirilemez; ayrı bir stok türü açılır.
+Ortak tür ve alan değişiklikleri platform yöneticisine aittir. Tersane yöneticisi mevcut türlerin kodlarıyla kendi envanterini aktarabilir; tür ve alan sayfaları boş kalabilir. Yalnız tür içeren dosya fiziksel envanter oluşturmaz.
 
-## 4. Ortak listeye aç veya geri çek
+Bu akış dosyayı **birlikte uygular**: düzeltme gereken satır varsa hiçbir kayıt değişmez. Önizlemeden sonra ilgili kayıt değişmişse yeniden incelemeniz istenir. Her envanter satırında **Envanter kodu** veya türün seçilmiş eşleştirme alanı bulunmalıdır; ikisi de boşsa aktarım engellenir. Kod aynı tersane ve türdeki kaydı günceller; stok adedi eski değere eklenmez, onun yerine geçer. Benzer tür adları otomatik birleştirilmez. Aktarım hiçbir kaydı otomatik yayımlamaz.
 
-1. İlgili modelde **Listeyi aç** seçin. Ekipmanı kodundan bulun; **İşlemler → Paylaşımı yönet** açın.
+### GISBIR taksonomi dosyası
+
+Sağlanan dosya **13 kategori ve 175 ortak tür** içerir; gerçek tersane, ekipman kodu ve stok adedi içermez. Bu dosyayla tür kataloğu hazırlanabilir; gerçek envanter için ayrıca **Envanter** sayfasını doldurun.
+
+Ana **1-TAKSONOMI** sayfası kullanılır; aynı kayıtları tekrarlayan kategori sayfaları ikinci kez aktarılmaz. **40. ve 57. Excel satırlarındaki B/C sınıfları** için açıkça seçim yapın, ardından **Dosyayı incele** işlemini tekrar çalıştırın. Kaynaktaki A–M harfleri kategori; kapasite birimleri stok adedi değildir. K kategorisinin kapsam dışı kuralı korunur. Ön A/B/C sınıfı saha uygunluğu onayı yerine geçmez.
+
+### Mevcut tek tür dosyanı aktar
+
+Kendi farklı düzenli Excel dosyanız için **Envanterim → Excel'den İçe Aktar** kullanın. **Tür ve envanter aktarımı** penceresinden de **Tek tür envanteri yükle** ile aynı ekrana ulaşılır. Dosya analizi sayfa, başlık satırı, ekipman türü ve sütun eşleşmelerini önerir. Belirsiz seçimleri tamamlayın; değişiklikten sonra **Dosyayı yeniden kontrol et** seçin. Uygulamanın tek tür şablonunda gerçek veriler dördüncü satırdan başlar.
+
+Güvenle ayırt edilen toplam, ara toplam ve tekrarlanan başlıklar atlanır; satır numarası ve nedeni gösterilir. Sıfır adetli kalemler ve adında “toplam” geçen gerçek malzemeler korunur. Formül, yinelenen kod veya belirsiz değer varsa Excel’de düzeltin ya da ekranın izin verdiği kontrol satırlarını açıkça hariç tutun.
+
+**Tek tür aktarımı satır bazındadır:** geçerli satırlar kaydedilmiş olabilir. Eşleştirme alanı olmayan türde aynı dosyayı tekrar aktarmak yeni kayıtlar oluşturabilir. **Oluşturuldu, Güncellendi, Atlandı, Hata** sonuçlarını okuyun; başarısız dosyayı körlemesine tekrar göndermeyin. Bu davranış üç sayfalı toplu aktarımın bütün dosyayı birlikte uygulamasından farklıdır.
+
+## 5. Ortak listeye aç veya geri çek
+
+1. Envanterde ilgili kaydı bulun; **İşlemler → Paylaşımı yönet** açın.
 2. **Bu ekipmanı diğer tersanelerin ortak listesinde göster** seçeneğini işaretleyin.
-3. **Ortak listede görünen ad** yazın; karşı tersane malzemenin veya ekipmanın ne olduğunu anlayabilsin. Kapasiteyi ve kullanım/taşıma/teslim koşullarını yalnız paylaşmak istediğiniz bilgilerle doldurun.
-4. Paylaşım adedini ayrıca belirleyin. **Kurmaca örnek:** envanterde 500 platform parçası bulunabilir; yalnız 100 adedini paylaşıma açabilirsiniz. Toplam stok otomatik yayımlanmaz. Tek tek izlenen bir ekipman kaydı için adet 1 olur; aynı modelin 50 kaydı ayrı ekipmanlardır. Adet belirtilmiyorsa diğer tersane sizinle görüşür.
-5. Uygunluğu belirtin; gerekiyorsa tarih veya çalışma koşulunu not edin. İsteğe bağlı iletişim bölümüne diğer tersanelere açık olmasını istediğiniz kişi, e-posta veya telefon yazın. Hesabınızın ve tersanenizin kayıtlı iletişim bilgileri otomatik kopyalanmaz.
-6. Karşı tersanenin göreceği önizlemeyi kontrol edip **Kaydet** seçin. **Ortak ekipmanlar → Detayları gör** ile yayınınızı kontrol edin. Geri çekmek için görünürlük işaretini kaldırıp **Ortak listeden kaldır** seçin; kaydedilmiş bilgiler taslak olarak kalır.
+3. Ortak listede görünen adı, paylaşım adedini, kapasiteyi ve koşulları yazın. Kurmaca örnekte 500 parçanın 100 adedini paylaşabilirsiniz. Tek fiziksel ekipman kaydı bir adet paylaşır. Kullanım talebi alabilmek için paylaşım adedi belirtilmelidir; bilinmeyen stok adedi önce tamamlanır.
+4. Uygunluk ve tarih notunu kontrol edin. İsterseniz yalnız paylaşmak istediğiniz kişinin adını, e-postasını ve telefonunu yazın. Hesap ve tersane iletişim bilgileri otomatik kopyalanmaz.
+5. Karşı tersanenin göreceği önizlemeyi inceleyip **Kaydet** seçin. **Ortak ekipmanlar → Detayları gör** ile yayını kontrol edin.
+6. Yayını geri çekmek için görünürlük seçimini kaldırıp **Ortak listeden kaldır** seçin. Envanter kaydı ve paylaşım taslağı korunur.
 
-**Sonuç:** Başlık, tür, sahibi tersane, belirttiğiniz paylaşım adedi, kapasite, uygunluk, koşullar ve açıkça girdiğiniz iletişim bilgileri ortak listede görünür. İç ekipman kodu, özel teknik alanlar, toplam stok ve atanan kişi açılmaz. Ekipman kurum envanterinde kalır.
+Diğer tersaneler yayınladığınız başlık, adet, kapasite, uygunluk, koşul ve iletişim bilgilerini görür. İç envanter kodu, özel teknik bilgiler, toplam stok ve atanan kişi açılmaz. Yayını tersane yöneticisi veya yetkili platform hesabı yönetir; personel değiştiremez. Kullanım onayını ise yalnız sahibi tersane verir.
 
-Bu işlem tersane yöneticisi veya yetkili platform hesabına aittir. Personel envanterini yönetebilir; yayın ayarını değiştiremez. Uygunluk tersanenin beyanıdır; talep veya rezervasyon onayı değildir. Kullanım, taşıma ve tarih için sahibiyle teyitleşin. K kategorisi, C ön sınıfı veya kapsam dışı nedeni olan türler yayınlanamaz.
+K kategorisi, C ön sınıfı, kapsam dışı nedeni veya eksik zorunlu bilgileri bulunan kayıt yeni paylaşıma açılamaz. Pasif tersane gizlenir. Yayını geri çekmek yeni talepleri durdurur; mevcut onay ve teslim geçmişini silmez.
 
-**Stok azalırsa:** normal düzenleme veya Excel aktarımında toplam stok, paylaşıma açılan adedin altına düşerse yayın durur; detaylar taslak olarak saklanır. Stok yeniden artsa da otomatik yayımlanmaz. Adedi düzeltip yeniden yayınlayın. Ekipmanın türü değiştirilince de yayın durur. Sahibi tersane değişirse bütün paylaşım bilgileri temizlenir; yeni sahibi karar verir.
+Stok paylaşım adedinin altına düşerse veya tür değiştirilirse yayın durur; taslak korunur. Stok artınca otomatik yeniden yayımlanmaz. Açık talep varsa sahibi/türü değiştirmek veya kaydı silmek engellenir. Onaylanan ya da teslim edilen adedin altına stok veya paylaşım adedi düşürülemez.
 
-[Paylaşım penceresi ve örnek yayın](kullanim-rehberi.html#paylas)
+## 6. Bedelsiz kullanım talebi gönder ve takip et
 
-## 5. Tür kataloğunu düzenle · Platform yöneticisi
+1. **Ortak ekipmanlar** listesinden başka tersanenin uygun ekipmanını açın; **Bedelsiz kullanım talebi** seçin. Kendi tersanenizin ekipmanı için talep gönderilmez.
+2. Başlangıç tarihi, iade tarihi ve istediğiniz adedi yazın; isterseniz kullanım amacını ekleyin. Başlangıç ve iade günü süreye dahildir. **Talebi gönder** seçin.
+3. **Kullanım talepleri → Gönderdiğim talepler** bölümünden sonucu izleyin. Henüz onay bekleyen talep ekipman ayırmaz.
+4. Sahibi tersane yöneticisi **Gelen talepler** bölümünde **Talebi aç → Onayla** veya **Reddet** kullanır. Açıklama ekleyebilir. Platform yöneticisi tersane adına onay vermez.
+5. Onaylanan adet tarih aralığı için ayrılır. Ekipmanı teslim ettiğinde sahibi yönetici **Teslim et** işlemini kaydeder. Teslim başlangıç tarihinde veya sonrasında yapılır.
+6. Ekipman geri geldiğinde sahibi yönetici **İade al** işlemini tamamlar.
 
-1. **Ekipman türleri** ekranında mevcut tanımı arayın. Tek tanım için **Tür ekle** kullanın; ortak ad, katalog kodu, kategori, ön sınıf ve ekipman bilgi alanlarını hazırlayın.
-2. Toplu işlem için **Katalogdan aktar → Excel şablonunu indir** seçin. **Katalog** sayfasında ikinci satırdan itibaren her türü bir satıra yazın.
-3. Dosyayı ve modu seçip **Dosyayı önizle** kullanın. **Yalnızca yeni tipleri ekle** mevcut kodları korur; **Katalog koduna göre güncelle** eşleşen tanımı değiştirir.
-4. Hataları düzeltip **… değişikliği aktar** ile onaylayın.
+Durumlar: **Onay bekliyor → Onaylandı → Teslim edildi → İade alındı**. **Reddedildi** ve **İptal edildi** talepleri kapatır. Talebi gönderen kişi veya kendi tersane yöneticisi teslim öncesinde iptal edebilir; sahibi yönetici de onaylanan talebi iptal edebilir. Teslim edilmiş talep iptal edilmez; iade kaydedilir.
 
-**Sonuç:** Ortak türler oluşur veya güncellenir; fiziksel ekipman eklenmez. Hatalı katalogda hiçbir kayıt aktarılmaz. Güncellemede boş açıklama veya kapsam dışı nedeni mevcut değeri temizler. A/B/C türün ön değerlendirmesidir; ekipmanın anlık uygunluğunu göstermez.
+Tarih geçmiş olsa bile teslim edilmiş ekipman, iade kaydedilene kadar ayrılmış kalır. Çakışan tarihlerde eldeki paylaşım adedinden fazlası onaylanamaz. Onaylanan tarihler geçmişse yeni talep hazırlayın. İlgili iki tersane talep ayrıntılarını görür; durum değişiklikleri ilgili kişilere bildirilir. Kullanım amacı ve özel envanter bilgileri e-posta bildirimine eklenmez.
 
-[Katalog önizlemesi ve dosya kuralları](kullanim-rehberi.html#katalog)
+Taşıma, operatör, muayene ve saha uygunluğunu ayrıca teyit edin. Uygulama belge geçerliliğini veya mühendislik uygunluğunu kendiliğinden doğrulamaz.
 
-Takıldığınız adımlar için [soru ve yanıtlar](kullanim-rehberi.html#yardim). Kurmaca hesaplar ve örnek Excel dosyaları için [demo eki](kullanim-rehberi.html#demo). Ortamı hazırlayan kişi için [test ortamı notları](TEST_ORTAMI.md).
+## Takıldığınızda
 
-14 Ekim 2026 · Görsel rehber çevrimdışı kullanılabilir; görseller için yanındaki `images` klasörünü koruyun.
+**Güncelleme gerekli:** Eksik bilgili kaydı açıp işaretlenen zorunlu alanları tamamlayın. Bildirim geldiğinde her kaydı ayrı ayrı yeniden oluşturmayın.
+
+**Aktarım tamamlanmadı:** Satır numarası ve hata nedenini okuyun. Üç sayfalı dosyayı yeniden inceleyin; tek tür aktarımında başarılı kayıtların kaydedilmiş olabileceğini kontrol edin.
+
+**Talep düğmesi yok:** Kendi tersanenizin ilanı, paylaşım adedi belirtilmemiş kayıt veya kullanıma kapalı ilan için talep gönderilemez. Ortak kullanım ortamda henüz açılmamışsa sistem yöneticisi yapılandırmayı kontrol eder.
+
+**Adet değişikliği engellendi:** Önce açık kullanım taleplerini inceleyin. Teslim edileni iade almadan onun adedini yeniden kullanılabilir saymayın.
+
+Kurmaca hesaplar ve deneme adımları: [TEST_ORTAMI.md](TEST_ORTAMI.md). Veri modeli ve kalan ihtiyaçlar: [GISBIR_SSRP_GAP_ANALIZI.md](GISBIR_SSRP_GAP_ANALIZI.md).

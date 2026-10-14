@@ -5,6 +5,7 @@ import logging
 from asgiref.sync import sync_to_async
 from django.http import StreamingHttpResponse
 from django.db.models import Q
+from django.db import transaction
 from django.utils import timezone
 from redis.exceptions import ConnectionError as RedisConnectionError
 from rest_framework import mixins, permissions, viewsets
@@ -14,6 +15,9 @@ from rest_framework.response import Response
 
 from .models import Notification
 from .serializers import NotificationSerializer, NotificationPreferencesSerializer
+from .permissions import visible_notifications
+from apps.user.models import User
+from apps.tenants.models import Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +39,9 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
     pagination_class = NotificationPagination
 
     def get_queryset(self):
-        return Notification.objects.filter(
-            user=self.request.user, deleted_at__isnull=True
-        ).filter(Q(content__type__isnull=True) | ~Q(content__type__in=["heartbeat", "ping"])).order_by("-created_at", "-pk")
+        return visible_notifications(self.request.user).filter(
+            Q(content__type__isnull=True) | ~Q(content__type__in=["heartbeat", "ping"])
+        ).order_by("-created_at", "-pk")
 
     @action(detail=True, methods=["post"])
     def mark_as_read(self, request, pk=None):
@@ -74,6 +78,45 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response(NotificationPreferencesSerializer(user).data)
 
 
+def stream_user(user_id, tenant_id, session_auth_hash=None):
+    """End live connections after account deactivation or shipyard reassignment."""
+    user = User.objects.select_related("tenant").filter(pk=user_id, is_active=True).first()
+    if user is None or user.tenant_id != tenant_id:
+        return None
+    if session_auth_hash is not None and user.get_session_auth_hash() != session_auth_hash:
+        return None
+    if user.tenant_id is not None and not user.tenant.is_active:
+        return None
+    return user
+
+
+def stream_notification_payload(user, raw_data):
+    """Redis only wakes the stream; private content comes from an authorized row."""
+    try:
+        data = json.loads(raw_data)
+        notification_id = data.get("notification_id")
+    except (ValueError, TypeError, AttributeError):
+        return None
+    if (isinstance(notification_id, bool) or not isinstance(notification_id, int)
+            or not 0 < notification_id < 2**63):
+        return None
+    with transaction.atomic():
+        current = User.objects.select_for_update(no_key=True).filter(pk=user.pk, is_active=True).first()
+        if (current is None or current.tenant_id != user.tenant_id
+                or current.get_session_auth_hash() != user.get_session_auth_hash()):
+            return None
+        if current.tenant_id is not None:
+            tenant = Tenant.objects.select_for_update(no_key=True).get(pk=current.tenant_id)
+            if not tenant.is_active:
+                return None
+            current.tenant = tenant
+        notification = visible_notifications(current).select_for_update().filter(pk=notification_id).first()
+        if notification is None:
+            return None
+        return {**notification.content, "uuid": str(notification.event_id),
+                "created_at": notification.created_at.isoformat(), "notification_id": notification.pk}
+
+
 async def stream_notifications(request):
     """
     Streams notifications to the client using Server-Sent Events.
@@ -83,6 +126,11 @@ async def stream_notifications(request):
     if not is_authenticated:
         return StreamingHttpResponse("Unauthorized", status=401)
     user_uuid = await sync_to_async(lambda: str(request.user.uuid))()
+    user_id, tenant_id, session_auth_hash = await sync_to_async(
+        lambda: (request.user.pk, request.user.tenant_id, request.user.get_session_auth_hash())
+    )()
+    if await sync_to_async(stream_user)(user_id, tenant_id, session_auth_hash) is None:
+        return StreamingHttpResponse("Unauthorized", status=401)
 
     async def event_stream():
         from .utils import get_async_redis_client
@@ -114,10 +162,15 @@ async def stream_notifications(request):
                     ignore_subscribe_messages=True, timeout=15.0
                 )
 
+                user = await sync_to_async(stream_user)(user_id, tenant_id, session_auth_hash)
+                if user is None:
+                    break
+
                 if message:
                     if message["type"] == "message":
-                        data = message["data"].decode("utf-8")
-                        yield f"data: {data}\n\n"
+                        data = await sync_to_async(stream_notification_payload)(user, message["data"])
+                        if data is not None:
+                            yield f"data: {json.dumps(data)}\n\n"
 
                     # Refresh presence on activity
                     await update_presence()

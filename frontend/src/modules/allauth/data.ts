@@ -1,6 +1,8 @@
 import api from '@/api/client';
 import type { AuthResponse, LoginData, SignupData } from './types';
 
+const captchaData = (token?: string) => token ? { captcha_token: token } : {};
+
 export const ALLAUTH_API = {
     reauthenticate: async (password: string) => {
         const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/reauthenticate', { password });
@@ -22,13 +24,13 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    requestLoginCode: async (email: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/code/request', { email });
+    requestLoginCode: async (email: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/code/request', { email, ...captchaData(captchaToken) });
         return res.data;
     },
 
-    confirmLoginCode: async (code: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/code/confirm', { code });
+    confirmLoginCode: async (code: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/code/confirm', { code, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -61,8 +63,8 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    authenticateMFA: async (code: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/2fa/authenticate', { code });
+    authenticateMFA: async (code: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/2fa/authenticate', { code, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -81,13 +83,13 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    requestPasswordReset: async (email: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/request', { email });
+    requestPasswordReset: async (email: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/request', { email, ...captchaData(captchaToken) });
         return res.data;
     },
 
-    resetPassword: async (data: { key: string, password: string }) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/reset', data);
+    resetPassword: async (data: { key: string, password: string }, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/reset', { ...data, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -98,8 +100,8 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    resetPasswordByCode: async (code: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/reset', { key: code });
+    resetPasswordByCode: async (code: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/password/reset', { key: code, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -108,12 +110,12 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    verifyEmail: async (key: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/email/verify', { key });
+    verifyEmail: async (key: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/email/verify', { key, ...captchaData(captchaToken) });
         return res.data;
     },
-    verifyEmailByCode: async (code: string) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/email/verify', { key: code });
+    verifyEmailByCode: async (code: string, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/email/verify', { key: code, ...captchaData(captchaToken) });
         return res.data;
     },
     getEmailVerification: async (key: string) => {
@@ -175,8 +177,8 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    loginUsingWebAuthn: async (credential: any) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/login', { credential });
+    loginUsingWebAuthn: async (credential: any, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/login', { credential, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -195,13 +197,13 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    authenticateWebAuthn: async (credential: any) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/authenticate', { credential });
+    authenticateWebAuthn: async (credential: any, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/authenticate', { credential, ...captchaData(captchaToken) });
         return res.data;
     },
 
-    signupByPasskey: async (data: { email: string }) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/signup', data);
+    signupByPasskey: async (data: { email: string }, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/webauthn/signup', { ...data, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -210,14 +212,14 @@ export const ALLAUTH_API = {
         return res.data;
     },
 
-    signupWebAuthnCredential: async (name: string, credential: any) => {
-        const res = await api.put<AuthResponse>('/_allauth/browser/v1/auth/webauthn/signup', { name, credential });
+    signupWebAuthnCredential: async (name: string, credential: any, captchaToken?: string) => {
+        const res = await api.put<AuthResponse>('/_allauth/browser/v1/auth/webauthn/signup', { name, credential, ...captchaData(captchaToken) });
         return res.data;
     },
 
     // Social Auth
-    providerSignup: async (data: any) => {
-        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/provider/signup', data);
+    providerSignup: async (data: any, captchaToken?: string) => {
+        const res = await api.post<AuthResponse>('/_allauth/browser/v1/auth/provider/signup', { ...data, ...captchaData(captchaToken) });
         return res.data;
     },
 
@@ -234,7 +236,7 @@ export const ALLAUTH_API = {
     },
 
     // Helper for provider redirect (form post)
-    redirectToProvider: (providerId: string, callbackURL: string, process: string = 'login') => {
+    redirectToProvider: (providerId: string, callbackURL: string, process: string = 'login', captchaToken?: string) => {
         const csrfToken = document.cookie
             .split('; ')
             .find((row) => row.startsWith('csrftoken='))
@@ -251,6 +253,8 @@ export const ALLAUTH_API = {
             callback_url: window.location.protocol + '//' + window.location.host + callbackURL,
             process: process,
         };
+
+        if (captchaToken) data['cf-turnstile-response'] = captchaToken;
 
         if (csrfToken) {
             data.csrfmiddlewaretoken = csrfToken;

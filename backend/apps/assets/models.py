@@ -4,7 +4,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from apps.tenants.models import Tenant
 import uuid
 from .catalog_constants import CATEGORIES
-from .validation import MAX_STOCK_QUANTITY, stock_quantity_value
+from .validation import MAX_STOCK_QUANTITY, missing_required_fields, schema_role_key, stock_quantity_from_data
 
 
 class AssetType(models.Model):
@@ -50,6 +50,7 @@ class AssetType(models.Model):
     #   }
     # ]
     schema = models.JSONField(default=list, blank=True)
+    schema_revision = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -62,6 +63,16 @@ class AssetType(models.Model):
 
     class Meta:
         ordering = ['name']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(schema_revision__gte=1), name='asset_type_schema_revision_positive',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.catalog_code:
+            self.catalog_code = f'CAT-{uuid.UUID(str(self.id)).hex.upper()}'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -89,6 +100,15 @@ class Asset(models.Model):
     # Stores the actual values for the dynamic fields defined in AssetType.schema
     # Structure: { "serial_number": "123-ABC", ... }
     custom_data = models.JSONField(default=dict, blank=True)
+    inventory_code = models.CharField(max_length=160, blank=True, default='')
+
+    @property
+    def missing_required_fields(self):
+        return missing_required_fields(self.asset_type.schema, self.custom_data)
+
+    @property
+    def needs_update(self) -> bool:
+        return bool(self.missing_required_fields)
 
     # Sharing is an explicit owner decision, independent of inventory import.
     is_shared = models.BooleanField(default=False)
@@ -125,18 +145,18 @@ class Asset(models.Model):
             return False
         if self.asset_type.tracking_mode == AssetType.TrackingMode.INDIVIDUAL:
             return quantity == 1
-        try:
-            return quantity <= stock_quantity_value(self.custom_data.get('quantity'))
-        except (AttributeError, ValueError):
-            return False
+        stock_quantity = stock_quantity_from_data(self.asset_type.schema, self.custom_data)
+        return stock_quantity is not None and quantity <= stock_quantity
 
     @property
     def sharing_needs_review(self) -> bool:
-        return not self.sharing_quantity_is_valid
+        return self.needs_update or not self.sharing_quantity_is_valid
 
     @property
     def is_listed_for_sharing(self):
-        return self.is_shared and self.tenant.is_active and not self.asset_type.sharing_excluded
+        return (getattr(settings, 'CROSS_TENANT_SHARING_ENABLED', False)
+                and self.is_shared and self.tenant.is_active and not self.asset_type.sharing_excluded
+                and not self.needs_update)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -156,6 +176,12 @@ class Asset(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['tenant', 'asset_type', 'inventory_code'],
+                condition=~models.Q(inventory_code=''), name='asset_tenant_type_inventory_code_unique',
+            ),
+        ]
         indexes = [
             models.Index(fields=['tenant', 'asset_type']),
             models.Index(fields=['is_shared', '-shared_at'], name='asset_shared_listing_idx'),
@@ -163,6 +189,11 @@ class Asset(models.Model):
 
     def __str__(self):
         # Try to find a meaningful identifier from custom_data, fallback to ID
-        name = (self.custom_data.get('material_name') or self.custom_data.get('name')
+        display_key = schema_role_key(self.asset_type.schema, 'display_name')
+        name = (self.custom_data.get(display_key) or self.custom_data.get('material_name') or self.custom_data.get('name')
                 or self.custom_data.get('title') or str(self.id)[:8])
         return f"{self.asset_type.name}: {name}"
+
+
+# Keep the agreement model registered with the existing assets application.
+from .usage_models import SharedUsageRequest  # noqa: E402,F401

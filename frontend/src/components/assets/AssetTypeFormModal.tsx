@@ -33,6 +33,9 @@ import {
     sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { assetsApi } from '@/modules/assets/data'
+import { extractApiError } from '@/utils/errors'
+import { schemaRoleKey } from '@/modules/assets/schema'
 
 import { CatalogMetadataFields } from './CatalogMetadataFields'
 import type { CatalogMetadata, AssetType, AssetTypeCreateInput, SchemaField } from '@/modules/assets'
@@ -52,7 +55,7 @@ import {
 
 type FieldType = SchemaField['type']
 
-type EditableField = SchemaField & { _uid: string }
+type EditableField = SchemaField & { _uid: string; _keyLocked?: boolean }
 
 const FIELD_TYPES: Array<{ id: FieldType; icon: React.ReactNode }> = [
     { id: 'text', icon: <Type size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
@@ -105,7 +108,7 @@ function initialForm(assetType?: AssetType | null): EditableForm {
         category_code: assetType.category_code,
         sharing_class: assetType.sharing_class,
         exclusion_reason: assetType.exclusion_reason,
-        schema: (assetType.schema || []).map((field) => ({ ...field, _uid: makeUid() })),
+        schema: (assetType.schema || []).map((field) => ({ ...field, _uid: makeUid(), _keyLocked: true })),
     }
 }
 
@@ -126,6 +129,9 @@ function AssetTypeFormModalContent({
     const [formData, setFormData] = useState<EditableForm>(() => initialForm(assetType))
     const [expandedUid, setExpandedUid] = useState<string | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
+    const [impact, setImpact] = useState<{ signature: string; affected_asset_count: number; affected_tenant_count: number } | null>(null)
+    const [checkingImpact, setCheckingImpact] = useState(false)
+    const busy = isLoading || checkingImpact
 
     const toPayload = (form: EditableForm): AssetTypeCreateInput => ({
         tracking_mode: form.tracking_mode,
@@ -138,6 +144,7 @@ function AssetTypeFormModalContent({
         schema: form.schema.map((field) => {
             const result = { ...field }
             delete (result as Partial<EditableField>)._uid
+            delete (result as Partial<EditableField>)._keyLocked
             return result
         }),
     })
@@ -154,11 +161,22 @@ function AssetTypeFormModalContent({
     }
 
     const handleSave = async () => {
-        if (isLoading) return
+        if (busy) return
         const err = validate()
         if (err) { setLocalError(err); return }
         setLocalError(null)
-        await onSave(toPayload(formData))
+        const payload = toPayload(formData)
+        const signature = JSON.stringify(payload.schema)
+        if (assetType && signature !== JSON.stringify(assetType.schema) && impact?.signature !== signature) {
+            setCheckingImpact(true)
+            try {
+                setImpact({ ...await assetsApi.schemaImpact(assetType.id, payload.schema), signature })
+            } catch (err) {
+                setLocalError(extractApiError(err, t('dynamicSchema.impactError')))
+            } finally { setCheckingImpact(false) }
+            return
+        }
+        await onSave(payload)
     }
 
     const addField = (type: FieldType) => {
@@ -180,17 +198,17 @@ function AssetTypeFormModalContent({
         setFormData(previous => {
             if (trackingMode === 'individual') return { ...previous, tracking_mode: trackingMode }
             const stockFields: SchemaField[] = [
-                { key: 'material_code', label: t('inventory.materialCode'), type: 'text', required: true, is_unique_key: true },
-                { key: 'material_name', label: t('inventory.materialName'), type: 'text', required: true },
-                { key: 'quantity', label: t('inventory.totalStock'), type: 'number', required: true },
+                { key: 'material_code', label: t('inventory.materialCode'), type: 'text', required: false, is_unique_key: true, role: 'identifier' },
+                { key: 'material_name', label: t('inventory.materialName'), type: 'text', required: false, role: 'display_name' },
+                { key: 'quantity', label: t('inventory.totalStock'), type: 'number', required: false, role: 'quantity' },
             ]
-            const schema = previous.schema.map(field => {
+            const schema: EditableField[] = previous.schema.map(field => {
                 const stockField = stockFields.find(item => item.key === field.key)
-                return stockField ? { ...field, ...stockField, label: field.label || stockField.label }
+                return stockField ? { ...stockField, ...field, role: field.role ?? stockField.role, label: field.label || stockField.label }
                     : { ...field, is_unique_key: false }
             })
             stockFields.forEach(field => {
-                if (!schema.some(item => item.key === field.key)) schema.push({ ...field, _uid: makeUid() })
+                if (!schema.some(item => item.key === field.key || item.role === field.role)) schema.push({ ...field, _uid: makeUid(), _keyLocked: true })
             })
             return { ...previous, tracking_mode: trackingMode, schema }
         })
@@ -236,16 +254,16 @@ function AssetTypeFormModalContent({
     return (
         <Modal
             isOpen={isOpen}
-            closeDisabled={isLoading}
+            closeDisabled={busy}
             onClose={onClose}
             size="xl"
             title={assetType ? t('assetTypes.editType') : t('assetTypes.createType')}
             footer={
                 <FormFooter
-                    loading={isLoading}
+                    loading={busy}
                     onPrimary={handleSave}
                     onCancel={onClose}
-                    primaryLabel={assetType ? t('common.save') : t('common.create')}
+                    primaryLabel={assetType ? impact?.signature === JSON.stringify(toPayload(formData).schema) ? t('dynamicSchema.applyChanges') : t('common.save') : t('common.create')}
                     icon={null}
                     leading={
                         <span className="text-xs">
@@ -255,7 +273,8 @@ function AssetTypeFormModalContent({
                 />
             }
         >
-            <fieldset disabled={isLoading} className="min-w-0 space-y-6">
+            <fieldset disabled={busy} className="min-w-0 space-y-6">
+                <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('dynamicSchema.intro')}</p>
                 {displayError && (
                     <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
                         {displayError}
@@ -301,6 +320,7 @@ function AssetTypeFormModalContent({
                     description={t('assetTypes.builder.fieldsHelp')}
                     actions={<AddFieldPicker onPick={addField} />}
                 >
+                    <p className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('dynamicSchema.optionalHelp')}</p>
                     {formData.schema.length === 0 ? (
                         <EmptyState
                             icon={<Type size={32} />}
@@ -326,7 +346,8 @@ function AssetTypeFormModalContent({
                                             onUpdate={(updates) => updateField(field._uid, updates)}
                                             onRemove={() => removeField(field._uid)}
                                             hasOtherUniqueKey={!!uniqueKeyUid && uniqueKeyUid !== field._uid}
-                                            stockField={formData.tracking_mode === 'stock' && ['material_code', 'material_name', 'quantity'].includes(field.key)}
+                                            rolesInUse={formData.schema.filter(item => item._uid !== field._uid).flatMap(item => item.role ? [item.role] : [])}
+                                            effectiveRole={Object.hasOwn(field, 'role') ? field.role ?? null : (['identifier', 'display_name', 'quantity'] as const).find(role => schemaRoleKey(formData.schema, role) === field.key) ?? null}
                                         />
                                     ))}
                                 </SortableContext>
@@ -338,6 +359,11 @@ function AssetTypeFormModalContent({
                         </div>
                     )}
                 </FormSection>
+                {impact?.signature === JSON.stringify(toPayload(formData).schema) && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                    <p className="font-semibold">{t('dynamicSchema.impactTitle')}</p>
+                    <p>{t('dynamicSchema.impact', { count: impact.affected_asset_count, tenants: impact.affected_tenant_count })}</p>
+                    <p className="mt-1 text-xs">{t('dynamicSchema.impactHelp')}</p>
+                </div>}
             </fieldset>
         </Modal>
     )
@@ -424,7 +450,8 @@ function FieldRow({
     onUpdate,
     onRemove,
     hasOtherUniqueKey,
-    stockField = false,
+    rolesInUse,
+    effectiveRole,
 }: {
     field: EditableField
     isExpanded: boolean
@@ -432,7 +459,8 @@ function FieldRow({
     onUpdate: (updates: Partial<SchemaField>) => void
     onRemove: () => void
     hasOtherUniqueKey: boolean
-    stockField?: boolean
+    rolesInUse: NonNullable<SchemaField['role']>[]
+    effectiveRole: SchemaField['role']
 }) {
     const { t } = useTranslation()
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -447,7 +475,7 @@ function FieldRow({
     }
 
     const handleLabelChange = (label: string) => {
-        const key = stockField ? field.key : slugify(label) || `field_${field._uid.slice(0, 6)}`
+        const key = field._keyLocked ? field.key : slugify(label) || `field_${field._uid.slice(0, 6)}`
         onUpdate({ label, key })
     }
 
@@ -492,7 +520,6 @@ function FieldRow({
                 <button
                     type="button"
                     onClick={onRemove}
-                    disabled={stockField}
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
                     title={t('common.delete')}
                 >
@@ -514,7 +541,7 @@ function FieldRow({
                         <FormField
                             label={t('assetTypes.fieldName')}
                             required
-                            help={field.key ? t('assetTypes.keyLabel', { key: field.key }) : undefined}
+                            help={field._keyLocked ? t('dynamicSchema.stableKeyHelp') : undefined}
                         >
                             <input
                                 value={field.label}
@@ -526,8 +553,7 @@ function FieldRow({
                         <FormField label={t('assetTypes.fieldTypeLabel')}>
                             <select
                                 value={field.type}
-                                disabled={stockField}
-                                onChange={(e) => onUpdate({ type: e.target.value as FieldType })}
+                                onChange={(e) => onUpdate({ type: e.target.value as FieldType, ...(e.target.value !== 'number' && effectiveRole === 'quantity' ? { role: null } : {}) })}
                                 className={formControlClass}
                             >
                                 {FIELD_TYPES.map(({ id }) => (
@@ -548,41 +574,24 @@ function FieldRow({
                         </FormField>
                     )}
 
+                    <FormField label={t('dynamicSchema.role')} help={t('dynamicSchema.roleHelp')}>
+                        <select className={formControlClass} value={effectiveRole ?? ''} onChange={event => onUpdate({ role: (event.target.value || null) as SchemaField['role'], ...(event.target.value === 'identifier' ? { is_unique_key: true } : effectiveRole === 'identifier' ? { is_unique_key: false } : {}) })}>
+                            <option value="">{t('dynamicSchema.roles.none')}</option>
+                            {(['identifier', 'display_name', 'quantity'] as const).map(role => <option key={role} value={role} disabled={rolesInUse.includes(role) || (role === 'quantity' && field.type !== 'number') || (role === 'identifier' && hasOtherUniqueKey && !field.is_unique_key)}>{t(`dynamicSchema.roles.${role}`)}</option>)}
+                        </select>
+                    </FormField>
+
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <Toggle
                                 checked={field.required || false}
-                                disabled={stockField}
                                 onChange={(v) => onUpdate({ required: v })}
                             />
                             <span className="text-sm text-slate-600 dark:text-slate-300">
                                 {t('assetTypes.requiredField')}
                             </span>
                         </label>
-                        <div>
-                            <label
-                                className={cn(
-                                    'flex items-center gap-2',
-                                    hasOtherUniqueKey && !field.is_unique_key
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'cursor-pointer',
-                                )}
-                            >
-                                <Toggle
-                                    checked={field.is_unique_key || false}
-                                    disabled={stockField || (hasOtherUniqueKey && !field.is_unique_key)}
-                                    onChange={(v) => onUpdate({ is_unique_key: v })}
-                                    tone="amber"
-                                />
-                                <span className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-300">
-                                    <KeyRound size={13} className="text-amber-500" />
-                                    {t('assetTypes.uniqueIndexField')}
-                                </span>
-                            </label>
-                            {hasOtherUniqueKey && !field.is_unique_key && (
-                                <p className="text-xs text-slate-400 mt-1">{t('assetTypes.uniqueIndexDisabled')}</p>
-                            )}
-                        </div>
+
                     </div>
                 </div>
             )}

@@ -44,7 +44,7 @@ async function mockInventory(page: Page, initialAssets: Asset[], assetTypes = [f
         status: 200, meta: { is_authenticated: true }, data: route.request().url().endsWith('/config') ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'pagination-test', email: 'pagination@example.test', role: 'platform_admin', tenant_slug: 'example-yard', tenant_name: 'Example Yard' }, methods: [],
+            user: { id: '1', username: 'pagination-test', email: 'pagination@example.test', role: 'platform_admin', is_superuser: true, tenant_id: null, tenant_slug: null }, methods: [],
         },
     } }))
     await page.route(url => url.pathname.startsWith('/api/'), async route => {

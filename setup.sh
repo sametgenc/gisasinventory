@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # ============================================================
 #  LearnWithAI / GisasInventory - Setup Script
@@ -99,19 +100,31 @@ DB_USER="${DB_USER:-learnwithai_user}"
 read -rp "PostgreSQL password [auto-generate]: " DB_PASSWORD
 if [[ -z "$DB_PASSWORD" ]]; then
     DB_PASSWORD=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-    info "Generated DB password: $DB_PASSWORD"
+    info "Generated DB password; it will be stored in protected environment files."
 fi
 
 DJANGO_SECRET_KEY=$(openssl rand -base64 50 | tr -dc 'a-zA-Z0-9' | head -c 50)
 info "Generated Django secret key"
 
 LETS_ENCRYPT_EMAIL=""
+TURNSTILE_SITE_KEY=""
+TURNSTILE_SECRET_KEY=""
 if [[ "$MODE" == "prod" ]]; then
     echo ""
     read -rp "Let's Encrypt email (for SSL certificates): " LETS_ENCRYPT_EMAIL
     while [[ -z "$LETS_ENCRYPT_EMAIL" ]]; do
         warn "Email is required for Let's Encrypt SSL."
         read -rp "Let's Encrypt email: " LETS_ENCRYPT_EMAIL
+    done
+    read -rp "Cloudflare Turnstile site key (required): " TURNSTILE_SITE_KEY
+    while [[ -z "$TURNSTILE_SITE_KEY" ]]; do
+        read -rp "Cloudflare Turnstile site key (required): " TURNSTILE_SITE_KEY
+    done
+    read -rsp "Cloudflare Turnstile secret key (required): " TURNSTILE_SECRET_KEY
+    echo ""
+    while [[ -z "$TURNSTILE_SECRET_KEY" ]]; do
+        read -rsp "Cloudflare Turnstile secret key (required): " TURNSTILE_SECRET_KEY
+        echo ""
     done
 fi
 
@@ -159,6 +172,8 @@ DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
 DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
 DJANGO_DEBUG=True
 DOMAIN=${DOMAIN}
+TURNSTILE_ENABLED=false
+CROSS_TENANT_SHARING_ENABLED=false
 
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=mailpit
@@ -174,6 +189,14 @@ DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
 DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
 DJANGO_DEBUG=False
 DOMAIN=${DOMAIN}
+TURNSTILE_ENABLED=true
+TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}
+TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+TURNSTILE_ALLOWED_HOSTNAMES=${DOMAIN}
+CROSS_TENANT_SHARING_ENABLED=false
+AUDIT_SIEM_ENABLED=false
+AUDIT_SIEM_URL=
+AUDIT_SIEM_TOKEN=
 
 EMAIL_BACKEND=apps.settings.email_backend.DatabaseEmailBackend
 EMAIL_HOST=

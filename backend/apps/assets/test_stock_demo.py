@@ -3,11 +3,13 @@
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import skipUnless
 from unittest.mock import patch
 
 import openpyxl
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
 from django.test import TestCase, override_settings
 
 from apps.assets.management.commands.seed_stock_sample import (
@@ -75,6 +77,7 @@ class StockSampleDemoTests(TestCase):
             self.seed()
         self.assert_no_sample_data()
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_synthetic_export_creates_private_stock_lines_without_exploding_pieces(self):
         rows = self.write_export()
         original_bytes = self.path.read_bytes()
@@ -107,6 +110,7 @@ class StockSampleDemoTests(TestCase):
         self.assertEqual(self.path.read_bytes(), original_bytes)
         self.assertEqual(User.objects.count(), 1)
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_rerun_preserves_manual_edits_and_sharing_choices(self):
         rows = self.write_export()
         self.seed()
@@ -128,6 +132,7 @@ class StockSampleDemoTests(TestCase):
         self.assertTrue(item.is_shared)
         self.assertEqual(item.sharing_note, "Sahibinin paylaşım kararı")
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_explicit_synthetic_tenant_slug_reuses_records_and_preserves_manual_quantity(self):
         rows = self.write_export()
         tenant_slug = "synthetic-existing-stock"
@@ -151,6 +156,7 @@ class StockSampleDemoTests(TestCase):
         self.assertEqual(AssetType.objects.count(), 1)
         self.assertFalse(User.objects.exists())
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_slug_only_rerun_preserves_manually_renamed_tenant_and_stock(self):
         rows = self.write_export()
         tenant_slug = "synthetic-legacy-stock"
@@ -176,6 +182,7 @@ class StockSampleDemoTests(TestCase):
         self.assertEqual(AssetType.objects.count(), 1)
         self.assertFalse(User.objects.exists())
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_repeated_explicit_unmarked_tenant_name_preserves_stock(self):
         rows = self.write_export()
         options = {"tenant_slug": "synthetic-unmarked-stock", "tenant_name": "Sentetik Stok Tersanesi"}
@@ -267,6 +274,7 @@ class StockSampleDemoTests(TestCase):
         asset.refresh_from_db()
         self.assertEqual(asset.custom_data, {"notes": "Mevcut kayıt"})
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_existing_sample_tenant_and_type_do_not_create_accounts(self):
         self.write_export()
         self.seed()

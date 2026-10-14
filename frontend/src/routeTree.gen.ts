@@ -9,72 +9,63 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SecuredRouteRouteImport } from './routes/_secured/route'
-import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as SecuredSharedEquipmentRouteImport } from './routes/_secured/shared-equipment'
-import { Route as SecuredNotificationsRouteImport } from './routes/_secured/notifications'
-import { Route as SecuredHelpRouteImport } from './routes/_secured/help'
-import { Route as SecuredDashboardRouteImport } from './routes/_secured/dashboard'
-import { Route as SecuredTenantRouteRouteImport } from './routes/_secured/tenant/route'
-import { Route as SecuredPlatformRouteRouteImport } from './routes/_secured/platform/route'
+import { Route as AuthRouteRouteImport } from './routes/_auth/route'
+import { Route as SecuredRouteRouteImport } from './routes/_secured/route'
 import { Route as SecuredAssetsRouteRouteImport } from './routes/_secured/assets/route'
-import { Route as SecuredAssetsIndexRouteImport } from './routes/_secured/assets/index'
-import { Route as AuthRegisterIndexRouteImport } from './routes/_auth/register/index'
-import { Route as AuthLoginIndexRouteImport } from './routes/_auth/login/index'
-import { Route as SecuredTenantUsersRouteImport } from './routes/_secured/tenant/users'
-import { Route as SecuredPlatformUsersRouteImport } from './routes/_secured/platform/users'
-import { Route as SecuredPlatformTenantsRouteImport } from './routes/_secured/platform/tenants'
-import { Route as SecuredPlatformSettingsRouteImport } from './routes/_secured/platform/settings'
-import { Route as SecuredAssetsTypesRouteImport } from './routes/_secured/assets/types'
-import { Route as SecuredAccountTotpSetupRouteImport } from './routes/_secured/account/totp-setup'
-import { Route as SecuredAccountPasswordRouteImport } from './routes/_secured/account/password'
-import { Route as SecuredAccountEmailRouteImport } from './routes/_secured/account/email'
-import { Route as SecuredAccountAuthenticatorsRouteImport } from './routes/_secured/account/authenticators'
-import { Route as AuthAuthReauthenticateRouteImport } from './routes/_auth/auth/reauthenticate'
+import { Route as SecuredDashboardRouteImport } from './routes/_secured/dashboard'
+import { Route as SecuredHelpRouteImport } from './routes/_secured/help'
+import { Route as SecuredNotificationsRouteImport } from './routes/_secured/notifications'
+import { Route as SecuredPlatformRouteRouteImport } from './routes/_secured/platform/route'
+import { Route as SecuredSharedEquipmentRouteImport } from './routes/_secured/shared-equipment'
+import { Route as SecuredSharedUsageRouteImport } from './routes/_secured/shared-usage'
+import { Route as SecuredTenantRouteRouteImport } from './routes/_secured/tenant/route'
 import { Route as AuthAccountProvidersRouteImport } from './routes/_auth/account/providers'
-import { Route as SecuredPlatformTenantsIndexRouteImport } from './routes/_secured/platform/tenants.index'
-import { Route as AuthRegisterPasskeyIndexRouteImport } from './routes/_auth/register/passkey/index'
-import { Route as AuthLoginCodeIndexRouteImport } from './routes/_auth/login/code/index'
-import { Route as SecuredPlatformTenantsSlugRouteImport } from './routes/_secured/platform/tenants.$slug'
-import { Route as AuthRegisterPasskeyCreateRouteImport } from './routes/_auth/register/passkey/create'
-import { Route as AuthLoginCodeConfirmRouteImport } from './routes/_auth/login/code/confirm'
-import { Route as AuthAuthPasswordResetRouteImport } from './routes/_auth/auth/password/reset'
-import { Route as AuthAuthPasswordRequestRouteImport } from './routes/_auth/auth/password/request'
-import { Route as AuthAuthMfaRecoveryCodesRouteImport } from './routes/_auth/auth/mfa/recovery-codes'
-import { Route as AuthAuthMfaAuthenticateRouteImport } from './routes/_auth/auth/mfa/authenticate'
-import { Route as AuthAuthEmailVerifyRouteImport } from './routes/_auth/auth/email/verify'
-import { Route as AuthAccountProviderSignupRouteImport } from './routes/_auth/account/provider/signup'
+import { Route as AuthAuthReauthenticateRouteImport } from './routes/_auth/auth/reauthenticate'
+import { Route as AuthLoginIndexRouteImport } from './routes/_auth/login/index'
+import { Route as AuthRegisterIndexRouteImport } from './routes/_auth/register/index'
+import { Route as SecuredAccountAuthenticatorsRouteImport } from './routes/_secured/account/authenticators'
+import { Route as SecuredAccountEmailRouteImport } from './routes/_secured/account/email'
+import { Route as SecuredAccountPasswordRouteImport } from './routes/_secured/account/password'
+import { Route as SecuredAccountTotpSetupRouteImport } from './routes/_secured/account/totp-setup'
+import { Route as SecuredAssetsIndexRouteImport } from './routes/_secured/assets/index'
+import { Route as SecuredAssetsTypesRouteImport } from './routes/_secured/assets/types'
+import { Route as SecuredPlatformSettingsRouteImport } from './routes/_secured/platform/settings'
+import { Route as SecuredPlatformTenantsRouteImport } from './routes/_secured/platform/tenants'
+import { Route as SecuredPlatformUsersRouteImport } from './routes/_secured/platform/users'
+import { Route as SecuredTenantUsersRouteImport } from './routes/_secured/tenant/users'
 import { Route as AuthAccountProviderCallbackRouteImport } from './routes/_auth/account/provider/callback'
-import { Route as AuthAuthPasswordConfirmKeyRouteImport } from './routes/_auth/auth/password/confirm.$key'
+import { Route as AuthAccountProviderSignupRouteImport } from './routes/_auth/account/provider/signup'
+import { Route as AuthAuthEmailVerifyRouteImport } from './routes/_auth/auth/email/verify'
+import { Route as AuthAuthMfaAuthenticateRouteImport } from './routes/_auth/auth/mfa/authenticate'
+import { Route as AuthAuthMfaRecoveryCodesRouteImport } from './routes/_auth/auth/mfa/recovery-codes'
+import { Route as AuthAuthPasswordRequestRouteImport } from './routes/_auth/auth/password/request'
+import { Route as AuthAuthPasswordResetRouteImport } from './routes/_auth/auth/password/reset'
+import { Route as AuthLoginCodeIndexRouteImport } from './routes/_auth/login/code/index'
+import { Route as AuthLoginCodeConfirmRouteImport } from './routes/_auth/login/code/confirm'
+import { Route as AuthRegisterPasskeyIndexRouteImport } from './routes/_auth/register/passkey/index'
+import { Route as AuthRegisterPasskeyCreateRouteImport } from './routes/_auth/register/passkey/create'
+import { Route as SecuredPlatformTenantsIndexRouteImport } from './routes/_secured/platform/tenants.index'
+import { Route as SecuredPlatformTenantsSlugRouteImport } from './routes/_secured/platform/tenants.$slug'
 import { Route as AuthAuthEmailConfirmKeyRouteImport } from './routes/_auth/auth/email/confirm.$key'
+import { Route as AuthAuthPasswordConfirmKeyRouteImport } from './routes/_auth/auth/password/confirm.$key'
 
-const SecuredRouteRoute = SecuredRouteRouteImport.update({
-  id: '/_secured',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SecuredRouteRoute = SecuredRouteRouteImport.update({
+  id: '/_secured',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SecuredSharedEquipmentRoute = SecuredSharedEquipmentRouteImport.update({
-  id: '/shared-equipment',
-  path: '/shared-equipment',
-  getParentRoute: () => SecuredRouteRoute,
-} as any)
-const SecuredNotificationsRoute = SecuredNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => SecuredRouteRoute,
-} as any)
-const SecuredHelpRoute = SecuredHelpRouteImport.update({
-  id: '/help',
-  path: '/help',
+const SecuredAssetsRouteRoute = SecuredAssetsRouteRouteImport.update({
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
 const SecuredDashboardRoute = SecuredDashboardRouteImport.update({
@@ -82,9 +73,14 @@ const SecuredDashboardRoute = SecuredDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
-const SecuredTenantRouteRoute = SecuredTenantRouteRouteImport.update({
-  id: '/tenant',
-  path: '/tenant',
+const SecuredHelpRoute = SecuredHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => SecuredRouteRoute,
+} as any)
+const SecuredNotificationsRoute = SecuredNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
 const SecuredPlatformRouteRoute = SecuredPlatformRouteRouteImport.update({
@@ -92,19 +88,29 @@ const SecuredPlatformRouteRoute = SecuredPlatformRouteRouteImport.update({
   path: '/platform',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
-const SecuredAssetsRouteRoute = SecuredAssetsRouteRouteImport.update({
-  id: '/assets',
-  path: '/assets',
+const SecuredSharedEquipmentRoute = SecuredSharedEquipmentRouteImport.update({
+  id: '/shared-equipment',
+  path: '/shared-equipment',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
-const SecuredAssetsIndexRoute = SecuredAssetsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SecuredAssetsRouteRoute,
+const SecuredSharedUsageRoute = SecuredSharedUsageRouteImport.update({
+  id: '/shared-usage',
+  path: '/shared-usage',
+  getParentRoute: () => SecuredRouteRoute,
 } as any)
-const AuthRegisterIndexRoute = AuthRegisterIndexRouteImport.update({
-  id: '/register/',
-  path: '/register/',
+const SecuredTenantRouteRoute = SecuredTenantRouteRouteImport.update({
+  id: '/tenant',
+  path: '/tenant',
+  getParentRoute: () => SecuredRouteRoute,
+} as any)
+const AuthAccountProvidersRoute = AuthAccountProvidersRouteImport.update({
+  id: '/account/providers',
+  path: '/account/providers',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthAuthReauthenticateRoute = AuthAuthReauthenticateRouteImport.update({
+  id: '/auth/reauthenticate',
+  path: '/auth/reauthenticate',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
@@ -112,45 +118,10 @@ const AuthLoginIndexRoute = AuthLoginIndexRouteImport.update({
   path: '/login/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const SecuredTenantUsersRoute = SecuredTenantUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => SecuredTenantRouteRoute,
-} as any)
-const SecuredPlatformUsersRoute = SecuredPlatformUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => SecuredPlatformRouteRoute,
-} as any)
-const SecuredPlatformTenantsRoute = SecuredPlatformTenantsRouteImport.update({
-  id: '/tenants',
-  path: '/tenants',
-  getParentRoute: () => SecuredPlatformRouteRoute,
-} as any)
-const SecuredPlatformSettingsRoute = SecuredPlatformSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => SecuredPlatformRouteRoute,
-} as any)
-const SecuredAssetsTypesRoute = SecuredAssetsTypesRouteImport.update({
-  id: '/types',
-  path: '/types',
-  getParentRoute: () => SecuredAssetsRouteRoute,
-} as any)
-const SecuredAccountTotpSetupRoute = SecuredAccountTotpSetupRouteImport.update({
-  id: '/account/totp-setup',
-  path: '/account/totp-setup',
-  getParentRoute: () => SecuredRouteRoute,
-} as any)
-const SecuredAccountPasswordRoute = SecuredAccountPasswordRouteImport.update({
-  id: '/account/password',
-  path: '/account/password',
-  getParentRoute: () => SecuredRouteRoute,
-} as any)
-const SecuredAccountEmailRoute = SecuredAccountEmailRouteImport.update({
-  id: '/account/email',
-  path: '/account/email',
-  getParentRoute: () => SecuredRouteRoute,
+const AuthRegisterIndexRoute = AuthRegisterIndexRouteImport.update({
+  id: '/register/',
+  path: '/register/',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const SecuredAccountAuthenticatorsRoute =
   SecuredAccountAuthenticatorsRouteImport.update({
@@ -158,58 +129,71 @@ const SecuredAccountAuthenticatorsRoute =
     path: '/account/authenticators',
     getParentRoute: () => SecuredRouteRoute,
   } as any)
-const AuthAuthReauthenticateRoute = AuthAuthReauthenticateRouteImport.update({
-  id: '/auth/reauthenticate',
-  path: '/auth/reauthenticate',
-  getParentRoute: () => AuthRouteRoute,
+const SecuredAccountEmailRoute = SecuredAccountEmailRouteImport.update({
+  id: '/account/email',
+  path: '/account/email',
+  getParentRoute: () => SecuredRouteRoute,
 } as any)
-const AuthAccountProvidersRoute = AuthAccountProvidersRouteImport.update({
-  id: '/account/providers',
-  path: '/account/providers',
-  getParentRoute: () => AuthRouteRoute,
+const SecuredAccountPasswordRoute = SecuredAccountPasswordRouteImport.update({
+  id: '/account/password',
+  path: '/account/password',
+  getParentRoute: () => SecuredRouteRoute,
 } as any)
-const SecuredPlatformTenantsIndexRoute =
-  SecuredPlatformTenantsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => SecuredPlatformTenantsRoute,
-  } as any)
-const AuthRegisterPasskeyIndexRoute =
-  AuthRegisterPasskeyIndexRouteImport.update({
-    id: '/register/passkey/',
-    path: '/register/passkey/',
+const SecuredAccountTotpSetupRoute = SecuredAccountTotpSetupRouteImport.update({
+  id: '/account/totp-setup',
+  path: '/account/totp-setup',
+  getParentRoute: () => SecuredRouteRoute,
+} as any)
+const SecuredAssetsIndexRoute = SecuredAssetsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SecuredAssetsRouteRoute,
+} as any)
+const SecuredAssetsTypesRoute = SecuredAssetsTypesRouteImport.update({
+  id: '/types',
+  path: '/types',
+  getParentRoute: () => SecuredAssetsRouteRoute,
+} as any)
+const SecuredPlatformSettingsRoute = SecuredPlatformSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => SecuredPlatformRouteRoute,
+} as any)
+const SecuredPlatformTenantsRoute = SecuredPlatformTenantsRouteImport.update({
+  id: '/tenants',
+  path: '/tenants',
+  getParentRoute: () => SecuredPlatformRouteRoute,
+} as any)
+const SecuredPlatformUsersRoute = SecuredPlatformUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => SecuredPlatformRouteRoute,
+} as any)
+const SecuredTenantUsersRoute = SecuredTenantUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => SecuredTenantRouteRoute,
+} as any)
+const AuthAccountProviderCallbackRoute =
+  AuthAccountProviderCallbackRouteImport.update({
+    id: '/account/provider/callback',
+    path: '/account/provider/callback',
     getParentRoute: () => AuthRouteRoute,
   } as any)
-const AuthLoginCodeIndexRoute = AuthLoginCodeIndexRouteImport.update({
-  id: '/login/code/',
-  path: '/login/code/',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const SecuredPlatformTenantsSlugRoute =
-  SecuredPlatformTenantsSlugRouteImport.update({
-    id: '/$slug',
-    path: '/$slug',
-    getParentRoute: () => SecuredPlatformTenantsRoute,
-  } as any)
-const AuthRegisterPasskeyCreateRoute =
-  AuthRegisterPasskeyCreateRouteImport.update({
-    id: '/register/passkey/create',
-    path: '/register/passkey/create',
+const AuthAccountProviderSignupRoute =
+  AuthAccountProviderSignupRouteImport.update({
+    id: '/account/provider/signup',
+    path: '/account/provider/signup',
     getParentRoute: () => AuthRouteRoute,
   } as any)
-const AuthLoginCodeConfirmRoute = AuthLoginCodeConfirmRouteImport.update({
-  id: '/login/code/confirm',
-  path: '/login/code/confirm',
+const AuthAuthEmailVerifyRoute = AuthAuthEmailVerifyRouteImport.update({
+  id: '/auth/email/verify',
+  path: '/auth/email/verify',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthAuthPasswordResetRoute = AuthAuthPasswordResetRouteImport.update({
-  id: '/auth/password/reset',
-  path: '/auth/password/reset',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthAuthPasswordRequestRoute = AuthAuthPasswordRequestRouteImport.update({
-  id: '/auth/password/request',
-  path: '/auth/password/request',
+const AuthAuthMfaAuthenticateRoute = AuthAuthMfaAuthenticateRouteImport.update({
+  id: '/auth/mfa/authenticate',
+  path: '/auth/mfa/authenticate',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthAuthMfaRecoveryCodesRoute =
@@ -218,39 +202,61 @@ const AuthAuthMfaRecoveryCodesRoute =
     path: '/auth/mfa/recovery-codes',
     getParentRoute: () => AuthRouteRoute,
   } as any)
-const AuthAuthMfaAuthenticateRoute = AuthAuthMfaAuthenticateRouteImport.update({
-  id: '/auth/mfa/authenticate',
-  path: '/auth/mfa/authenticate',
+const AuthAuthPasswordRequestRoute = AuthAuthPasswordRequestRouteImport.update({
+  id: '/auth/password/request',
+  path: '/auth/password/request',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthAuthEmailVerifyRoute = AuthAuthEmailVerifyRouteImport.update({
-  id: '/auth/email/verify',
-  path: '/auth/email/verify',
+const AuthAuthPasswordResetRoute = AuthAuthPasswordResetRouteImport.update({
+  id: '/auth/password/reset',
+  path: '/auth/password/reset',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthAccountProviderSignupRoute =
-  AuthAccountProviderSignupRouteImport.update({
-    id: '/account/provider/signup',
-    path: '/account/provider/signup',
+const AuthLoginCodeIndexRoute = AuthLoginCodeIndexRouteImport.update({
+  id: '/login/code/',
+  path: '/login/code/',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthLoginCodeConfirmRoute = AuthLoginCodeConfirmRouteImport.update({
+  id: '/login/code/confirm',
+  path: '/login/code/confirm',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthRegisterPasskeyIndexRoute =
+  AuthRegisterPasskeyIndexRouteImport.update({
+    id: '/register/passkey/',
+    path: '/register/passkey/',
     getParentRoute: () => AuthRouteRoute,
   } as any)
-const AuthAccountProviderCallbackRoute =
-  AuthAccountProviderCallbackRouteImport.update({
-    id: '/account/provider/callback',
-    path: '/account/provider/callback',
+const AuthRegisterPasskeyCreateRoute =
+  AuthRegisterPasskeyCreateRouteImport.update({
+    id: '/register/passkey/create',
+    path: '/register/passkey/create',
     getParentRoute: () => AuthRouteRoute,
   } as any)
-const AuthAuthPasswordConfirmKeyRoute =
-  AuthAuthPasswordConfirmKeyRouteImport.update({
-    id: '/auth/password/confirm/$key',
-    path: '/auth/password/confirm/$key',
-    getParentRoute: () => AuthRouteRoute,
+const SecuredPlatformTenantsIndexRoute =
+  SecuredPlatformTenantsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => SecuredPlatformTenantsRoute,
+  } as any)
+const SecuredPlatformTenantsSlugRoute =
+  SecuredPlatformTenantsSlugRouteImport.update({
+    id: '/$slug',
+    path: '/$slug',
+    getParentRoute: () => SecuredPlatformTenantsRoute,
   } as any)
 const AuthAuthEmailConfirmKeyRoute = AuthAuthEmailConfirmKeyRouteImport.update({
   id: '/auth/email/confirm/$key',
   path: '/auth/email/confirm/$key',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthAuthPasswordConfirmKeyRoute =
+  AuthAuthPasswordConfirmKeyRouteImport.update({
+    id: '/auth/password/confirm/$key',
+    path: '/auth/password/confirm/$key',
+    getParentRoute: () => AuthRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
   '/shared-equipment': typeof SecuredSharedEquipmentRoute
+  '/shared-usage': typeof SecuredSharedUsageRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -272,8 +279,8 @@ export interface FileRoutesByFullPath {
   '/platform/tenants': typeof SecuredPlatformTenantsRouteWithChildren
   '/platform/users': typeof SecuredPlatformUsersRoute
   '/tenant/users': typeof SecuredTenantUsersRoute
-  '/login': typeof AuthLoginIndexRoute
-  '/register': typeof AuthRegisterIndexRoute
+  '/login/': typeof AuthLoginIndexRoute
+  '/register/': typeof AuthRegisterIndexRoute
   '/assets/': typeof SecuredAssetsIndexRoute
   '/account/provider/callback': typeof AuthAccountProviderCallbackRoute
   '/account/provider/signup': typeof AuthAccountProviderSignupRoute
@@ -285,8 +292,8 @@ export interface FileRoutesByFullPath {
   '/login/code/confirm': typeof AuthLoginCodeConfirmRoute
   '/register/passkey/create': typeof AuthRegisterPasskeyCreateRoute
   '/platform/tenants/$slug': typeof SecuredPlatformTenantsSlugRoute
-  '/login/code': typeof AuthLoginCodeIndexRoute
-  '/register/passkey': typeof AuthRegisterPasskeyIndexRoute
+  '/login/code/': typeof AuthLoginCodeIndexRoute
+  '/register/passkey/': typeof AuthRegisterPasskeyIndexRoute
   '/platform/tenants/': typeof SecuredPlatformTenantsIndexRoute
   '/auth/email/confirm/$key': typeof AuthAuthEmailConfirmKeyRoute
   '/auth/password/confirm/$key': typeof AuthAuthPasswordConfirmKeyRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
   '/shared-equipment': typeof SecuredSharedEquipmentRoute
+  '/shared-usage': typeof SecuredSharedUsageRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/_secured/help': typeof SecuredHelpRoute
   '/_secured/notifications': typeof SecuredNotificationsRoute
   '/_secured/shared-equipment': typeof SecuredSharedEquipmentRoute
+  '/_secured/shared-usage': typeof SecuredSharedUsageRoute
   '/_auth/account/providers': typeof AuthAccountProvidersRoute
   '/_auth/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/_secured/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/notifications'
     | '/shared-equipment'
+    | '/shared-usage'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -392,8 +402,8 @@ export interface FileRouteTypes {
     | '/platform/tenants'
     | '/platform/users'
     | '/tenant/users'
-    | '/login'
-    | '/register'
+    | '/login/'
+    | '/register/'
     | '/assets/'
     | '/account/provider/callback'
     | '/account/provider/signup'
@@ -405,8 +415,8 @@ export interface FileRouteTypes {
     | '/login/code/confirm'
     | '/register/passkey/create'
     | '/platform/tenants/$slug'
-    | '/login/code'
-    | '/register/passkey'
+    | '/login/code/'
+    | '/register/passkey/'
     | '/platform/tenants/'
     | '/auth/email/confirm/$key'
     | '/auth/password/confirm/$key'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/help'
     | '/notifications'
     | '/shared-equipment'
+    | '/shared-usage'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/_secured/help'
     | '/_secured/notifications'
     | '/_secured/shared-equipment'
+    | '/_secured/shared-usage'
     | '/_auth/account/providers'
     | '/_auth/auth/reauthenticate'
     | '/_secured/account/authenticators'
@@ -498,20 +510,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_secured': {
-      id: '/_secured'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof SecuredRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_auth': {
-      id: '/_auth'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof AuthRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -519,25 +517,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_secured/shared-equipment': {
-      id: '/_secured/shared-equipment'
-      path: '/shared-equipment'
-      fullPath: '/shared-equipment'
-      preLoaderRoute: typeof SecuredSharedEquipmentRouteImport
-      parentRoute: typeof SecuredRouteRoute
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_secured/notifications': {
-      id: '/_secured/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof SecuredNotificationsRouteImport
-      parentRoute: typeof SecuredRouteRoute
+    '/_secured': {
+      id: '/_secured'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof SecuredRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_secured/help': {
-      id: '/_secured/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof SecuredHelpRouteImport
+    '/_secured/assets': {
+      id: '/_secured/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof SecuredAssetsRouteRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/dashboard': {
@@ -547,11 +545,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecuredDashboardRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
-    '/_secured/tenant': {
-      id: '/_secured/tenant'
-      path: '/tenant'
-      fullPath: '/tenant'
-      preLoaderRoute: typeof SecuredTenantRouteRouteImport
+    '/_secured/help': {
+      id: '/_secured/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof SecuredHelpRouteImport
+      parentRoute: typeof SecuredRouteRoute
+    }
+    '/_secured/notifications': {
+      id: '/_secured/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof SecuredNotificationsRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/platform': {
@@ -561,81 +566,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecuredPlatformRouteRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
-    '/_secured/assets': {
-      id: '/_secured/assets'
-      path: '/assets'
-      fullPath: '/assets'
-      preLoaderRoute: typeof SecuredAssetsRouteRouteImport
+    '/_secured/shared-equipment': {
+      id: '/_secured/shared-equipment'
+      path: '/shared-equipment'
+      fullPath: '/shared-equipment'
+      preLoaderRoute: typeof SecuredSharedEquipmentRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
-    '/_secured/assets/': {
-      id: '/_secured/assets/'
-      path: '/'
-      fullPath: '/assets/'
-      preLoaderRoute: typeof SecuredAssetsIndexRouteImport
-      parentRoute: typeof SecuredAssetsRouteRoute
+    '/_secured/shared-usage': {
+      id: '/_secured/shared-usage'
+      path: '/shared-usage'
+      fullPath: '/shared-usage'
+      preLoaderRoute: typeof SecuredSharedUsageRouteImport
+      parentRoute: typeof SecuredRouteRoute
     }
-    '/_auth/register/': {
-      id: '/_auth/register/'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof AuthRegisterIndexRouteImport
+    '/_secured/tenant': {
+      id: '/_secured/tenant'
+      path: '/tenant'
+      fullPath: '/tenant'
+      preLoaderRoute: typeof SecuredTenantRouteRouteImport
+      parentRoute: typeof SecuredRouteRoute
+    }
+    '/_auth/account/providers': {
+      id: '/_auth/account/providers'
+      path: '/account/providers'
+      fullPath: '/account/providers'
+      preLoaderRoute: typeof AuthAccountProvidersRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/auth/reauthenticate': {
+      id: '/_auth/auth/reauthenticate'
+      path: '/auth/reauthenticate'
+      fullPath: '/auth/reauthenticate'
+      preLoaderRoute: typeof AuthAuthReauthenticateRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/login/': {
       id: '/_auth/login/'
       path: '/login'
-      fullPath: '/login'
+      fullPath: '/login/'
       preLoaderRoute: typeof AuthLoginIndexRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_secured/tenant/users': {
-      id: '/_secured/tenant/users'
-      path: '/users'
-      fullPath: '/tenant/users'
-      preLoaderRoute: typeof SecuredTenantUsersRouteImport
-      parentRoute: typeof SecuredTenantRouteRoute
+    '/_auth/register/': {
+      id: '/_auth/register/'
+      path: '/register'
+      fullPath: '/register/'
+      preLoaderRoute: typeof AuthRegisterIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
-    '/_secured/platform/users': {
-      id: '/_secured/platform/users'
-      path: '/users'
-      fullPath: '/platform/users'
-      preLoaderRoute: typeof SecuredPlatformUsersRouteImport
-      parentRoute: typeof SecuredPlatformRouteRoute
-    }
-    '/_secured/platform/tenants': {
-      id: '/_secured/platform/tenants'
-      path: '/tenants'
-      fullPath: '/platform/tenants'
-      preLoaderRoute: typeof SecuredPlatformTenantsRouteImport
-      parentRoute: typeof SecuredPlatformRouteRoute
-    }
-    '/_secured/platform/settings': {
-      id: '/_secured/platform/settings'
-      path: '/settings'
-      fullPath: '/platform/settings'
-      preLoaderRoute: typeof SecuredPlatformSettingsRouteImport
-      parentRoute: typeof SecuredPlatformRouteRoute
-    }
-    '/_secured/assets/types': {
-      id: '/_secured/assets/types'
-      path: '/types'
-      fullPath: '/assets/types'
-      preLoaderRoute: typeof SecuredAssetsTypesRouteImport
-      parentRoute: typeof SecuredAssetsRouteRoute
-    }
-    '/_secured/account/totp-setup': {
-      id: '/_secured/account/totp-setup'
-      path: '/account/totp-setup'
-      fullPath: '/account/totp-setup'
-      preLoaderRoute: typeof SecuredAccountTotpSetupRouteImport
-      parentRoute: typeof SecuredRouteRoute
-    }
-    '/_secured/account/password': {
-      id: '/_secured/account/password'
-      path: '/account/password'
-      fullPath: '/account/password'
-      preLoaderRoute: typeof SecuredAccountPasswordRouteImport
+    '/_secured/account/authenticators': {
+      id: '/_secured/account/authenticators'
+      path: '/account/authenticators'
+      fullPath: '/account/authenticators'
+      preLoaderRoute: typeof SecuredAccountAuthenticatorsRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/account/email': {
@@ -645,102 +629,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecuredAccountEmailRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
-    '/_secured/account/authenticators': {
-      id: '/_secured/account/authenticators'
-      path: '/account/authenticators'
-      fullPath: '/account/authenticators'
-      preLoaderRoute: typeof SecuredAccountAuthenticatorsRouteImport
+    '/_secured/account/password': {
+      id: '/_secured/account/password'
+      path: '/account/password'
+      fullPath: '/account/password'
+      preLoaderRoute: typeof SecuredAccountPasswordRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
-    '/_auth/auth/reauthenticate': {
-      id: '/_auth/auth/reauthenticate'
-      path: '/auth/reauthenticate'
-      fullPath: '/auth/reauthenticate'
-      preLoaderRoute: typeof AuthAuthReauthenticateRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_secured/account/totp-setup': {
+      id: '/_secured/account/totp-setup'
+      path: '/account/totp-setup'
+      fullPath: '/account/totp-setup'
+      preLoaderRoute: typeof SecuredAccountTotpSetupRouteImport
+      parentRoute: typeof SecuredRouteRoute
     }
-    '/_auth/account/providers': {
-      id: '/_auth/account/providers'
-      path: '/account/providers'
-      fullPath: '/account/providers'
-      preLoaderRoute: typeof AuthAccountProvidersRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_secured/platform/tenants/': {
-      id: '/_secured/platform/tenants/'
+    '/_secured/assets/': {
+      id: '/_secured/assets/'
       path: '/'
-      fullPath: '/platform/tenants/'
-      preLoaderRoute: typeof SecuredPlatformTenantsIndexRouteImport
-      parentRoute: typeof SecuredPlatformTenantsRoute
+      fullPath: '/assets/'
+      preLoaderRoute: typeof SecuredAssetsIndexRouteImport
+      parentRoute: typeof SecuredAssetsRouteRoute
     }
-    '/_auth/register/passkey/': {
-      id: '/_auth/register/passkey/'
-      path: '/register/passkey'
-      fullPath: '/register/passkey'
-      preLoaderRoute: typeof AuthRegisterPasskeyIndexRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_secured/assets/types': {
+      id: '/_secured/assets/types'
+      path: '/types'
+      fullPath: '/assets/types'
+      preLoaderRoute: typeof SecuredAssetsTypesRouteImport
+      parentRoute: typeof SecuredAssetsRouteRoute
     }
-    '/_auth/login/code/': {
-      id: '/_auth/login/code/'
-      path: '/login/code'
-      fullPath: '/login/code'
-      preLoaderRoute: typeof AuthLoginCodeIndexRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_secured/platform/settings': {
+      id: '/_secured/platform/settings'
+      path: '/settings'
+      fullPath: '/platform/settings'
+      preLoaderRoute: typeof SecuredPlatformSettingsRouteImport
+      parentRoute: typeof SecuredPlatformRouteRoute
     }
-    '/_secured/platform/tenants/$slug': {
-      id: '/_secured/platform/tenants/$slug'
-      path: '/$slug'
-      fullPath: '/platform/tenants/$slug'
-      preLoaderRoute: typeof SecuredPlatformTenantsSlugRouteImport
-      parentRoute: typeof SecuredPlatformTenantsRoute
+    '/_secured/platform/tenants': {
+      id: '/_secured/platform/tenants'
+      path: '/tenants'
+      fullPath: '/platform/tenants'
+      preLoaderRoute: typeof SecuredPlatformTenantsRouteImport
+      parentRoute: typeof SecuredPlatformRouteRoute
     }
-    '/_auth/register/passkey/create': {
-      id: '/_auth/register/passkey/create'
-      path: '/register/passkey/create'
-      fullPath: '/register/passkey/create'
-      preLoaderRoute: typeof AuthRegisterPasskeyCreateRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_secured/platform/users': {
+      id: '/_secured/platform/users'
+      path: '/users'
+      fullPath: '/platform/users'
+      preLoaderRoute: typeof SecuredPlatformUsersRouteImport
+      parentRoute: typeof SecuredPlatformRouteRoute
     }
-    '/_auth/login/code/confirm': {
-      id: '/_auth/login/code/confirm'
-      path: '/login/code/confirm'
-      fullPath: '/login/code/confirm'
-      preLoaderRoute: typeof AuthLoginCodeConfirmRouteImport
-      parentRoute: typeof AuthRouteRoute
+    '/_secured/tenant/users': {
+      id: '/_secured/tenant/users'
+      path: '/users'
+      fullPath: '/tenant/users'
+      preLoaderRoute: typeof SecuredTenantUsersRouteImport
+      parentRoute: typeof SecuredTenantRouteRoute
     }
-    '/_auth/auth/password/reset': {
-      id: '/_auth/auth/password/reset'
-      path: '/auth/password/reset'
-      fullPath: '/auth/password/reset'
-      preLoaderRoute: typeof AuthAuthPasswordResetRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/auth/password/request': {
-      id: '/_auth/auth/password/request'
-      path: '/auth/password/request'
-      fullPath: '/auth/password/request'
-      preLoaderRoute: typeof AuthAuthPasswordRequestRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/auth/mfa/recovery-codes': {
-      id: '/_auth/auth/mfa/recovery-codes'
-      path: '/auth/mfa/recovery-codes'
-      fullPath: '/auth/mfa/recovery-codes'
-      preLoaderRoute: typeof AuthAuthMfaRecoveryCodesRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/auth/mfa/authenticate': {
-      id: '/_auth/auth/mfa/authenticate'
-      path: '/auth/mfa/authenticate'
-      fullPath: '/auth/mfa/authenticate'
-      preLoaderRoute: typeof AuthAuthMfaAuthenticateRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/auth/email/verify': {
-      id: '/_auth/auth/email/verify'
-      path: '/auth/email/verify'
-      fullPath: '/auth/email/verify'
-      preLoaderRoute: typeof AuthAuthEmailVerifyRouteImport
+    '/_auth/account/provider/callback': {
+      id: '/_auth/account/provider/callback'
+      path: '/account/provider/callback'
+      fullPath: '/account/provider/callback'
+      preLoaderRoute: typeof AuthAccountProviderCallbackRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/account/provider/signup': {
@@ -750,11 +699,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAccountProviderSignupRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_auth/account/provider/callback': {
-      id: '/_auth/account/provider/callback'
-      path: '/account/provider/callback'
-      fullPath: '/account/provider/callback'
-      preLoaderRoute: typeof AuthAccountProviderCallbackRouteImport
+    '/_auth/auth/email/verify': {
+      id: '/_auth/auth/email/verify'
+      path: '/auth/email/verify'
+      fullPath: '/auth/email/verify'
+      preLoaderRoute: typeof AuthAuthEmailVerifyRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/auth/mfa/authenticate': {
+      id: '/_auth/auth/mfa/authenticate'
+      path: '/auth/mfa/authenticate'
+      fullPath: '/auth/mfa/authenticate'
+      preLoaderRoute: typeof AuthAuthMfaAuthenticateRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/auth/mfa/recovery-codes': {
+      id: '/_auth/auth/mfa/recovery-codes'
+      path: '/auth/mfa/recovery-codes'
+      fullPath: '/auth/mfa/recovery-codes'
+      preLoaderRoute: typeof AuthAuthMfaRecoveryCodesRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/auth/password/request': {
+      id: '/_auth/auth/password/request'
+      path: '/auth/password/request'
+      fullPath: '/auth/password/request'
+      preLoaderRoute: typeof AuthAuthPasswordRequestRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/auth/password/reset': {
+      id: '/_auth/auth/password/reset'
+      path: '/auth/password/reset'
+      fullPath: '/auth/password/reset'
+      preLoaderRoute: typeof AuthAuthPasswordResetRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/login/code/': {
+      id: '/_auth/login/code/'
+      path: '/login/code'
+      fullPath: '/login/code/'
+      preLoaderRoute: typeof AuthLoginCodeIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/login/code/confirm': {
+      id: '/_auth/login/code/confirm'
+      path: '/login/code/confirm'
+      fullPath: '/login/code/confirm'
+      preLoaderRoute: typeof AuthLoginCodeConfirmRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/register/passkey/': {
+      id: '/_auth/register/passkey/'
+      path: '/register/passkey'
+      fullPath: '/register/passkey/'
+      preLoaderRoute: typeof AuthRegisterPasskeyIndexRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/register/passkey/create': {
+      id: '/_auth/register/passkey/create'
+      path: '/register/passkey/create'
+      fullPath: '/register/passkey/create'
+      preLoaderRoute: typeof AuthRegisterPasskeyCreateRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_secured/platform/tenants/': {
+      id: '/_secured/platform/tenants/'
+      path: '/'
+      fullPath: '/platform/tenants/'
+      preLoaderRoute: typeof SecuredPlatformTenantsIndexRouteImport
+      parentRoute: typeof SecuredPlatformTenantsRoute
+    }
+    '/_secured/platform/tenants/$slug': {
+      id: '/_secured/platform/tenants/$slug'
+      path: '/$slug'
+      fullPath: '/platform/tenants/$slug'
+      preLoaderRoute: typeof SecuredPlatformTenantsSlugRouteImport
+      parentRoute: typeof SecuredPlatformTenantsRoute
+    }
+    '/_auth/auth/email/confirm/$key': {
+      id: '/_auth/auth/email/confirm/$key'
+      path: '/auth/email/confirm/$key'
+      fullPath: '/auth/email/confirm/$key'
+      preLoaderRoute: typeof AuthAuthEmailConfirmKeyRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_auth/auth/password/confirm/$key': {
@@ -762,13 +788,6 @@ declare module '@tanstack/react-router' {
       path: '/auth/password/confirm/$key'
       fullPath: '/auth/password/confirm/$key'
       preLoaderRoute: typeof AuthAuthPasswordConfirmKeyRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/auth/email/confirm/$key': {
-      id: '/_auth/auth/email/confirm/$key'
-      path: '/auth/email/confirm/$key'
-      fullPath: '/auth/email/confirm/$key'
-      preLoaderRoute: typeof AuthAuthEmailConfirmKeyRouteImport
       parentRoute: typeof AuthRouteRoute
     }
   }
@@ -881,6 +900,7 @@ interface SecuredRouteRouteChildren {
   SecuredHelpRoute: typeof SecuredHelpRoute
   SecuredNotificationsRoute: typeof SecuredNotificationsRoute
   SecuredSharedEquipmentRoute: typeof SecuredSharedEquipmentRoute
+  SecuredSharedUsageRoute: typeof SecuredSharedUsageRoute
   SecuredAccountAuthenticatorsRoute: typeof SecuredAccountAuthenticatorsRoute
   SecuredAccountEmailRoute: typeof SecuredAccountEmailRoute
   SecuredAccountPasswordRoute: typeof SecuredAccountPasswordRoute
@@ -895,6 +915,7 @@ const SecuredRouteRouteChildren: SecuredRouteRouteChildren = {
   SecuredHelpRoute: SecuredHelpRoute,
   SecuredNotificationsRoute: SecuredNotificationsRoute,
   SecuredSharedEquipmentRoute: SecuredSharedEquipmentRoute,
+  SecuredSharedUsageRoute: SecuredSharedUsageRoute,
   SecuredAccountAuthenticatorsRoute: SecuredAccountAuthenticatorsRoute,
   SecuredAccountEmailRoute: SecuredAccountEmailRoute,
   SecuredAccountPasswordRoute: SecuredAccountPasswordRoute,

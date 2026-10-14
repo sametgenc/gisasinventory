@@ -1,4 +1,9 @@
 {
+    "captcha": {
+        "label": "Security verification",
+        "loading": "Loading security verification…",
+        "unavailable": "Security verification is unavailable. Reload the page and try again."
+    },
     "inventory": {
         "myTitle": "My inventory",
         "centralTitle": "Combined inventory",
@@ -703,7 +708,7 @@
             "ignore": "— Ignore —",
             "rowCount": "{{count}} rows",
             "firstRowsShown": "First {{shown}} rows shown — {{total}} rows will be imported",
-            "uniqueKeyNotice": "Unique index: {{field}} — existing rows with the same value are updated.",
+            "uniqueKeyNotice": "Matching code: {{field}}. Existing records with the same code in this shipyard and type are updated.",
             "templateDetectedTitle": "Template detected",
             "templateDetectedBody": "This file uses the template for {{name}}. Review the analysis before importing.",
             "runTemplateImport": "Run template import",
@@ -849,7 +854,7 @@
         "createNewType": "Create new type",
         "noTypesYet": "No asset types yet",
         "deleteConfirm": "Are you sure you want to delete this asset type?",
-        "uniqueIndexField": "Unique index",
+        "uniqueIndexField": "Excel matching code",
         "uniqueIndexDisabled": "Another field is already the unique index. Turn it off there first.",
         "builder": {
             "basicInfo": "Basic info",
@@ -882,7 +887,7 @@
             "individual": "Equipment such as forklifts and cranes has a record for each item. Counts for the same model are shown together.",
             "stock": "Materials such as scaffold parts and clamps use a name, code and stock quantity. Thousands of pieces can be tracked in one record."
         },
-        "stockFieldsHelp": "Material code, material name and stock quantity fields are included. Material code matches reimports within the same shipyard; other fields are retained.",
+        "stockFieldsHelp": "Code, display name and count fields are suggestions. Rename, keep optional or remove them.",
         "trackingChangeHelp": "An existing type’s tracking method cannot change here. Create another type for a different tracking method."
     },
     "bulkImport": {
@@ -1041,7 +1046,7 @@
         "classification": "Category and sharing assessment",
         "preliminaryHelp": "A/B/C is a preliminary assessment only; it is not sharing permission or live availability. Each physical asset requires a field assessment.",
         "code": "Catalog code",
-        "codeHelp": "A stable code used to safely match this type in future Excel imports. Example: B-001",
+        "codeHelp": "Stable code identifying this type across shipyards. Leave blank to generate it automatically.",
         "category": "Category",
         "grade": "Preliminary sharing class",
         "exclusion": "Exclusion reason",
@@ -1234,5 +1239,100 @@
         "withdraw": "Remove from shared list",
         "withdrawHelp": "Remove the publication to hide it. Previously saved details stay as a draft; unsaved edits are not applied. You can edit the draft after removing it.",
         "pausedLabel": "Sharing paused · review required"
+    },
+    "dynamicSchema": {
+        "intro": "This equipment type is shared by all shipyards. Define its information here; quantities and owned records belong in inventory.",
+        "optionalHelp": "New fields are optional. Require only information that is needed.",
+        "role": "How will this information be used?",
+        "roleHelp": "Choose fields for the displayed name, matching code and total count. Other fields remain additional information.",
+        "roles": {
+            "none": "Additional information",
+            "identifier": "Record matching code",
+            "display_name": "Displayed name",
+            "quantity": "Total stock count"
+        },
+        "stableKeyHelp": "Renaming this field preserves values in existing records.",
+        "impactTitle": "Review before saving",
+        "impact": "{{count}} records will need updates across {{tenants}} shipyards.",
+        "impactHelp": "Affected shipyard managers receive one summary notification. Existing records are retained.",
+        "impactError": "Could not check affected records. Try again.",
+        "applyChanges": "Apply changes",
+        "missingHelp": "Information to complete:",
+        "needsUpdate": "Update needed",
+        "showNeedsUpdate": "Show records with missing information",
+        "allRecords": "Show all records",
+        "inventoryCode": "Shipyard inventory code",
+        "inventoryCodeHelp": "Optional local code. Reimport matches records within this type and shipyard. It differs from the shared catalog code."
+    },
+    "workbook": {
+        "title": "Type and inventory import",
+        "shortTitle": "Type and inventory workbook",
+        "description": "Use one Excel workbook for shared equipment types and shipyard records. Review the file, check the result, then apply it.",
+        "sheets": {
+            "types": "1. Equipment types",
+            "fields": "2. Fields",
+            "inventory": "3. Inventory"
+        },
+        "sheetHelp": {
+            "types": "Shared catalog definitions, separate from physical items and counts.",
+            "fields": "Information for each type. New fields start optional.",
+            "inventory": "Records owned by the selected shipyard, linked by catalog code."
+        },
+        "template": "Download blank Excel template",
+        "singleType": "Upload inventory for one type",
+        "target": "Inventory target shipyard",
+        "targetHelp": "Select a shipyard when importing inventory. A name in the file does not assign ownership.",
+        "typesOnly": "Equipment types only",
+        "ownTenant": "Inventory is added to your own shipyard. Shared types and fields require a platform administrator.",
+        "file": "Excel workbook",
+        "fileHelp": ".xlsx · Up to 5 MB. GISBIR taxonomy or the three-sheet import template.",
+        "sizeError": "File exceeds 5 MB. Reduce it and select it again.",
+        "review": "Review workbook",
+        "apply": "Import reviewed records",
+        "previewError": "Could not review the file. Check it and try again.",
+        "commitError": "Import did not complete. Review the file and try again.",
+        "templateError": "Could not download the template. Try again.",
+        "success": "Import completed",
+        "private": "Inventory records remain private. Publish them separately for shared use.",
+        "summary": {
+            "types_created": "New equipment types",
+            "types_updated": "Updated types",
+            "assets_created": "New inventory records",
+            "assets_updated": "Updated records"
+        },
+        "skipped": "{{count}} total, heading or blank rows skipped.",
+        "decisions": "Rows requiring a decision",
+        "row": "Row {{count}}",
+        "classification": "Preliminary sharing class",
+        "choose": "Select a class",
+        "fixFile": "Information needs correction in the workbook",
+        "table": {
+            "record": "Record",
+            "code": "Catalog code",
+            "operation": "Planned action"
+        },
+        "operations": {
+            "create": "Create",
+            "update": "Update",
+            "unchanged": "Unchanged",
+            "skip": "Skip",
+            "error": "Correction required",
+            "proposal": "Field proposal",
+            "review": "Review needed"
+        },
+        "reviewAgain": "Decisions changed. Review the workbook again.",
+        "ready": "Reviewed records will be applied together. Inventory is not published automatically.",
+        "blocked": "Resolve decisions and corrections before importing.",
+        "before": "Current: {{value}}",
+        "after": "After import: {{value}}",
+        "cleared": "Will be cleared",
+        "changeLabels": {
+            "name": "Type name",
+            "description": "Description",
+            "category_code": "Category",
+            "sharing_class": "Preliminary class",
+            "exclusion_reason": "Exclusion reason",
+            "tracking_mode": "Tracking method"
+        }
     }
 }

@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
@@ -8,6 +9,7 @@ export const Route = createFileRoute('/_auth/account/provider/signup')({
 })
 
 function ProviderSignup() {
+    const captcha = useCaptcha()
     const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -15,10 +17,11 @@ function ProviderSignup() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
-            const res = await ALLAUTH_API.providerSignup({ email })
+            const res = await ALLAUTH_API.providerSignup({ email }, captcha.token)
             // Provider signup usually returns the auth response which might be a successful login/signup
             if (res.status === 200) {
                 // If 200, we might be authenticated or need verification?
@@ -30,6 +33,7 @@ function ProviderSignup() {
             setError(err.message || 'An unexpected error occurred')
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -81,9 +85,10 @@ function ProviderSignup() {
                             onChange={(e) => setEmail(e.target.value)}
                         />
                     </div>
+                    {captcha.widget}
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !captcha.ready}
                         className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                     >
                         {loading ? <Loader2 className="animate-spin" size={24} /> : 'Sign Up'}

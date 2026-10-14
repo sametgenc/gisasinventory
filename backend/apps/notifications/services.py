@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.user.models import User, UserRole
 from apps.assets.validation import JSONValue
 from .models import Notification
+from .permissions import notification_is_visible
 
 if TYPE_CHECKING:
     from apps.assets.models import Asset
@@ -50,8 +51,10 @@ def dispatch_notification(notification_id: int) -> None:
     from .utils import send_notification
 
     try:
-        notification = Notification.objects.select_related("user").get(pk=notification_id)
+        notification = Notification.objects.select_related("user__tenant").get(pk=notification_id)
     except Notification.DoesNotExist:
+        return
+    if not notification_is_visible(notification):
         return
     payload = {**notification.content, "uuid": str(notification.event_id),
                "created_at": notification.created_at.isoformat(), "notification_id": notification.pk}

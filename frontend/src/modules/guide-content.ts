@@ -1,5 +1,5 @@
-export type GuideTaskId = 'inspect' | 'add' | 'excel' | 'publish' | 'catalog'
-export type GuideRoute = '/assets' | '/assets/types' | '/shared-equipment'
+export type GuideTaskId = 'inspect' | 'add' | 'excel' | 'publish' | 'catalog' | 'usage'
+export type GuideRoute = '/assets' | '/assets/types' | '/shared-equipment' | '/shared-usage'
 
 export interface GuideStep {
     id: string
@@ -79,7 +79,7 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
             { question: 'Paylaşınca özel bilgilerimi herkes görür mü?', answer: 'Diğer tersaneler yalnız yayın için girdiğiniz başlık, adet, kapasite, uygunluk, koşullar ve iletişim bilgileriyle ekipman türü ve sahibi tersaneyi görür. İç ekipman kodu, özel teknik alanlar, toplam stok ve atanan kişi gösterilmez. Kayıtlı hesap/tersane iletişimi otomatik yayımlanmaz.', taskId: 'publish' },
             { question: 'Stok adedi ile paylaşım adedi aynı mı?', answer: 'Hayır. Kurmaca örnekte envanterde 500 platform parçası bulunabilir; paylaşım adedine 100 yazabilirsiniz. Diğer tersaneler yalnız 100 teklifini görür. Tek tek izlenen bir ekipman kaydı için adet 1 olur. Adet boşsa tersaneyle görüşülür; uygun olarak işaretlemek için adet girilmelidir.', taskId: 'publish' },
             { question: 'Paylaşım neden durduruldu?', answer: 'Normal düzenleme veya Excel aktarımı stoku paylaşım adedinin altına düşürürse ya da ekipman türü değişirse yayın durur. Bilgiler taslak olarak korunur. Adedi ve koşulları düzeltip yeniden yayınlayın; stok artınca otomatik açılmaz. Sahibi tersane değişirse bütün yayın bilgileri temizlenir.', taskId: 'publish' },
-            { question: 'Katalog güncellerken boş hücreler ne yapar?', answer: 'Katalog koduna göre güncelle modunda boş Açıklama ve Kapsam dışı nedeni hücreleri önceki değeri temizler. Aktarmadan önce önizlemedeki değişiklikleri kontrol edin.', taskId: 'catalog' },
+            { question: 'Yeni alanlar zorunlu mu?', answer: 'Yeni alanlar isteğe bağlıdır. Zorunlu yaptığınızda eksik kayıtların sahipleri bildirim alır. Alan adını değiştirmek mevcut değerleri silmez.', taskId: 'catalog' },
         ],
         tasks: [
             {
@@ -137,18 +137,31 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
                 note: 'Stok paylaşım adedinin altına düşerse veya tür değişirse yayın durur; detaylar taslak kalır, artış otomatik yeniden yayımlamaz. Sahibi tersane değişirse tüm yayın bilgileri temizlenir. K kategorisi, C ön sınıfı ve kapsam dışı türler yayınlanamaz; pasif tersanelerin ekipmanları gizlenir. Kullanım ve tarihi sahibiyle teyitleşin.',
             },
             {
-                id: 'catalog', title: 'Ortak ekipman türlerini hazırlamak',
-                summary: 'Tersanelerin aynı tanımları kullanması için ortak kataloğu oluşturun.',
+                id: 'catalog', title: 'Türleri ve alanlarını hazırlamak',
+                summary: 'Ortak tanımları oluşturun; aynı Excel ile tersane envanterini ekleyin.',
                 audience: 'Platform yöneticisi', audienceRole: 'platform', route: '/assets/types', action: 'Ekipman türleri ekranını aç',
                 steps: [
-                    { id: 'catalog', title: 'Mevcut ortak tanımları inceleyin', body: 'Ekipman türleri ekranında ad veya katalog koduyla arayın. Forklift gibi bir tanım zaten varsa aynı amaçla yeni tür açmak yerine mevcut tanımı kullanın.', screenshot: 'catalog.png', imageAlt: 'Kategori gruplarına ayrılmış ortak ekipman türleri kataloğu' },
-                    { id: 'prepare', title: 'Katalog şablonunu doldurun', body: 'Katalogdan aktar → Excel şablonunu indir yolunu açın. Her satıra bir ortak türün Katalog kodu, adı, A–M kategorisi ve A/B/C ön paylaşım sınıfını yazın; bu dosyaya fiziksel ekipman kodlarını yazmayın.' },
-                    { id: 'mode', title: 'Aktarım davranışını seçin', body: 'Yalnızca yeni tipleri ekle seçeneği mevcut katalog kodlarını atlar. Mevcut tanımları değiştirmek için Katalog koduna göre güncelle seçin; eşleştirme adla değil katalog koduyla yapılır.' },
-                    { id: 'review', title: 'Dosyayı önizle ile değişiklikleri okuyun', body: 'Eklenecek, Güncellenecek, Atlanacak ve Hatalı satırları kontrol edin. Bir hata varsa dosyayı düzeltip yeniden yükleyin; katalog aktarımı hata varken hiçbir kaydı değiştirmez.', screenshot: 'catalog-preview.png', imageAlt: 'Katalog aktarımında eklenecek ve güncellenecek türlerin satır bazlı önizlemesi' },
-                    { id: 'confirm', title: 'Kontrol ettiğiniz değişiklikleri aktarın', body: 'Önizlemedeki değişiklik sayısını gösteren aktar düğmesine basın. Ortak türler hazır olunca her tersane fiziksel ekipmanlarını Envanterim ekranında bu türlere kaydedebilir.' },
+                    { id: 'catalog', title: 'Ortak türü bulun veya oluşturun', body: 'Ekipman türleri ekranında tanımı arayın. Yeni tür için adını yazın; boş katalog kodu otomatik oluşturulur. Katalog kodu ortak türü, envanter kodu tersanenin kaydını tanımlar.' },
+                    { id: 'prepare', title: 'Yalnızca gerekli alanları ekleyin', body: 'Alan ekle ile tutmak istediğiniz bilgileri seçin. Alanlar isteğe bağlı başlar. Kod, görünen ad ve toplam adet için kullanılacak bilgiyi seçebilirsiniz. Alanın görünen adını değiştirmek eski değerleri silmez.' },
+                    { id: 'mode', title: 'Tek Excel şablonunu doldurun', body: 'Katalogdan aktar ile Tür ve envanter aktarımı penceresini açın. Boş Excel şablonu indir seçin. Ekipman türleri ortak tanımlar, Alanlar özellikler, Envanter seçilen tersanenin kayıtlarıdır. Katalog kodu sayfaları bağlar. Yalnız tür veya yalnız envanter de aktarılabilir.' },
+                    { id: 'review', title: 'Dosyayı ve etkilenecek kayıtları inceleyin', body: 'Envanter varsa hedef tersaneyi seçin; Dosyayı incele düğmesine basın. Yeni ve güncellenen kayıtları kontrol edin. Toplam satırları atlanır. Belirsiz sınıfı seçin veya dosyayı düzeltin; seçim değişince yeniden inceleyin. Zorunlu alan değişikliği hangi tersaneleri etkiliyor görebilirsiniz.' },
+                    { id: 'confirm', title: 'Kontrol edilen kayıtları aktarın', body: 'Önizleme hazırsa Kontrol edilen kayıtları aktar düğmesine basın. Bütün dosya birlikte uygulanır. Yeni zorunlu alanlar için eksik kayıtları olan tersane yöneticilerine bildirim gönderilir.' },
                 ],
-                expectedResult: 'Bütün tersanelerin kullanabildiği ortak ekipman tanımları oluşur veya güncellenir. Bu işlem fiziksel ekipman kaydı oluşturmaz.',
-                note: 'Güncelleme modunda boş Açıklama ve Kapsam dışı nedeni hücreleri eski değeri temizler. Önizlemede eski → yeni değerleri okuyun; ekipman kayıtları ve alan şemaları korunur.',
+                expectedResult: 'Ortak türler ve seçilen tersanenin envanteri oluşur. Envanter kendiliğinden paylaşıma açılmaz.',
+                note: 'GISBIR taksonomisi 175 tür tanımlar; gerçek envanter veya adet içermez. A–M kategori kodudur. B/C satırları açık karar gerektirir. Eksik zorunlu bilgiler tamamlanmadan yeni kullanım onayı verilmez.',
+            },
+            {
+                id: 'usage', title: 'Bedelsiz ortak kullanım istemek',
+                summary: 'Tarih ve adetle talep gönderin; onay, teslim ve iadeyi takip edin.',
+                audience: 'Aktif tersane kullanıcıları', audienceRole: 'all', route: '/shared-usage', action: 'Kullanım taleplerini aç',
+                steps: [
+                    { id: 'find', title: 'Ortak ekipmanı bulun', body: 'Ortak ekipmanlar ekranında diğer tersanenin paylaşıma açtığı kaydı inceleyin. Paylaşım adedi, kapasite ve koşullarını kontrol edin. Kendi tersanenizin ekipmanı için talep gönderilmez.' },
+                    { id: 'request', title: 'Tarihi, adedi ve amacı yazın', body: 'Bedelsiz kullanım talebi düğmesini açın. Başlangıç ve bitiş tarihini, istediğiniz adedi ve kullanım amacını yazıp talebi gönderin. Bu işlem ekipmanı henüz ayırmaz.' },
+                    { id: 'approve', title: 'Sahibinin onayını takip edin', body: 'Kullanım talepleri ekranında Gönderdiklerimiz ve Gelen talepler bölümleri bulunur. Ekipmanın sahibi tersanenin yöneticisi onaylar veya gerekçeyle reddeder. Onaylanan adet ayrılır; çakışan miktar yeniden onaylanamaz.' },
+                    { id: 'return', title: 'Teslim ve iadeyi kaydedin', body: 'Sahibi yönetici, Onaylandı durumunda teslimi kaydeder. Ekipman geri geldiğinde İadeyi al işlemini tamamlar. İade kaydedilene kadar adet ayrılmış kalır; tarih geçmesi ekipmanı kendiliğinden serbest bırakmaz.' },
+                ],
+                expectedResult: 'İki tersane aynı talebin onay, teslim ve iade durumunu görür. İşlem bildirimleri ilgili kişilere gider.',
+                note: 'Kullanım bedelsizdir. Onayı sahibi tersane verir. Teslim edilmiş talep iptal edilmez; iade kaydedilir. Saha uygunluğu, taşıma ve operatör koşullarını ayrıca doğrulayın.',
             },
         ],
     },
@@ -185,7 +198,7 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
             { question: 'Does sharing reveal all my private details?', answer: 'Other shipyards see only the title, offered quantity, capacity, availability, terms and contacts you enter for publication, along with the equipment type and owner shipyard. Internal codes, private technical fields, total stock and assignees stay hidden. Account and shipyard contacts are never copied automatically.', taskId: 'publish' },
             { question: 'Is stock quantity the same as offered quantity?', answer: 'No. A fictional inventory can hold 500 platform parts while you offer 100. Other shipyards see only the offer of 100. An individual equipment record can offer one item. A blank quantity means contact the shipyard; marking an offer available requires a quantity.', taskId: 'publish' },
             { question: 'Why was publication paused?', answer: 'An inventory edit or Excel import that reduces stock below the offered quantity, or a change of equipment type, pauses publication. Details remain as a draft. Correct the quantity and terms and publish again; stock increases never republish automatically. Changing the owner shipyard clears all publication details.', taskId: 'publish' },
-            { question: 'What do empty cells do in a catalog update?', answer: 'In Update by catalog code mode, empty Description and Exclusion reason cells clear existing values. Check the changes in the preview before importing.', taskId: 'catalog' },
+            { question: 'Are new fields required?', answer: 'New fields start optional. Making a field required notifies owners of incomplete records. Renaming a field preserves existing values.', taskId: 'catalog' },
         ],
         tasks: [
             {
@@ -243,18 +256,31 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
                 note: 'Stock falling below the offer or a type change pauses publication and preserves the draft; an increase never republishes automatically. Changing the owner clears all offer details. Category K, class C and excluded types cannot publish; inactive shipyards are hidden. Confirm use and dates with the owner.',
             },
             {
-                id: 'catalog', title: 'Prepare common equipment types',
-                summary: 'Build the common catalog so every shipyard uses the same definitions.',
+                id: 'catalog', title: 'Prepare types and their fields',
+                summary: 'Create shared definitions and import shipyard inventory in one workbook.',
                 audience: 'Platform administrator', audienceRole: 'platform', route: '/assets/types', action: 'Open equipment types',
                 steps: [
-                    { id: 'catalog', title: 'Check existing definitions', body: 'In Equipment types, search by name or catalog code. If a definition such as Forklift exists, use it instead of creating another type for the same purpose.', screenshot: 'catalog.png', imageAlt: 'Common equipment types grouped by category in the catalog' },
-                    { id: 'prepare', title: 'Fill in the catalog template', body: 'Open Import catalog → Download Excel template. Each row describes one common type with its Catalog code, name, A–M category and A/B/C preliminary sharing class; do not put physical equipment codes in this file.' },
-                    { id: 'mode', title: 'Choose the import behavior', body: 'Add new types only skips existing catalog codes. To change existing definitions, choose Update by catalog code; matching uses codes rather than names.' },
-                    { id: 'review', title: 'Use Preview file to review changes', body: 'Check Create, Update, Skip and Error rows. If any row has an error, fix the workbook and upload it again; catalog imports change no records while errors remain.', screenshot: 'catalog-preview.png', imageAlt: 'Catalog import preview showing the rows to create or update' },
-                    { id: 'confirm', title: 'Import the changes you reviewed', body: 'Select the import button showing the number of changes in the preview. Once common types are ready, each shipyard can record its physical equipment under them in My inventory.' },
+                    { id: 'catalog', title: 'Find or create the shared type', body: 'Search Equipment types. Enter a name for a new type; a blank catalog code is generated automatically. Catalog codes identify shared types, inventory codes identify local shipyard records.' },
+                    { id: 'prepare', title: 'Add only information you need', body: 'Use Add field to choose information. New fields start optional. Choose fields for matching code, displayed name and total count. Renaming a field preserves existing values.' },
+                    { id: 'mode', title: 'Fill in the single workbook template', body: 'Import catalog opens Type and inventory import. Download the blank Excel template. Equipment types are shared definitions, Fields define information, Inventory belongs to the selected shipyard. Catalog codes link the sheets. Type-only and inventory-only imports also work.' },
+                    { id: 'review', title: 'Review the file and affected records', body: 'Select a target shipyard when inventory is present, then Review workbook. Check new and updated records. Total rows are skipped. Resolve uncertain classifications or correct the workbook; changed decisions require a fresh review. Required-field changes show affected shipyards.' },
+                    { id: 'confirm', title: 'Import reviewed records', body: 'When the preview is ready, choose Import reviewed records. The complete workbook is applied together. New required fields notify managers whose inventory has missing information.' },
                 ],
-                expectedResult: 'Common equipment definitions are created or updated for all shipyards. This does not create physical equipment records.',
-                note: 'In update mode, empty Description and Exclusion reason cells clear existing values. Review before → after values; equipment records and field schemas are preserved.',
+                expectedResult: 'Shared types and inventory for the selected shipyard are created. Inventory remains private until published separately.',
+                note: 'GISBIR taxonomy defines 175 types, not actual inventory or quantities. A–M are category codes. B/C rows need a decision. Missing required information blocks new usage approvals.',
+            },
+            {
+                id: 'usage', title: 'Request free shared use',
+                summary: 'Request dates and quantity, then track approval, handover and return.',
+                audience: 'Active shipyard members', audienceRole: 'all', route: '/shared-usage', action: 'Open usage requests',
+                steps: [
+                    { id: 'find', title: 'Find shared equipment', body: 'Browse an offer published by another shipyard. Check its quantity, capacity and conditions. Requests cannot be sent for your own shipyard equipment.' },
+                    { id: 'request', title: 'Enter dates, quantity and purpose', body: 'Open Free usage request. Enter start and end dates, quantity and intended use, then send it. A pending request does not reserve equipment.' },
+                    { id: 'approve', title: 'Follow the owner’s decision', body: 'Usage requests has Sent and Received views. The owning shipyard manager approves or rejects with a note. Approved quantity is reserved; overlapping quantities cannot be approved twice.' },
+                    { id: 'return', title: 'Record handover and return', body: 'The owner manager records handover after approval. When equipment comes back, record its return. Quantity remains reserved until return is recorded, even after the planned end date.' },
+                ],
+                expectedResult: 'Both shipyards see approval, handover and return status. Relevant users receive notifications.',
+                note: 'Use is free and approval belongs to the owning shipyard. Handed-over requests are returned rather than cancelled. Confirm site suitability, transport and operator conditions separately.',
             },
         ],
     },

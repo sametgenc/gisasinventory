@@ -4,10 +4,14 @@ from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from django.http import HttpResponse
 from django.utils.http import content_disposition_header
+from django.conf import settings
 from .models import AssetType, Asset
 from .serializers import AssetTypeSerializer, AssetSerializer, AssetSharingSerializer, SharedAssetSerializer
 from .inventory_import import analyze_inventory, import_options, InventoryImportError
-from apps.tenants.permissions import IsTenantMember
+from .validation import schema_role_key
+from .identity import AssetIdentityIndex
+from apps.tenants.permissions import IsActiveTenantUser, IsTenantMember, is_global_admin
+from rest_framework.exceptions import ValidationError
 from django.core.exceptions import ValidationError as DjangoValidationError
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -17,6 +21,7 @@ import json
 import re
 from django.db.models.deletion import ProtectedError
 from django.db import transaction
+from django.db.models import Q
 from .catalog_import import CatalogImportMixin
 from apps.notifications.services import notify_import_result, notify_sharing_changed
 
@@ -28,6 +33,20 @@ def equipment_sheet_title(name):
     return title if title and title.casefold() != '_mapping' else 'Ekipmanlar'
 
 
+def incomplete_inventory_query():
+    """Filter missing values without rewriting inventory when a schema changes."""
+    result = Q(pk__in=[])
+    for type_id, schema in AssetType.objects.values_list('pk', 'schema'):
+        missing = Q(pk__in=[])
+        for field in schema or []:
+            if field.get('required') is True:
+                key = f"custom_data__{field['key']}"
+                missing |= (Q(**{f'{key}__isnull': True}) | Q(**{key: None})
+                            | Q(**{f'{key}__regex': r'^\s*$'}))
+        result |= Q(asset_type_id=type_id) & missing
+    return result
+
+
 class AssetTypeViewSet(CatalogImportMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing Asset Types (Schemas).
@@ -35,7 +54,7 @@ class AssetTypeViewSet(CatalogImportMixin, viewsets.ModelViewSet):
     Only superusers/admins can create/edit/delete.
     """
     serializer_class = AssetTypeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsActiveTenantUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
@@ -46,7 +65,7 @@ class AssetTypeViewSet(CatalogImportMixin, viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         # Only superusers can create global asset types
-        if not request.user.is_superuser and not request.user.is_platform_admin:
+        if not is_global_admin(request.user):
             return Response(
                 {"detail": "Only platform administrators can create asset types."},
                 status=status.HTTP_403_FORBIDDEN
@@ -54,15 +73,24 @@ class AssetTypeViewSet(CatalogImportMixin, viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if not request.user.is_superuser and not request.user.is_platform_admin:
+        if not is_global_admin(request.user):
             return Response(
                 {"detail": "Only platform administrators can update asset types."},
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().update(request, *args, **kwargs)
 
+    @action(detail=True, methods=['post'])
+    def schema_impact(self, request, pk=None):
+        if not is_global_admin(request.user):
+            return Response({'detail': 'Bu işlemi platform yöneticisi yapabilir.'}, status=403)
+        asset_type = self.get_object()
+        schema = self.get_serializer().validate_schema(request.data.get('schema'))
+        from .schema_evolution import schema_impact
+        return Response(schema_impact(asset_type, schema))
+
     def destroy(self, request, *args, **kwargs):
-        if not request.user.is_superuser and not request.user.is_platform_admin:
+        if not is_global_admin(request.user):
             return Response(
                 {"detail": "Only platform administrators can delete asset types."},
                 status=status.HTTP_403_FORBIDDEN
@@ -226,11 +254,14 @@ class AssetViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         # Superusers can see all assets (with optional tenant filter)
-        if user.is_superuser or user.is_platform_admin:
+        if is_global_admin(user):
             queryset = Asset.objects.all()
             tenant_id = self.request.query_params.get('tenant')
             if tenant_id:
-                queryset = queryset.filter(tenant_id=tenant_id)
+                try:
+                    queryset = queryset.filter(tenant_id=tenant_id)
+                except (DjangoValidationError, ValueError, TypeError) as exc:
+                    raise ValidationError({'tenant': 'Invalid tenant filter.'}) from exc
         else:
             # Regular users see only their tenant's assets
             if not user.tenant:
@@ -240,17 +271,32 @@ class AssetViewSet(viewsets.ModelViewSet):
         # Filter by asset_type
         asset_type_id = self.request.query_params.get('asset_type')
         if asset_type_id:
-            queryset = queryset.filter(asset_type_id=asset_type_id)
+            try:
+                queryset = queryset.filter(asset_type_id=asset_type_id)
+            except (DjangoValidationError, ValueError, TypeError) as exc:
+                raise ValidationError({'asset_type': 'Invalid asset type filter.'}) from exc
         
         # Filter by assigned_to
         assigned_to_id = self.request.query_params.get('assigned_to')
         if assigned_to_id:
-            queryset = queryset.filter(assigned_to_id=assigned_to_id)
+            try:
+                queryset = queryset.filter(assigned_to_id=assigned_to_id)
+            except (DjangoValidationError, ValueError, TypeError) as exc:
+                raise ValidationError({'assigned_to': 'Invalid assignee filter.'}) from exc
             
+        if self.request.query_params.get('needs_update') == 'true':
+            queryset = queryset.filter(incomplete_inventory_query())
         queryset = queryset.select_related('tenant', 'asset_type', 'assigned_to')
-        if self.action == 'sharing':
+        if self.action in ('sharing', 'destroy'):
             queryset = queryset.select_for_update(of=('self',))
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        # A concurrent owner transfer must finish before delete checks membership.
+        with transaction.atomic():
+            from .usage import validate_inventory_usage_delete
+            validate_inventory_usage_delete(self.get_object())
+            return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=['get'], permission_classes=[
         permissions.IsAuthenticated, IsTenantMember, IsActiveAssetUser,
@@ -258,11 +304,14 @@ class AssetViewSet(viewsets.ModelViewSet):
        search_fields=['asset_type__name', 'tenant__name', 'sharing_title', 'sharing_capacity', 'sharing_note'])
     def shared(self, request):
         """Discover owner-published items without crossing private inventory access."""
+        if not getattr(settings, 'CROSS_TENANT_SHARING_ENABLED', False):
+            return Response({'detail': 'Cross-shipyard sharing is disabled.'}, status=status.HTTP_403_FORBIDDEN)
         queryset = Asset.objects.filter(is_shared=True, tenant__is_active=True).exclude(
             asset_type__category_code='K',
         ).exclude(asset_type__sharing_class='C').exclude(
             asset_type__exclusion_reason__regex=r'\S',
         ).select_related('tenant', 'asset_type').order_by('-shared_at', 'id')
+        queryset = queryset.exclude(incomplete_inventory_query())
         for parameter, field in [('tenant', 'tenant_id'), ('asset_type', 'asset_type_id'),
                                  ('category_code', 'asset_type__category_code')]:
             value = request.query_params.get(parameter)
@@ -283,8 +332,10 @@ class AssetViewSet(viewsets.ModelViewSet):
     ])
     def sharing(self, request, pk=None):
         """Shipyard managers publish only their own assets; admins retain oversight."""
+        if not getattr(settings, 'CROSS_TENANT_SHARING_ENABLED', False):
+            return Response({'detail': 'Cross-shipyard sharing is disabled.'}, status=status.HTTP_403_FORBIDDEN)
         user = request.user
-        if not (user.is_superuser or user.is_platform_admin or user.is_tenant_admin):
+        if not (is_global_admin(user) or user.is_tenant_admin):
             return Response({'detail': 'Paylaşım kararını tersane yöneticisi verebilir.'},
                             status=status.HTTP_403_FORBIDDEN)
         with transaction.atomic():
@@ -339,7 +390,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         except (AssetType.DoesNotExist, DjangoValidationError, ValueError):
             return Response({'detail': 'Varlık tipi bulunamadı.'}, status=404)
         user = request.user
-        if user.is_superuser or user.is_platform_admin:
+        if is_global_admin(user):
             tenant_id = request.data.get('tenant')
             if not tenant_id:
                 return Response({'detail': 'Superuser için tersane seçimi gerekli.'}, status=400)
@@ -352,6 +403,9 @@ class AssetViewSet(viewsets.ModelViewSet):
             tenant = user.tenant
             if not tenant:
                 return Response({'detail': 'Kullanıcının tersanesi yok.'}, status=400)
+            submitted_tenant = request.data.get('tenant')
+            if submitted_tenant not in (None, '') and str(submitted_tenant) != str(tenant.pk):
+                return Response({'detail': 'You can only import into your own shipyard.'}, status=400)
         try:
             options = import_options(request.data)
             if not template_mode and options['mapping'] is None:
@@ -374,8 +428,8 @@ class AssetViewSet(viewsets.ModelViewSet):
                     'detail': 'Aktarımdan önce işaretli alanları/satırları kontrol edin veya atlanacak satırları seçin.',
                     'analysis': analysis,
                 }, status=400)
-            unique_key_field = next((field['key'] for field in asset_type.schema or []
-                                     if field.get('is_unique_key')), None)
+            unique_key_field = schema_role_key(asset_type.schema, 'identifier')
+            identity_index = AssetIdentityIndex(tenant, asset_type) if unique_key_field else None
             results = {'created': 0, 'updated': 0, 'skipped': plan.skipped_count,
                        'sharing_paused': 0, 'errors': []}
             for row_number, _ in plan.rows:
@@ -386,8 +440,12 @@ class AssetViewSet(viewsets.ModelViewSet):
                 try:
                     existing = None
                     if unique_key_field and custom_data.get(unique_key_field) not in (None, ''):
-                        lookup = {f'custom_data__{unique_key_field}': custom_data[unique_key_field]}
-                        existing = Asset.objects.filter(tenant=tenant, asset_type=asset_type, **lookup).first()
+                        matches = identity_index.identifier_matches(custom_data[unique_key_field])
+                        if len(matches) > 1:
+                            raise ValidationError({'custom_data': {
+                                unique_key_field: 'Kayıt kodu birden fazla mevcut ekipmanla eşleşiyor. Kayıtları elle ayırın.',
+                            }})
+                        existing = matches[0] if matches else None
                     if existing:
                         # The serializer merges these mapped values with the locked current row.
                         custom_data = {key: value for key, value in custom_data.items() if value is not None}
@@ -395,7 +453,9 @@ class AssetViewSet(viewsets.ModelViewSet):
                         'asset_type': str(asset_type.pk), 'tenant': tenant.pk, 'custom_data': custom_data,
                     }, partial=existing is not None)
                     serializer.is_valid(raise_exception=True)
-                    serializer.save()
+                    saved = serializer.save()
+                    if identity_index is not None:
+                        identity_index.add(saved)
                     if getattr(serializer, 'sharing_paused', False):
                         results['sharing_paused'] += 1
                     results['updated' if existing else 'created'] += 1
@@ -442,7 +502,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset().filter(asset_type=asset_type)
         
         # Apply tenant filter if provided (for superusers)
-        if tenant_id and (request.user.is_superuser or request.user.is_platform_admin):
+        if tenant_id and is_global_admin(request.user):
             queryset = queryset.filter(tenant_id=tenant_id)
         
         schema = asset_type.schema or []

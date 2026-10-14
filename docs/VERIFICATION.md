@@ -2,6 +2,74 @@
 
 Güncelleme: 14 Ekim 2026. Kullanıcı testi için [izole demo ortamı](TEST_ORTAMI.md); adım adım iş akışları için [kullanım rehberi](KULLANIM_REHBERI.md).
 
+## Dinamik envanter ve bedelsiz ortak kullanım
+
+- Ortak ekipman türü/katalog kodu, sahibi tersane ve yerel envanter kodu ayrıldı. Yeni alanlar ve stok önerileri isteğe bağlıdır; kod, görünen ad ve adet görevleri açıkça seçilir. Etiket değişimi mevcut anahtarı ve eski değerleri korur. Yeni zorunlu alanda etki sayıları, eksik kayıt filtresi ve aktif tersane yöneticisine revizyon başına toplu bildirim vardır.
+- Üç sayfalı Excel türleri, dinamik alanları ve seçilen tersanenin envanterini birlikte aktarır. Önizleme dosya/tercih/kullanıcı/tersane ve ilgili kayıt revizyonuna bağlıdır; yazım kilit altında tekrar doğrulanır ve bütün dosya tek işlemde uygulanır. Toplam ve tekrar başlıklar gerekçeleriyle ayrılır; belirsiz B/C kararı manuel tamamlanır. Formül, mükerrer kimlik veya yetkisiz sahiplikte veri yazılmaz. Sayısal kimlikler ondalık hassasiyetini korur; kod-only manuel kayıtlar indeksli sorguyla kontrol edilir, toplu aktarım tek tür için kimlikleri bir kez okur.
+- Kullanım bedelsizdir; aktif sahibi tersane yöneticisi onay/red, teslim ve iade verir. Platform hesabı tersane adına onay veremez. Onaylanan ve teslim edilen adetler ayrılır; gecikmiş iade miktarı serbest bırakmaz. Kapasite azalması, açık talepte sahip/tür değişimi ve silme korunur. İlgisiz tersane özel envanteri veya kullanım ayrıntısını okuyamaz. Özel kullanım amacı e-postaya konmaz; mevcut güvenli bildirim kuyruğu kullanılır.
+- Tam backend paketi **SQLite: 440 test, 3 PostgreSQL'e özel atlama**; **PostgreSQL: 440 test, 15 SQLite demo hazırlamasına özel atlama** ile geçti. Gerçek PostgreSQL'deki üç yarış testi eşzamanlı onayların 200/409 ayrımını, durum/bildirim geri almasını ve aktör/bildirim kilit uyumunu doğrular. Django sistem kontrolü ve migration tutarlılığı temizdir; eski migration'lar değiştirilmedi.
+- Tam normal Chromium paketi **168/168 geçti**. Dinamik form/önizleme/320px aktarım, kod-only envanter araması ve oturum iptalinde sabit giriş yönlendirmesi için regresyon vardır. Son TypeScript, üretim derlemesi ve değişen ürün/test dosyalarının hedefli ESLint kontrolü geçti. Genel depodaki **48 lint hatası/3 uyarı** ayrı borçtur; ana JavaScript paketi yaklaşık **1.082 kB**, boyut uyarısı sürer.
+- Tam gerçek yerel demo paketi **14/14 geçti**, atlanan veya kararsız test yoktur. Yeni akış beş tekrarda ayrıca geçti: üç sayfalı dosya, isteğe bağlı alanlar, toplam satırı atlama, sahibi yayınlama, diğer tersane talebi, sahip onayı/teslim/iade ve karşı tersane geçmişi. Deneme kaydı yalnız kurmaca fixture'larla oluşturuldu; mevcut envanter/tür kimlikleri ve güncelleme tarihleri korunur. Son küçük eşleştirme açıklaması değişikliği ayrıca normal Excel senaryolarıyla doğrulandı. Yerel test çıktıları, demo SQLite ve kaynak belgeler Git kapsamına alınmaz.
+- İki güncel üretim imajı yerelde derlendi; backend sistem kontrolü, Nginx yapılandırması ve yedi uygulama adresinin yönlendirmesiz 200/no-store davranışı geçti. JavaScript önbelleği ve eksik dosya 404 kontrolü korundu. GitHub Verify'a izole PostgreSQL 16 işi eklendi; uzaktaki sonucu yerel testlerden ayrı değerlendirin. Geçici yerel PostgreSQL ve HTTP test konteynerleri kapatıldı; demo çalışır kalır.
+- Uygulama içi TR/EN, Markdown ve çevrimdışı HTML rehberleri aynı akışı anlatır. HTML 320/390/1440px, arama/sıfırlama, tema, bağlantılar ve yazdırmada geçti. Bağımsız genel, Python/TypeScript ve güvenlik incelemelerinde yeni açık bulgu kalmadı. Canlı dağıtım, gerçek SMTP ve gerçek Turnstile/SIEM teslimi yapılmadı; kurulum gereksinimleri [CANLI_GUNCELLEME.md](CANLI_GUNCELLEME.md) içindedir.
+
+<a id="guvenlik-captcha-ve-siem"></a>
+## Güvenlik, CAPTCHA ve SIEM
+
+14 Ekim 2026 güvenlik çalışması, dışa açık girişleri ve tersane sınırlarını kapsar. Kontroller kurmaca verilerle, izole SQLite/PostgreSQL ve taklit edilen tarayıcı/sağlayıcı yanıtlarıyla çalıştırılır. Canlı sunucuya dağıtım, gerçek CAPTCHA doğrulaması ve gerçek SIEM teslimi bu çalışmanın sonucu sayılmaz.
+
+### Erişim sınırları ve giderilen bulgular
+
+- `CROSS_TENANT_SHARING_ENABLED=false` varsayılandır. Eski yayımlanmış ekipmanlar ve mevcut kullanım talepleri de diğer tersanelere kapalıdır. Ortak ekipman tanımları merkezi katalogdur; özel envanter ve tersane kullanıcıları kendi tersanesinde kalır. Paylaşımı açmak bu güvenlik politikasını değiştirir.
+- Global yetki yalnız aktif, `is_superuser=True`, `tenant_id=None` hesaplara verilir. Tersaneye bağlı staff/superuser veya yalnız `platform_admin` rolü başka tersaneye geçemez. Kullanıcı tercihi gereği MFA bütün hesaplarda isteğe bağlıdır; `ADMIN_REQUIRE_MFA=false` varsayılandır. Canlıda açıkça `true` seçilirse global yönetici API'leri ve Django admin, son 5 dakikada doğrulanmış gerçek TOTP/WebAuthn faktörü ister. MFA kurulumu/doğrulaması ve hesabın güvenlik durumunu okuma erişilebilir kalır.
+- Parola ile HTTP Basic Auth kaldırıldı; yalnız oturum tabanlı API erişimi kullanılır. CSRF kontrolü olmayan Allauth app istemcisi kapatıldı; frontend browser istemcisini kullanır. Django admin parolayla ayrı giriş yapamaz; uygulama girişine yönlendirir.
+- DRF HTML formları yabancı tersane/kullanıcı seçeneklerini gösterebiliyordu. API yalnız JSON döndürür; ilişki alanlarının seçenekleri ayrıca tersaneye sınırlandırılır.
+- Tersane/rol/staff/superuser değişimi eski oturumları iptal eder. Oturum hash'i kullanıcı satırı kilitlendikten sonra tekrar denetlenir; doğrulama ile taşıma arasındaki yarış kapatılır. Ekipman ataması kayıt öncesi güncel kullanıcıyla doğrulanır; eski tersane atamaları temizlenir, yabancı atama kimliği çıktıda gizlenir.
+- Envanter detay/liste/düzenleme/silme/Excel aktarımı ve tersane-kullanıcı işlemleri sahte kimliklerle sınanır. Pasif üyelikler reddedilir. Hatalı UUID filtresi 500 yerine 400 döndürür.
+- Bildirimler oluşturulduğu tersaneyi kaydeder. `notifications.0005` geçmişi silmez; tarihsel tersanesi bilinmeyen eski iş bildirimlerini görünümden/teslimden çıkarır. Hesap güvenliği bildirimleri korunur. SSE ve e-posta, güncel üyeliği `User → Tenant → Notification` kilitleri altında tekrar doğrular.
+
+### CAPTCHA ve dışa açık giriş
+
+Üretim için `.envs/.env.local` içinde `TURNSTILE_ENABLED=true`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_ALLOWED_HOSTNAMES` gereklidir. Cloudflare widget'ının alan adı uygulamayla eşleşmelidir. Anahtar eksikliği veya üretimde CAPTCHA'yı kapatma başlangıcı engeller. Yerel demo/testte dış sağlayıcı kullanılmaz.
+
+Giriş, kayıt, parola sıfırlama, giriş kodu, e-posta doğrulama, MFA ve sağlayıcı giriş/bağlama işlemleri sunucuda Siteverify ile denetlenir. Başarılı yanıt, beklenen action ve izinli hostname birlikte gerekir. Hatalı, tüketilmiş, süresi dolmuş token veya sağlayıcı kesintisi erişimi açmaz. Widget her denemeden sonra sıfırlanır; frontend yapılandırma/script yükleme hatasında gönderimi durdurur.
+
+Sağlayıcıya gitmeden önce paylaşılan Redis sayacı IP başına 60 saniyede 60 deneme sınırı uygular; Redis kesintisi doğrulamayı kapatır. Allauth kendi hesap/kod limitlerini ayrıca uygular. Üretimde sadece Traefik portları yayımlanmalıdır; `X-Real-IP` yalnız bu proxy tarafından belirlenir. İstemcinin gönderdiği `X-Forwarded-For` güvenilir sayılmaz. Ek proxy/CDN eklendiğinde güvenilir IP zinciri ayrıca ayarlanmalıdır.
+
+Frontend CSP, Turnstile script/frame alanını ve Google form yönlendirmesini açıkça izinli tutar; diğer form hedeflerini engeller. Kimlik URL'leri loglara girmesin diye proxy logları alan listesiyle daraltılır, ham Gunicorn/Nginx erişim logları kapatılır. API yanıtları `private, no-store` kullanır. Üretim Docker loglarında boyut/dosya sayısı sınırlıdır; kullanılmayan Docker soketi proxy'den çıkarılmıştır.
+
+### Denetim kayıtları ve SIEM teslim sözleşmesi
+
+`audit.0001`–`audit.0003` migration'ları uygulanmalıdır. `AuditEvent` değişmez kanıttır; `SiemDelivery` ayrı teslim durumudur. İstek okuma/yazma/reddetme/hata, giriş/çıkış/başarısız giriş, kullanıcı/rol/izin değişimleri, model ve admin işlemleri kaydedilir. Toplu işlemler HTTP işlem kaydıyla kapsanır; normal model kayıt/silmelerinde nesne kimlikleri ve değişen alan adları da bulunur.
+
+Kayıt alanları: UTC zaman, olay/istek UUID'si, aktör kimliği/rolü/tersanesi, hedef tersane/nesne kimliği, HTTP metodu, sunucunun rota şablonu, durum/sonuç, IP ve izinli CAPTCHA reddetme nedeni. Parola, token, OTP, SMTP/SIEM anahtarı, ham URL/sorgu, istek gövdesi veya envanter içeriği kaydedilmez. Kullanıcı silinse de aktör kimliği kanıtta kalır.
+
+Denetim kaydı kalıcılaştırılamıyorsa ilgili HTTP işlemi geri alınır ve 503 döner. PostgreSQL trigger'ları UPDATE, DELETE ve TRUNCATE işlemlerini reddeder; uygulama/admin ayrıca salt okunurdur. Canlı uygulamanın DB rolü tablo sahibi/superuser olmamalı ve DDL/trigger değiştirme yetkisi almamalıdır. Migration için ayrı sahip hesabı kullanılmalıdır; sahibi olan DBA bu korumayı değiştirebilir. Merkezi SIEM erişimi ve saklama politikası ayrıca yönetilmelidir.
+
+SIEM hazır olana kadar `AUDIT_SIEM_ENABLED=false` kalabilir; kanıt ve outbox yine oluşturulur. Teslim için `AUDIT_SIEM_ENABLED=true`, `AUDIT_SIEM_URL=https://...`, `AUDIT_SIEM_TOKEN=...` tanımlanır. Bu bir genel HTTPS JSON kolektör sözleşmesidir; Splunk HEC, Sentinel, QRadar veya syslog biçimine özgü adaptör henüz canlıda doğrulanmış değildir.
+
+Her POST tek olay JSON'u, `Authorization: Bearer ...` ve olay UUID'sini içeren `Idempotency-Key` gönderir. TLS doğrulanır; HTTP, yönlendirme, URL içinde kimlik bilgisi ve ortam proxy/netrc kullanımı reddedilir. Yanıt gövdesi loglanmaz. Başarılı 2xx teslim kabulüdür; kolektör yalnız kalıcı kabulden sonra 2xx dönmelidir. Ağ hatası/reddetme durumunda olay silinmez; gecikmeli yeniden deneme ve takılı iş kurtarması vardır. En az bir kez teslim nedeniyle kolektör `event_id` ile tekrarları ayıklamalıdır.
+
+Celery worker ve tek beat süreci çalışmalıdır; `apps.audit.tasks.deliver_pending_audit_events` her 30 saniyede çalışır. İzleme/manuel gönderme:
+
+```bash
+docker compose -f docker-compose.prod.yml exec web python manage.py audit_siem_status
+docker compose -f docker-compose.prod.yml exec web python manage.py deliver_audit_events --limit 100
+```
+
+Bekleyen kayıt sayısı, en eski olay zamanı ve başarısız teslimler SIEM/operasyon izlemesine alınmalıdır. Outbox ve kanıt otomatik silinmez; disk kapasitesi, dış arşiv ve saklama süresi üretim için ayrıca belirlenmelidir. Canlı güncelleme ve anahtar koruma adımları: [CANLI_GUNCELLEME.md](CANLI_GUNCELLEME.md).
+
+Resmî teknik kaynaklar: [Turnstile sunucu doğrulaması](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), [Django güvenlik yamaları](https://www.djangoproject.com/weblog/2026/oct/06/security-releases/), [Allauth güvenlik düzeltmeleri](https://docs.allauth.org/en/latest/release-notes/recent.html).
+
+### Son doğrulama ve kalan kurulum
+
+- Yamalı bağımlılıklarla 197 odaklı backend testi, 35 CAPTCHA/giriş/MFA/sağlayıcı tarayıcı testi ve 49 PostgreSQL yetki/izolasyon testi geçti. Ek kullanım talebi/workbook/izolasyon paketi 60 testte geçti. Üretim derlemesi, TypeScript, Django production güvenlik kontrolü, migration tutarlılığı ve Compose yapılandırması geçti.
+- Geçici PostgreSQL'de gerçek SQL UPDATE/DELETE/TRUNCATE denemeleri trigger tarafından engellendi. İki bağlantıyla kullanıcı taşımasının istek kilidini beklediği, eski atamanın temizlendiği ve çakışan atama kilidinin sağlıklı veritabanı bağlantısıyla reddedildiği ayrıca doğrulandı. Geçici sunucu kapatıldı.
+- Son `pip-audit`: kurulu 53 paket ve kilitli 54 genel paket için 0 bilinen açık, 0 atlanan paket. Son tam `npm audit`: üretim ve derleme araçları dahil 0 bilinen açık; pnpm kilidindeki her paket/sürüm de taranan npm grafiğinde mevcut. Django 5.2.18, Allauth 65.19.7 ve diğer etkilenen paketler güncellendi. npm/pnpm kilitleri eşlendi. Login/e-posta kodu 6 rakam, parola sıfırlama kodu 8 tire içermeyen karakter olarak korundu.
+- Genel ve Python güvenlik incelemelerindeki bulgular giderildi. Formal TypeScript incelemesi, depodaki mevcut 48 ESLint hatası/3 uyarı nedeniyle tam lint kapısını geçmedi; yeni CAPTCHA/CSP testleri hedefli lint ve tip kontrolünden geçti.
+- Eşzamanlı envanter geliştirmesiyle görülen eski stok/kimlik/tür değişimi hataları giderildi. Son bütünleşik backend paketi SQLite'ta **440 test, 3 PostgreSQL'e özel atlama**; gerçek geçici PostgreSQL'de **440 test, 15 SQLite demo hazırlamasına özel atlama** ile geçti. PostgreSQL'deki üç yarış testi gerçek kilit, geri alma ve çakışan onay davranışını ayrıca doğrular; atlanan demo testlerinde üretim veri koruması kaldırılmadı.
+- Gerçek Turnstile widget anahtarları/alan adı, SIEM ürününe uygun kolektör/adaptör, gizli aktarım anahtarı, yetkileri ayrılmış PostgreSQL runtime/migration rolleri ve kanıt saklama politikası canlı ortamda tamamlanmalıdır. Uygulama dışındaki sunucu/ağ erişimleri veya canlı uçtan uca CAPTCHA/SIEM teslimi bu yerel testlerle doğrulanmış sayılmaz.
+
 Python 3.13+ ve Node 22.12+ kullanın (`.nvmrc`: 22). Python bağımlılıklarının kaynağı `backend/pyproject.toml` + `uv.lock`; Docker frontend kurulumu `pnpm-lock.yaml` kullanır. İki frontend kilidi birlikte güncellenmelidir.
 
 ```bash

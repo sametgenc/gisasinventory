@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { catalog: { directoryHelp: string } }
+const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { catalog: { directoryHelp: string }; workbook: { title: string } }
 
 const typeId = 'a0000000-0000-4000-8000-000000000001'
 const equipmentType = {
@@ -23,7 +23,8 @@ async function session(page: Page, assigned = true, platform = false) {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
             user: { id: '1', username: 'test', email: 'test@example.test', role: platform ? 'platform_admin' : 'tenant_user',
-                tenant_slug: assigned ? 'test-yard' : null, tenant_name: assigned ? 'Test Yard' : null },
+                is_superuser: platform, tenant_id: platform ? null : assigned ? 1 : null,
+                tenant_slug: platform ? null : assigned ? 'test-yard' : null, tenant_name: assigned ? 'Test Yard' : null },
             methods: [],
         } } })
     })
@@ -58,6 +59,23 @@ test('inventory load failure shows retry instead of an empty inventory', async (
     await page.getByRole('button', { name: 'Open Forklift equipment' }).click()
     await expect(page.getByRole('button', { name: 'TEST-001', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Add equipment', exact: true })).toBeEnabled()
+})
+
+test('revoked session leaves protected inventory and keeps the login destination stable', async ({ page }) => {
+    await session(page)
+    await standardApi(page, (path, method) => path === '/api/assets/items/' && method === 'POST' ? {
+        status: 401, json: { status: 401, meta: { is_authenticated: false }, data: { flows: [] } },
+    } : undefined)
+    await page.goto('/assets')
+    await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
+    const dialog = page.getByRole('dialog', { name: 'Add equipment' })
+    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await dialog.getByRole('textbox', { name: /Equipment code/ }).fill('NEW-REVOKED')
+    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fassets$/)
+    await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
+    await expect(dialog).not.toBeVisible()
+    await expect(page.getByText('TEST-001', { exact: true })).not.toBeVisible()
 })
 
 test('unassigned accounts see a next step and cannot create or import equipment', async ({ page }) => {
@@ -195,34 +213,44 @@ test('unassigned account does not request the shared inventory', async ({ page }
     expect(sharedQueries).toBe(0)
 })
 
-test('catalog preview shows preserved skipped values and explicit clearing changes', async ({ page }) => {
+test('workbook preview explains metadata clearing and requires a fresh preview after target changes', async ({ page }) => {
     await session(page, false, true)
-    let updateMode = false
-    await standardApi(page, path => path === '/api/assets/types/catalog_preview/' ? { json: {
-        summary: { create: 0, update: updateMode ? 1 : 0, skip: updateMode ? 0 : 1, error: 0 },
-        preview_token: 'signed-preview', rows: [{
-            row: 2, values: { ...equipmentType, name: 'Incoming name', description: '', exclusion_reason: '' },
-            current_values: { ...equipmentType, description: 'Old description', exclusion_reason: 'Old exclusion' },
-            changes: updateMode ? { description: { before: 'Old description', after: '' }, exclusion_reason: { before: 'Old exclusion', after: '' } } : {},
-            skip_reason: updateMode ? null : 'exists', errors: [], operation: updateMode ? 'update' : 'skip', sharing_excluded: !updateMode,
-        }],
-    } } : undefined)
+    await standardApi(page)
+    const previews: string[] = []
+    const commits: string[] = []
+    await page.route('**/api/assets/workbook/preview/', async route => {
+        previews.push(route.request().postData() ?? '')
+        await route.fulfill({ json: {
+            summary: { types_created: 0, types_updated: 1, assets_created: 0, assets_updated: 0, skipped_rows_count: 0 },
+            preview_token: `signed-preview-${previews.length}`, can_commit: true, action_required: [], errors: [], notices: [],
+            rows: [{ sheet: 'Equipment types', row: 2, name: 'Forklift', catalog_code: equipmentType.catalog_code, kind: 'type',
+                changes: { description: { before: 'Old description', after: '' }, exclusion_reason: { before: 'Old exclusion', after: '' } },
+                errors: [], operation: 'update' }],
+        } })
+    })
+    await page.route('**/api/assets/workbook/commit/', async route => {
+        commits.push(route.request().postData() ?? '')
+        await route.fulfill({ json: { summary: { types_created: 0, types_updated: 1, assets_created: 0, assets_updated: 0, skipped_rows_count: 0 } } })
+    })
     await page.goto('/assets/types')
     await page.getByRole('button', { name: 'Import catalog', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Import equipment types from Excel' })
-    await dialog.getByLabel('Completed Excel file').setInputFiles({ name: 'catalog.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('mock workbook') })
-    await dialog.getByRole('button', { name: 'Preview file', exact: true }).click()
-    await expect(dialog.getByRole('cell').filter({ hasText: 'Forklift' })).toBeVisible()
-    await expect(dialog.getByText('Incoming name', { exact: true })).not.toBeVisible()
-    await expect(dialog.getByText(/Current catalog details are shown/)).toBeVisible()
-    await expect(dialog.getByRole('button', { name: 'Import 0 changes' })).toBeDisabled()
-    updateMode = true
-    await dialog.getByRole('combobox', { name: 'Import behavior' }).selectOption('update')
-    await dialog.getByRole('button', { name: 'Preview file', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: english.workbook.title })
+    await dialog.getByLabel('Excel workbook', { exact: true }).setInputFiles({ name: 'catalog.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('fictional mocked workbook') })
+    await dialog.getByRole('button', { name: 'Review workbook', exact: true }).click()
     await expect(dialog.getByText('Current: Old description')).toBeVisible()
     await expect(dialog.getByText('Current: Old exclusion')).toBeVisible()
     await expect(dialog.getByText('After import: Will be cleared')).toHaveCount(2)
-    await expect(dialog.getByRole('button', { name: 'Import 1 changes' })).toBeEnabled()
+    await expect(dialog.getByRole('button', { name: 'Import reviewed records', exact: true })).toBeEnabled()
+    await dialog.getByRole('combobox', { name: 'Inventory target shipyard', exact: true }).selectOption('1')
+    await expect(dialog.getByRole('button', { name: 'Import reviewed records', exact: true })).not.toBeVisible()
+    expect(commits).toHaveLength(0)
+    await dialog.getByRole('button', { name: 'Review workbook', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Import reviewed records', exact: true }).click()
+    await expect(dialog.getByText('Import completed', { exact: true })).toBeVisible()
+    expect(previews).toHaveLength(2)
+    expect(commits).toHaveLength(1)
+    expect(commits[0]).toContain('signed-preview-2')
+    expect(commits[0]).toMatch(/name="tenant"\r\n\r\n1/)
 })
 
 test('equipment save blocks dismissal until the server responds', async ({ page }) => {

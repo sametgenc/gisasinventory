@@ -29,9 +29,15 @@ import { InventoryTypeOverview } from '@/components/assets/InventoryTypeOverview
 import { EquipmentRecordList } from '@/components/assets/EquipmentRecordList'
 import { getEquipmentModelKey, getInventoryModelGroups, getInventoryTotals, getStockRecord, isStockType, normalizeInventoryText, type InventoryModelGroup } from '@/modules/assets/inventory-groups'
 import { AssetSharingModal } from '@/components/assets/AssetSharingModal'
+import { WorkbookImportModal } from '@/components/assets/WorkbookImportModal'
+import { schemaRoleKey } from '@/modules/assets/schema'
 import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/_secured/assets/')({
+    validateSearch: (search: Record<string, unknown>): { asset_type?: string; needs_update?: boolean } => ({
+        asset_type: typeof search.asset_type === 'string' ? search.asset_type : undefined,
+        needs_update: search.needs_update === true || search.needs_update === 'true' ? true : undefined,
+    }),
     component: AssetsPage,
 })
 
@@ -42,7 +48,8 @@ export const Route = createFileRoute('/_secured/assets/')({
 type Tenant = { id: number; name: string }
 
 function equipmentIdentifier(asset: Asset, assetType?: AssetType): string {
-    const key = assetType?.schema.find(field => field.is_unique_key)?.key
+    if (asset.inventory_code) return asset.inventory_code
+    const key = schemaRoleKey(assetType?.schema ?? [], 'identifier')
     const value = key ? asset.custom_data[key] : undefined
     return (typeof value === 'string' && value.trim() !== '') || typeof value === 'number'
         ? String(value)
@@ -95,7 +102,7 @@ function AssetDetailModal({ asset, assetTypes, isOpen, onClose, onEdit, onSharin
 
     const assetType = assetTypes.find(at => at.id === asset.asset_type)
     const stock = isStockType(assetType) ? getStockRecord(asset, assetType) : null
-    const stockKeys = ['material_code', 'material_name', 'quantity']
+    const stockKeys = (['identifier', 'display_name', 'quantity'] as const).flatMap(role => { const key = schemaRoleKey(assetType?.schema ?? [], role); return key ? [key] : [] })
     const schema = stock ? [...stockKeys.flatMap(key => assetType?.schema.filter(field => field.key === key) ?? []), ...(assetType?.schema.filter(field => !stockKeys.includes(field.key)) ?? [])] : assetType?.schema || []
     const extraFields = Object.entries(asset.custom_data).filter(([key]) => !schema.some(field => field.key === key))
     const locale = i18n.language === 'tr' ? 'tr-TR' : 'en-US'
@@ -104,6 +111,7 @@ function AssetDetailModal({ asset, assetTypes, isOpen, onClose, onEdit, onSharin
         <Modal isOpen={isOpen} onClose={onClose} title={stock ? stock.materialName || assetType?.name || t('inventory.stockInformation') : t('assets.detailTitle', { type: assetType?.name || t('assets.title') })} footer={stock ? <div className="flex flex-wrap justify-end gap-2 px-5 py-4"><Button variant="secondary" onClick={() => { onClose(); onEdit(asset) }}>{t('common.edit')}</Button>{onSharing && <Button onClick={() => { onClose(); onSharing(asset) }}>{t('inventory.sharingAction')}</Button>}</div> : undefined}>
             <div className="space-y-1">
                 {stock && <p className="pb-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{t('inventory.stockQuantityHelp')}</p>}
+                {asset.inventory_code && <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-3 dark:border-slate-800"><span className="text-sm text-slate-500">{t('dynamicSchema.inventoryCode')}</span><span className="max-w-[65%] text-right text-sm font-medium text-slate-900 dark:text-white [overflow-wrap:anywhere]">{asset.inventory_code}</span></div>}
                 <div className="flex justify-between items-start gap-3 py-3 border-b border-slate-100 dark:border-slate-800">
                     <span className="text-sm text-slate-500">{t('assets.assetType')}</span>
                     <span className="max-w-[65%] text-right text-sm font-medium text-slate-900 dark:text-white [overflow-wrap:anywhere]">{asset.asset_type_name}</span>
@@ -120,7 +128,7 @@ function AssetDetailModal({ asset, assetTypes, isOpen, onClose, onEdit, onSharin
                         <div key={field.key} className="flex justify-between items-start py-3 border-b border-slate-100 dark:border-slate-800 last:border-0">
                             <span className="min-w-0 flex-1 pr-3 text-sm text-slate-500">{field.label}</span>
                             <span className="max-w-[65%] text-sm font-medium text-slate-900 dark:text-white text-right [overflow-wrap:anywhere]">
-                                {stock && field.key === 'quantity' ? stock.quantity === null ? t('inventory.quantityUnknown') : t('inventory.stockQuantity', { quantity: stock.quantity.toLocaleString(locale) }) : field.type === 'checkbox'
+                                {stock && field.key === schemaRoleKey(assetType?.schema ?? [], 'quantity') ? stock.quantity === null ? t('inventory.quantityUnknown') : t('inventory.stockQuantity', { quantity: stock.quantity.toLocaleString(locale) }) : field.type === 'checkbox'
                                     ? (value ? `✓ ${t('common.yes')}` : `✗ ${t('common.no')}`)
                                     : (value !== undefined && value !== '' ? String(value) : '-')}
                             </span>
@@ -309,7 +317,8 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     useEffect(() => { if (!isOpen) reset() }, [isOpen, reset])
 
     const selectedAssetType = assetTypes.find(at => at.id === assetTypeId)
-    const uniqueKeyField = selectedAssetType?.schema?.find(f => f.is_unique_key)
+    const identifierKey = schemaRoleKey(selectedAssetType?.schema ?? [], 'identifier')
+    const uniqueKeyField = selectedAssetType?.schema?.find(f => f.key === identifierKey)
     const isTemplate = !!preview?.detected_template
     const analysis = preview?.analysis
     const needsTenant = isSuperuser
@@ -834,7 +843,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                                                 </option>
                                                             ))}
                                                         </select>
-                                                        {mappedField?.is_unique_key && (
+                                                        {uniqueKeyField && mappedField?.key === uniqueKeyField.key && (
                                                             <KeyRound size={12} className="text-amber-500 shrink-0" />
                                                         )}
                                                     </div>
@@ -1026,15 +1035,23 @@ function AssetsPage() {
     const { user } = useAuth()
     const { t, i18n } = useTranslation()
     const locale = i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US'
-    const isSuperuser = !!user?.is_superuser || user?.role === 'platform_admin'
+    const isSuperuser = !!user?.is_superuser && !user.tenant_slug
     const hasTenant = isSuperuser || !!user?.tenant_slug
     const { data: assetTypes = [], isLoading: typesLoading, isError: typesError, refetch: refetchTypes } = useAssetTypes()
     const { data: tenants = [], isLoading: tenantsLoading, isError: tenantsError, refetch: refetchTenants } = useTenants()
 
     const [filterTenant, setFilterTenant] = useState<number | null>(null)
-    const [filterType, setFilterType] = useState<string | null>(null)
+    const routeSearch = Route.useSearch()
+    const [filterType, setFilterType] = useState<string | null>(routeSearch.asset_type ?? null)
+    const [needsUpdateOnly, setNeedsUpdateOnly] = useState(!!routeSearch.needs_update)
+    useEffect(() => {
+        setFilterType(routeSearch.asset_type ?? null)
+        setNeedsUpdateOnly(!!routeSearch.needs_update)
+        setSelectedModelKey(null)
+        if (routeSearch.needs_update) setInventoryMode('list')
+    }, [routeSearch.asset_type, routeSearch.needs_update])
     const [searchQuery, setSearchQuery] = useState('')
-    const [inventoryMode, setInventoryMode] = useState<'types' | 'list'>('types')
+    const [inventoryMode, setInventoryMode] = useState<'types' | 'list'>(routeSearch.needs_update ? 'list' : 'types')
     const [selectedModelKey, setSelectedModelKey] = useState<string | null>(null)
     const [sharingAsset, setSharingAsset] = useState<Asset | null>(null)
     const canManageSharing = isSuperuser || user?.role === 'tenant_admin'
@@ -1053,6 +1070,7 @@ function AssetsPage() {
     const [deleteError, setDeleteError] = useState<string | null>(null)
 
     const [isImportOpen, setIsImportOpen] = useState(false)
+    const [workbookOpen, setWorkbookOpen] = useState(false)
     const [isExportOpen, setIsExportOpen] = useState(false)
 
     const { data: assets = [], isLoading, isError: assetsError, refetch: refetchAssets } = useAssets(undefined, hasTenant)
@@ -1063,22 +1081,23 @@ function AssetsPage() {
     const isBusy = isLoading || typesLoading || (isSuperuser && tenantsLoading)
     const hasLoadError = typesError || (hasTenant && assetsError) || (isSuperuser && tenantsError)
     const canCreate = hasTenant && assetTypes.length > 0 && !isBusy && !hasLoadError && (!isSuperuser || tenants.length > 0)
-    const hasFilters = !!(searchQuery.trim() || filterType || filterTenant || selectedModelKey)
-    const resetFilters = () => { setSearchQuery(''); setFilterType(null); setFilterTenant(null); setSelectedModelKey(null); setInventoryMode('types') }
+    const hasFilters = !!(searchQuery.trim() || filterType || filterTenant || selectedModelKey || needsUpdateOnly)
+    const resetFilters = () => { setSearchQuery(''); setFilterType(null); setFilterTenant(null); setSelectedModelKey(null); setInventoryMode('types'); setNeedsUpdateOnly(false) }
 
     const scopedAssets = useMemo(() => {
         let result = assets
         if (filterType) result = result.filter(a => a.asset_type === filterType)
+        if (needsUpdateOnly) result = result.filter(a => a.needs_update)
         if (isSuperuser && filterTenant) result = result.filter(a => a.tenant === filterTenant)
         if (searchQuery.trim()) {
             const words = normalizeInventoryText(searchQuery).split(' ').filter(word => word !== '·')
             result = result.filter(asset => {
-                const text = normalizeInventoryText([asset.asset_type_name, asset.tenant_name, ...Object.values(asset.custom_data)].map(String).join(' '))
+                const text = normalizeInventoryText([asset.asset_type_name, asset.tenant_name, asset.inventory_code ?? '', ...Object.values(asset.custom_data)].map(String).join(' '))
                 return words.every(word => text.includes(word))
             })
         }
         return result
-    }, [assets, filterType, filterTenant, searchQuery, isSuperuser])
+    }, [assets, filterType, filterTenant, searchQuery, isSuperuser, needsUpdateOnly])
 
     const filteredAssets = useMemo(() => selectedModelKey
         ? scopedAssets.filter(asset => getEquipmentModelKey(asset, assetTypes.find(type => type.id === asset.asset_type)) === selectedModelKey)
@@ -1194,10 +1213,15 @@ function AssetsPage() {
                 subtitle={isSuperuser ? t('inventory.centralSubtitle') : t('inventory.mySubtitle', { name: user?.tenant_name || t('assets.shipyard') })}
                 actions={<div className="flex max-w-full flex-wrap gap-2">
                     <Button variant="secondary" icon={<Upload size={16} />} disabled={!canCreate} onClick={() => setIsImportOpen(true)}>{t('assets.importExcel')}</Button>
+                    {(isSuperuser || user?.role === 'tenant_admin') && <Button variant="secondary" icon={<FileSpreadsheet size={16} />} disabled={isBusy || hasLoadError || !hasTenant} onClick={() => setWorkbookOpen(true)}>{t('workbook.shortTitle')}</Button>}
                     <Button icon={<Plus size={16} />} onClick={openCreate} disabled={!canCreate}>{t('assets.addNew')}</Button>
                     <ActionsMenu onExport={() => setIsExportOpen(true)} onReport={handleReportExport} disabledExport={!assetTypes.length || isBusy || hasLoadError || !hasTenant} disabledReport={filteredAssets.length === 0 || isBusy || hasLoadError || !hasTenant} />
                 </div>}
             />
+            {!isBusy && !hasLoadError && assets.some(asset => asset.needs_update) && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                <span>{t('dynamicSchema.needsUpdate')} · {assets.filter(asset => asset.needs_update).length}</span>
+                <Button size="sm" variant="secondary" onClick={() => { setNeedsUpdateOnly(value => !value); setInventoryMode('list'); setSelectedModelKey(null) }}>{t(needsUpdateOnly ? 'dynamicSchema.allRecords' : 'dynamicSchema.showNeedsUpdate')}</Button>
+            </div>}
             {hasLoadError && <div role="alert" className="mb-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"><p>{t('ux.inventoryLoadFailed')}</p><Button variant="ghost" size="sm" onClick={() => { void refetchAssets(); void refetchTypes(); if (isSuperuser) void refetchTenants() }}>{t('catalog.retry')}</Button></div>}
             {!isBusy && !hasLoadError && (!hasTenant || assetTypes.length === 0 || (isSuperuser && tenants.length === 0)) && <div role="status" className="mb-5 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-semibold text-slate-900 dark:text-white">{t(!hasTenant ? 'ux.tenantNeededTitle' : assetTypes.length === 0 ? 'ux.catalogNeededTitle' : 'ux.shipyardNeededTitle')}</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t(!hasTenant ? 'ux.tenantNeededHelp' : assetTypes.length === 0 ? isSuperuser ? 'ux.catalogNeededHelp' : 'ux.catalogNeededMemberHelp' : 'ux.shipyardNeededHelp')}</p>{hasTenant && assetTypes.length === 0 && <Link to="/assets/types" className="mt-3 inline-block text-sm font-medium text-blue-700 underline dark:text-blue-300">{t('catalog.goToTypes')}</Link>}</div>}
 
@@ -1259,6 +1283,7 @@ function AssetsPage() {
                 isSuperuser={isSuperuser}
                 onImported={refetchAssets}
             />
+            <WorkbookImportModal isOpen={workbookOpen} onClose={() => setWorkbookOpen(false)} isGlobalAdmin={isSuperuser} tenants={tenants} onImported={refetchAssets} onSingleTypeImport={() => { setWorkbookOpen(false); setIsImportOpen(true) }} />
 
             <ExportDialog
                 isOpen={isExportOpen}

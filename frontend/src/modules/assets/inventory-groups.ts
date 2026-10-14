@@ -1,4 +1,5 @@
 import type { Asset, AssetType, SchemaField } from './types'
+import { schemaRoleKey } from './schema'
 
 export interface InventoryModelGroup {
     key: string
@@ -24,14 +25,18 @@ export function isStockType(type?: AssetType): boolean {
 
 /** A stock line represents material quantity, never that many individual equipment records. */
 export function getStockRecord(asset: Asset, type?: AssetType) {
-    const declared = (key: string) => type?.schema?.some(field => field.key === key)
-    const text = (key: string) => declared(key) && typeof asset.custom_data[key] === 'string'
-        ? String(asset.custom_data[key]).trim().replace(/\s+/g, ' ') : ''
-    const rawQuantity = declared('quantity') ? asset.custom_data.quantity : undefined
+    const schema = type?.schema ?? []
+    const text = (key?: string) => {
+        const value = key ? asset.custom_data[key] : undefined
+        return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ')
+            : typeof value === 'number' && Number.isFinite(value) ? String(value) : ''
+    }
+    const quantityKey = schemaRoleKey(schema, 'quantity')
+    const rawQuantity = quantityKey ? asset.custom_data[quantityKey] : undefined
     const number = typeof rawQuantity === 'number' ? rawQuantity
         : typeof rawQuantity === 'string' && rawQuantity.trim() !== '' ? Number(rawQuantity) : NaN
     const quantity = isStockType(type) && Number.isSafeInteger(number) && number >= 0 ? number : null
-    return { materialCode: text('material_code'), materialName: text('material_name'), quantity }
+    return { materialCode: asset.inventory_code || text(schemaRoleKey(schema, 'identifier')), materialName: text(schemaRoleKey(schema, 'display_name')), quantity }
 }
 
 export function getInventoryTotals(assets: Asset[], assetTypes: AssetType[]) {

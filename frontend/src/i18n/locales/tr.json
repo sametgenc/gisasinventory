@@ -1,4 +1,9 @@
 {
+    "captcha": {
+        "label": "Güvenlik doğrulaması",
+        "loading": "Güvenlik doğrulaması yükleniyor…",
+        "unavailable": "Güvenlik doğrulaması kullanılamıyor. Sayfayı yenileyip tekrar deneyin."
+    },
     "inventory": {
         "myTitle": "Envanterim",
         "centralTitle": "Birleşik envanter",
@@ -703,7 +708,7 @@
             "ignore": "— Yoksay —",
             "rowCount": "{{count}} satır",
             "firstRowsShown": "İlk {{shown}} satır gösteriliyor — toplam {{total}} satır içe aktarılacak",
-            "uniqueKeyNotice": "Benzersiz İndeks: {{field}} — aynı değer mevcutsa kayıt güncellenir.",
+            "uniqueKeyNotice": "Eşleştirme kodu: {{field}}. Aynı tersane ve türde bu kodla bulunan kayıt güncellenir.",
             "templateDetectedTitle": "Şablon algılandı",
             "templateDetectedBody": "Bu dosya {{name}} şablonunu kullanıyor. Aktarmadan önce kontrol sonuçlarını inceleyin.",
             "runTemplateImport": "Şablon İçe Aktarmayı Başlat",
@@ -849,7 +854,7 @@
         "createNewType": "Yeni tip oluştur",
         "noTypesYet": "Henüz varlık tipi yok",
         "deleteConfirm": "Bu varlık tipini silmek istediğinizden emin misiniz?",
-        "uniqueIndexField": "Benzersiz İndeks",
+        "uniqueIndexField": "Excel eşleştirme kodu",
         "uniqueIndexDisabled": "Başka bir alan zaten benzersiz indeks. Önce onu kapatın.",
         "builder": {
             "basicInfo": "Temel Bilgiler",
@@ -882,7 +887,7 @@
             "individual": "Forklift veya vinç gibi her ekipmanın kendi kaydı vardır. Aynı modelin adetleri birlikte gösterilir.",
             "stock": "İskele parçası veya kelepçe gibi malzemelerde ad, kod ve stok adedi tutulur. Binlerce parça tek kayıtta izlenir."
         },
-        "stockFieldsHelp": "Malzeme kodu, malzeme adı ve stok adedi alanları hazır gelir. Malzeme kodu aynı tersanede yeniden aktarımı eşleştirir; diğer alanlar korunur.",
+        "stockFieldsHelp": "Kod, görünen ad ve adet alanları öneri olarak gelir. Adlarını değiştirebilir, isteğe bağlı tutabilir veya kaldırabilirsiniz.",
         "trackingChangeHelp": "Mevcut türün takip biçimi burada değiştirilemez. Farklı takip için yeni bir tür oluşturun."
     },
     "bulkImport": {
@@ -1041,7 +1046,7 @@
         "classification": "Kategori ve paylaşım değerlendirmesi",
         "preliminaryHelp": "A/B/C değeri yalnızca ön değerlendirmedir; paylaşım izni veya anlık uygunluk anlamına gelmez. Her fiziksel ekipman saha değerlendirmesinden geçmelidir.",
         "code": "Katalog kodu",
-        "codeHelp": "Tipi sonraki Excel aktarımlarında güvenle eşleştiren kalıcı kod. Örnek: B-001",
+        "codeHelp": "Bütün tersanelerde aynı ekipman türünü tanımlayan kalıcı kod. Boş bırakırsanız otomatik oluşturulur.",
         "category": "Kategori",
         "grade": "Ön paylaşım sınıfı",
         "exclusion": "Kapsam dışı nedeni",
@@ -1234,5 +1239,100 @@
         "withdraw": "Ortak listeden kaldır",
         "withdrawHelp": "Yayını kaldırınca diğer tersanelere gösterilmez. Önceden kaydedilmiş bilgiler taslak olarak kalır; kaydedilmemiş değişiklikler uygulanmaz. Kaldırdıktan sonra taslağı düzenleyebilirsiniz.",
         "pausedLabel": "Paylaşım durduruldu · kontrol edin"
+    },
+    "dynamicSchema": {
+        "intro": "Bu tür bütün tersanelerde ortak kullanılır. Burada ekipmanı tanımlayın; tersanedeki adet ve kayıtlar envantere eklenir.",
+        "optionalHelp": "Yeni alanlar isteğe bağlıdır. Yalnızca gerçekten gerekli bilgileri zorunlu yapın.",
+        "role": "Bu bilgi ne için kullanılacak?",
+        "roleHelp": "Görünen ad, kod ve toplam adet alanlarını seçebilirsiniz. Diğer bilgiler ek özellik olarak kalır.",
+        "roles": {
+            "none": "Ek bilgi",
+            "identifier": "Kayıtları eşleştiren kod",
+            "display_name": "Listede görünen ad",
+            "quantity": "Toplam stok adedi"
+        },
+        "stableKeyHelp": "Alan adı değişse de mevcut kayıtların değerleri korunur.",
+        "impactTitle": "Kaydetmeden önce kontrol",
+        "impact": "{{count}} kayıtta güncelleme gerekecek; {{tenants}} tersane etkilenecek.",
+        "impactHelp": "Etkilenen tersane yöneticilerine toplu bildirim gönderilir. Mevcut kayıtlar silinmez.",
+        "impactError": "Etkilenen kayıtlar kontrol edilemedi. Tekrar deneyin.",
+        "applyChanges": "Değişiklikleri uygula",
+        "missingHelp": "Tamamlanması gereken bilgiler:",
+        "needsUpdate": "Güncelleme gerekli",
+        "showNeedsUpdate": "Eksik bilgili kayıtları göster",
+        "allRecords": "Tüm kayıtları göster",
+        "inventoryCode": "Tersanenin envanter kodu",
+        "inventoryCodeHelp": "İsteğe bağlı yerel kod. Excel yeniden yüklendiğinde aynı tür ve tersanedeki kaydı eşleştirir. Ortak katalog kodundan farklıdır."
+    },
+    "workbook": {
+        "title": "Tür ve envanter aktarımı",
+        "shortTitle": "Tür ve envanter dosyası",
+        "description": "Tek Excel dosyasıyla ortak ekipman türlerini ve tersanenin kayıtlarını aktarın. Önce dosyayı inceleyin, sonucu kontrol edin, sonra uygulayın.",
+        "sheets": {
+            "types": "1. Ekipman türleri",
+            "fields": "2. Alanlar",
+            "inventory": "3. Envanter"
+        },
+        "sheetHelp": {
+            "types": "Ortak katalog tanımı. Fiziksel ekipman veya adet değildir.",
+            "fields": "Türün bilgileri. Yeni alanlar isteğe bağlı başlar.",
+            "inventory": "Seçilen tersanenin kayıtları. Katalog koduyla türe bağlanır."
+        },
+        "template": "Boş Excel şablonu indir",
+        "singleType": "Tek tür envanteri yükle",
+        "target": "Envanterin ekleneceği tersane",
+        "targetHelp": "Envanter varsa tersane seçin. Dosyadaki tersane adı sahiplik oluşturmaz.",
+        "typesOnly": "Yalnızca ekipman türleri",
+        "ownTenant": "Envanter kendi tersanenize eklenir. Ortak tür ve alan değişikliklerini platform yöneticisi yapar.",
+        "file": "Excel dosyası",
+        "fileHelp": ".xlsx · En fazla 5 MB. GISBIR taksonomisi veya üç sayfalı aktarım şablonu.",
+        "sizeError": "Dosya 5 MB sınırını aşıyor. Küçültüp yeniden seçin.",
+        "review": "Dosyayı incele",
+        "apply": "Kontrol edilen kayıtları aktar",
+        "previewError": "Dosya incelenemedi. Dosyayı kontrol edip tekrar deneyin.",
+        "commitError": "Aktarım tamamlanamadı. Yeniden inceleyip deneyin.",
+        "templateError": "Şablon indirilemedi. Tekrar deneyin.",
+        "success": "Aktarım tamamlandı",
+        "private": "Envanter kayıtları size özeldir. Ortak kullanım için ayrıca paylaşıma açın.",
+        "summary": {
+            "types_created": "Yeni ekipman türü",
+            "types_updated": "Güncellenen tür",
+            "assets_created": "Yeni envanter kaydı",
+            "assets_updated": "Güncellenen kayıt"
+        },
+        "skipped": "{{count}} toplam, başlık veya boş satır atlandı.",
+        "decisions": "Seçim gereken satırlar",
+        "row": "Satır {{count}}",
+        "classification": "Ön paylaşım sınıfı",
+        "choose": "Sınıf seçin",
+        "fixFile": "Dosyada düzeltilmesi gereken bilgiler var",
+        "table": {
+            "record": "Kayıt",
+            "code": "Katalog kodu",
+            "operation": "Yapılacak işlem"
+        },
+        "operations": {
+            "create": "Oluşturulacak",
+            "update": "Güncellenecek",
+            "unchanged": "Değişiklik yok",
+            "skip": "Atlanacak",
+            "error": "Düzeltme gerekli",
+            "proposal": "Alan önerisi",
+            "review": "Kontrol gerekli"
+        },
+        "reviewAgain": "Seçimler değişti. Dosyayı tekrar inceleyin.",
+        "ready": "Gösterilen kayıtlar birlikte uygulanacak. Envanter otomatik paylaşıma açılmaz.",
+        "blocked": "Seçim veya düzeltme gereken satırlar tamamlanmadan aktarım yapılamaz.",
+        "before": "Mevcut: {{value}}",
+        "after": "Aktarım sonrası: {{value}}",
+        "cleared": "Temizlenecek",
+        "changeLabels": {
+            "name": "Tür adı",
+            "description": "Açıklama",
+            "category_code": "Kategori",
+            "sharing_class": "Ön paylaşım sınıfı",
+            "exclusion_reason": "Kapsam dışı nedeni",
+            "tracking_mode": "Takip biçimi"
+        }
     }
 }

@@ -30,7 +30,7 @@ async function mockCatalog(page: Page) {
         await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: config ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'layout', email: 'layout@example.test', role: 'platform_admin', tenant_slug: 'test-yard', tenant_name: 'Test Yard' },
+            user: { id: '1', username: 'layout', email: 'layout@example.test', role: 'platform_admin', is_superuser: true, tenant_id: null, tenant_slug: null },
             methods: [],
         } } })
     })

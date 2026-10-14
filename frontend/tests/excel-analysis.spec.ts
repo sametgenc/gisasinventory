@@ -60,12 +60,17 @@ async function chooseFile(dialog: ReturnType<Page['getByRole']>, name = 'example
 }
 
 test('automatic proposal detects row four, reports totals and preserves zero stock and Excel row numbers', async ({ page }) => {
-    const { dialog, previews, imports } = await session(page, route => route.fulfill({ json: preview() }))
+    const roleType: AssetType = { ...stockType, schema: [
+        { key: 'material_code', label: 'Material code', type: 'text', required: true, role: 'identifier' },
+        ...stockType.schema.slice(1),
+    ] }
+    const { dialog, previews, imports } = await session(page, route => route.fulfill({ json: preview() }), [roleType])
     await chooseFile(dialog)
     await dialog.getByRole('button', { name: 'Preview & continue' }).click()
     await expect(dialog.getByText('We reviewed your file', { exact: true })).toBeVisible()
     await expect(dialog).toContainText('Worksheet: Stock · Header row: 4')
     await expect(dialog.getByRole('combobox', { name: 'Equipment type', exact: true })).toHaveValue(stockType.id)
+    await expect(dialog).toContainText('Matching code: Material code. Existing records with the same code in this shipyard and type are updated.')
     expect(part(previews[0], 'header_row')).toBeUndefined()
     expect(part(previews[0], 'skip_rows')).toBeUndefined()
     await expect(dialog).toContainText('Unmatched columns are not imported')

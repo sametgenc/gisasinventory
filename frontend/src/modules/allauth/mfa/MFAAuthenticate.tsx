@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +12,7 @@ import { MethodSelector, SecurityError, SecurityPanel } from './SecurityPanel'
 import { pendingMfaMethods, safeReturnPath, securityErrorKey, type VerificationMethod } from './security'
 
 export function MFAAuthenticate() {
+    const captcha = useCaptcha()
     const { t } = useTranslation()
     const { pendingFlow, refresh, logout } = useAuth()
     const navigate = useNavigate()
@@ -25,6 +27,7 @@ export function MFAAuthenticate() {
 
     const submit = async (event?: FormEvent) => {
         event?.preventDefault()
+        if (!captcha.ready) return
         if (busy.current || !method) return
         busy.current = true
         setLoading(true)
@@ -35,8 +38,8 @@ export function MFAAuthenticate() {
                 const options = await ALLAUTH_API.getWebAuthnRequestOptionsForAuthentication()
                 if (options.status !== 200 || !options.data?.request_options) { setError(t(securityErrorKey(options))); return }
                 const credential = await webauthnGet(parseRequestOptionsFromJSON(options.data.request_options))
-                res = await ALLAUTH_API.authenticateWebAuthn(credential)
-            } else res = await ALLAUTH_API.authenticateMFA(code.trim())
+                res = await ALLAUTH_API.authenticateWebAuthn(credential, captcha.token)
+            } else res = await ALLAUTH_API.authenticateMFA(code.trim(), captcha.token)
             const next = pathForPendingFlow(res)
             if (next && next !== '/auth/mfa/authenticate') { await navigate({ to: next }); return }
             if (res.status !== 200) { setError(t(securityErrorKey(res))); return }
@@ -44,7 +47,7 @@ export function MFAAuthenticate() {
             if (refreshed.error || refreshed.sessionRes?.status !== 200) { setError(t('mfa.errors.connection')); return }
             await navigate({ to: safeReturnPath(redirect) })
         } catch { setError(t(method === 'passkey' ? 'mfa.errors.passkey' : 'mfa.errors.connection')) }
-        finally { busy.current = false; setLoading(false) }
+        finally { busy.current = false; setLoading(false); captcha.reset() }
     }
     const cancel = async () => {
         if (busy.current) return
@@ -58,12 +61,13 @@ export function MFAAuthenticate() {
     return <SecurityPanel title={t('mfa.authenticateTitle')} description={t('mfa.authenticateDescription')}>
         {error && <SecurityError>{error}</SecurityError>}
         {!method ? <SecurityError>{t('mfa.noPendingMethod')}</SecurityError> : <>
+            {captcha.widget}
             <MethodSelector methods={methods} method={method} onChange={item => { setSelected(item); setCode(''); setError(null) }} disabled={loading} />
-            {method === 'passkey' ? <><p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{t('mfa.passkeyHint')}</p><Button onClick={() => submit()} loading={loading}>{t('mfa.methods.passkey')}</Button></> : <form className="space-y-4" onSubmit={submit}>
+            {method === 'passkey' ? <><p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{t('mfa.passkeyHint')}</p><Button onClick={() => submit()} loading={loading} disabled={!captcha.ready}>{t('mfa.methods.passkey')}</Button></> : <form className="space-y-4" onSubmit={submit}>
                 <FormField label={t(method === 'recovery' ? 'mfa.recoveryCodeLabel' : 'mfa.codeLabel')} help={t(method === 'recovery' ? 'mfa.recoveryCodeHint' : 'mfa.codeHint')} required>
                     <input className={formControlClass} type="text" value={code} onChange={event => setCode(method === 'totp' ? event.target.value.replace(/\D/g, '') : event.target.value)} inputMode={method === 'totp' ? 'numeric' : undefined} autoComplete="one-time-code" pattern={method === 'totp' ? '[0-9]{6}' : undefined} maxLength={method === 'totp' ? 6 : 64} required disabled={loading} />
                 </FormField>
-                <Button type="submit" loading={loading} disabled={method === 'totp' ? code.length !== 6 : !code.trim()}>{t('mfa.verify')}</Button>
+                <Button type="submit" loading={loading} disabled={!captcha.ready || (method === 'totp' ? code.length !== 6 : !code.trim())}>{t('mfa.verify')}</Button>
             </form>}
         </>}
         <Button variant="ghost" className="mt-5" onClick={cancel} disabled={loading}>{t('mfa.backToLogin')}</Button>

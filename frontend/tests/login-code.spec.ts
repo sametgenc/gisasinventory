@@ -1,5 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/captcha/', route => route.fulfill({ json: { enabled: false, site_key: '' } }))
+})
+
 const requestPath = '/_allauth/browser/v1/auth/code/request'
 const confirmPath = '/_allauth/browser/v1/auth/code/confirm'
 const email = 'member@shipyard.test'

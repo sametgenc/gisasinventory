@@ -22,7 +22,8 @@ import {
     FormField, formControlClass,
 } from '@/components/ui'
 import { AssetTypeFormModal } from '@/components/assets/AssetTypeFormModal'
-import { CatalogImportModal } from '@/components/assets/CatalogImportModal'
+import { WorkbookImportModal } from '@/components/assets/WorkbookImportModal'
+import { useTenants } from '@/modules/tenants'
 import { categoryCodes } from '@/modules/assets/catalog'
 import { getApiErrorMessage } from '@/api/errors'
 import { useTranslation } from 'react-i18next'
@@ -35,11 +36,12 @@ function AssetTypesPage() {
     const { user } = useAuth()
     const { t, i18n } = useTranslation()
     const { data: assetTypes = [], isLoading, isFetching, isError, refetch } = useAssetTypes()
+    const { data: tenants = [] } = useTenants()
     const createMutation = useCreateAssetType()
     const updateMutation = useUpdateAssetType()
     const deleteMutation = useDeleteAssetType()
 
-    const canManage = !!user?.is_superuser || user?.role === 'platform_admin'
+    const canManage = !!user?.is_superuser && !user.tenant_slug
 
     const [importOpen, setImportOpen] = useState(false)
     const [search, setSearch] = useState('')
@@ -211,7 +213,7 @@ function AssetTypesPage() {
                 </div>
             ))}
 
-            {importOpen && <CatalogImportModal onClose={() => setImportOpen(false)} />}
+            <WorkbookImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} isGlobalAdmin={canManage} tenants={tenants} />
 
             <AssetTypeFormModal
                 isOpen={formOpen}

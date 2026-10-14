@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import openpyxl
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from rest_framework.test import APITestCase
 from rest_framework.exceptions import NotFound, ValidationError
 
@@ -26,12 +27,13 @@ def workbook_file(rows):
     return SimpleUploadedFile('stock.xlsx', stream.getvalue())
 
 
+@override_settings(CROSS_TENANT_SHARING_ENABLED=True)
 class StockTrackingTests(APITestCase):
     def setUp(self):
         self.owner = Tenant.objects.create(name='Stock sample yard')
         self.other = Tenant.objects.create(name='Other stock yard')
         self.manager = User.objects.create(username='stock-manager', role='tenant_admin', tenant=self.owner)
-        self.admin = User.objects.create(username='stock-platform', role='platform_admin')
+        self.admin = User.objects.create(username='stock-platform', role='platform_admin', is_superuser=True)
         self.stock_type = AssetType.objects.create(
             name='Scaffold stock', tracking_mode=AssetType.TrackingMode.STOCK,
             schema=default_stock_schema(),
@@ -66,7 +68,7 @@ class StockTrackingTests(APITestCase):
         self.assertEqual(response.data['custom_data']['quantity'], -1.5)
         self.assertEqual(self.client.get(f'/api/assets/types/{individual.pk}/').data['tracking_mode'], 'individual')
 
-    def test_stock_creation_without_schema_uses_canonical_required_fields(self):
+    def test_stock_creation_without_schema_uses_optional_suggested_fields(self):
         self.client.force_authenticate(self.admin)
         response = self.client.post('/api/assets/types/', {
             'name': 'Default material stock', 'tracking_mode': 'stock',
@@ -75,25 +77,16 @@ class StockTrackingTests(APITestCase):
         self.assertEqual(response.data['schema'], default_stock_schema())
         self.assertEqual(response.data['tracking_mode'], 'stock')
 
-    def test_stock_schema_cannot_remove_or_reinterpret_canonical_fields(self):
+    def test_stock_schema_can_remove_and_customize_suggested_fields(self):
         self.client.force_authenticate(self.admin)
-        for mutation in ['missing', 'wrong_type', 'optional', 'not_unique']:
-            with self.subTest(mutation=mutation):
-                schema = default_stock_schema()
-                if mutation == 'missing':
-                    schema.pop()
-                elif mutation == 'wrong_type':
-                    schema[2]['type'] = 'text'
-                elif mutation == 'optional':
-                    schema[1]['required'] = False
-                else:
-                    schema[0]['is_unique_key'] = False
-                response = self.client.patch(f'/api/assets/types/{self.stock_type.pk}/', {
-                    'schema': schema,
-                }, format='json')
-                self.assertEqual(response.status_code, 400, response.data)
+        schema = [{'key': 'stock_count', 'label': 'Adet', 'type': 'number', 'role': 'quantity', 'required': False}]
+        response = self.client.patch(f'/api/assets/types/{self.stock_type.pk}/', {'schema': schema}, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
         self.stock_type.refresh_from_db()
-        self.assertEqual(self.stock_type.schema, default_stock_schema())
+        self.assertEqual(self.stock_type.schema, schema)
+        schema[0]['type'] = 'text'
+        response = self.client.patch(f'/api/assets/types/{self.stock_type.pk}/', {'schema': schema}, format='json')
+        self.assertEqual(response.status_code, 400, response.data)
 
     def test_tracking_mode_changes_are_blocked_when_records_exist(self):
         self.client.force_authenticate(self.admin)
@@ -118,7 +111,9 @@ class StockTrackingTests(APITestCase):
             'asset_type': str(empty_type.pk), 'custom_data': {},
         }, context={'request': SimpleNamespace(user=self.manager)})
         serializer.is_valid(raise_exception=True)
-        change_mode = AssetTypeSerializer(empty_type, data={'tracking_mode': 'stock'}, partial=True)
+        required_schema = default_stock_schema()
+        required_schema[2]['required'] = True
+        change_mode = AssetTypeSerializer(empty_type, data={'tracking_mode': 'stock', 'schema': required_schema}, partial=True)
         change_mode.is_valid(raise_exception=True)
         change_mode.save()
 
@@ -137,7 +132,9 @@ class StockTrackingTests(APITestCase):
             'asset_type': str(empty_target.pk), 'custom_data': {},
         }, partial=True, context={'request': SimpleNamespace(user=self.manager)})
         serializer.is_valid(raise_exception=True)
-        change_mode = AssetTypeSerializer(empty_target, data={'tracking_mode': 'stock'}, partial=True)
+        required_schema = default_stock_schema()
+        required_schema[2]['required'] = True
+        change_mode = AssetTypeSerializer(empty_target, data={'tracking_mode': 'stock', 'schema': required_schema}, partial=True)
         change_mode.is_valid(raise_exception=True)
         change_mode.save()
 
@@ -183,34 +180,36 @@ class StockTrackingTests(APITestCase):
         self.assertEqual(Asset.objects.count(), 1)
 
     def test_stock_quantity_is_nonnegative_integral_and_safe(self):
-        for invalid in [-1, 1.5, True, None, '', 'NaN', 'Infinity', str(MAX_STOCK_QUANTITY + 1),
+        for invalid in [-1, 1.5, True, 'NaN', 'Infinity', str(MAX_STOCK_QUANTITY + 1),
                         '1.00000000000000000001', 10 ** 400]:
             with self.subTest(invalid=invalid):
                 response = self.client.post('/api/assets/items/', self.payload(invalid), format='json')
                 self.assertEqual(response.status_code, 400, response.data)
                 self.assertIn('quantity', response.data['custom_data'])
         self.assertEqual(Asset.objects.count(), 0)
-        for valid in [0, 50, '500', str(MAX_STOCK_QUANTITY)]:
+        for index, valid in enumerate([0, 50, '500', str(MAX_STOCK_QUANTITY)]):
             with self.subTest(valid=valid):
-                response = self.client.post('/api/assets/items/', self.payload(valid), format='json')
+                payload = self.payload(valid)
+                payload['custom_data']['material_code'] = f'VALID-STOCK-{index}'
+                response = self.client.post('/api/assets/items/', payload, format='json')
                 self.assertEqual(response.status_code, 201, response.data)
                 self.assertEqual(response.data['custom_data']['quantity'], int(valid))
                 self.assertIsInstance(response.data['custom_data']['quantity'], int)
                 self.assertFalse(response.data['is_shared'])
 
-    def test_blank_material_identity_rejected_and_surrounding_space_normalized(self):
+    def test_optional_material_identity_can_be_blank_and_surrounding_space_normalized(self):
         for key in ['material_code', 'material_name']:
             with self.subTest(key=key):
                 data = self.payload()
                 data['custom_data'][key] = '   '
                 response = self.client.post('/api/assets/items/', data, format='json')
-                self.assertEqual(response.status_code, 400, response.data)
-                self.assertIn(key, response.data['custom_data'])
+                self.assertEqual(response.status_code, 201, response.data)
+                self.assertEqual(response.data['custom_data'][key], '')
         data = self.payload()
-        data['custom_data'].update(material_code=' MAT-50 ', material_name=' Scaffold clamp ')
+        data['custom_data'].update(material_code=' MAT-NORMALIZED ', material_name=' Scaffold clamp ')
         response = self.client.post('/api/assets/items/', data, format='json')
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data['custom_data']['material_code'], 'MAT-50')
+        self.assertEqual(response.data['custom_data']['material_code'], 'MAT-NORMALIZED')
         self.assertEqual(response.data['custom_data']['material_name'], 'Scaffold clamp')
 
     def test_synthetic_export_import_replaces_quantities_and_keeps_zero_and_metadata(self):

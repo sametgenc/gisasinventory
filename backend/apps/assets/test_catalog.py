@@ -14,7 +14,7 @@ from .models import Asset, AssetType
 
 class CatalogImportTests(APITestCase):
     def setUp(self):
-        self.admin = User.objects.create(username='catalog-admin', role='platform_admin')
+        self.admin = User.objects.create(username='catalog-admin', role='platform_admin', is_superuser=True)
         self.client.force_authenticate(self.admin)
         self.rows = [['B-001', 'Portal vinç', 'B', 'B', '', 'Örnek açıklama']]
         self.content = self.excel(self.rows)
@@ -137,14 +137,17 @@ class CatalogImportTests(APITestCase):
                 self.assertEqual(response.status_code, 201, response.data)
                 self.assertEqual(response.data['sharing_excluded'], excluded)
 
-    def test_catalog_code_normalization_and_empty_legacy_codes(self):
+    def test_catalog_code_normalization_and_generated_codes_for_new_types(self):
         item = AssetType.objects.create(name='Original', catalog_code='B-001')
         response = self.client.post('/api/assets/types/', {'name': 'Duplicate', 'catalog_code': 'b-001'}, format='json')
         self.assertEqual(response.status_code, 400)
-        for name in ['Legacy one', 'Legacy two']:
+        codes = []
+        for name in ['New one', 'New two']:
             response = self.client.post('/api/assets/types/', {'name': name, 'catalog_code': ''}, format='json')
             self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(AssetType.objects.filter(catalog_code__isnull=True).count(), 2)
+            self.assertTrue(response.data['catalog_code'].startswith('CAT-'))
+            codes.append(response.data['catalog_code'])
+        self.assertEqual(len(set(codes)), 2)
         self.assertEqual(self.client.delete(f'/api/assets/types/{item.pk}/').status_code, 204)
 
     def test_type_with_inventory_cannot_be_deleted(self):

@@ -8,6 +8,7 @@ export interface SchemaField {
     options?: string[]; // For select type
     default?: string | number | boolean;
     is_unique_key?: boolean; // Marks this field as the uniqueness index for deduplication during import
+    role?: 'identifier' | 'display_name' | 'quantity' | null;
 }
 
 /** Maps Excel column header → schema field key (null = ignore the column) */
@@ -105,6 +106,7 @@ export interface CatalogMetadata {
 }
 
 export interface AssetType extends CatalogMetadata {
+    schema_revision?: number;
     tracking_mode?: 'individual' | 'stock';
     sharing_excluded?: boolean;
     id: string;
@@ -143,6 +145,9 @@ export interface AssetSharingInput extends SharingDetails {
 }
 
 export interface Asset extends SharingDetails {
+    inventory_code?: string;
+    needs_update?: boolean;
+    missing_required_fields?: { key: string; label: string }[];
     id: string;
     tenant: number;
     tenant_name: string;
@@ -188,6 +193,7 @@ export interface SharedEquipmentPage {
 }
 
 export interface AssetCreateInput {
+    inventory_code?: string;
     asset_type: string;
     tenant?: number;
     custom_data: Record<string, unknown>;

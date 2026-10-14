@@ -33,7 +33,7 @@ async function mock(page: Page, assets = sample, role = 'tenant_admin') {
     })
     await page.route('**/_allauth/browser/v1/**', route => route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: route.request().url().endsWith('/config') ? {
         account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
-    } : { user: { id: '1', username: 'test', email: 'test@example.test', role, tenant_slug: 'example-yard', tenant_name: 'Example Yard' }, methods: [] } } }))
+    } : { user: { id: '1', username: 'test', email: 'test@example.test', role, is_superuser: role === 'platform_admin', tenant_id: role === 'platform_admin' ? null : 1, tenant_slug: role === 'platform_admin' ? null : 'example-yard', tenant_name: 'Example Yard' }, methods: [] } } }))
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const request = route.request()
         const path = new URL(request.url()).pathname
@@ -137,7 +137,7 @@ test('editing an existing equipment type cannot change tracking mode or its impo
     expect(saved?.schema).toEqual(original.schema)
 })
 
-test('new stock type submits required material fields and quantity tracking', async ({ page }) => {
+test('new stock type submits optional material fields and quantity tracking', async ({ page }) => {
     await mock(page, [], 'platform_admin')
     let saved: { tracking_mode?: string; schema?: AssetType['schema'] } | undefined
     await page.route('**/api/assets/types/**', async route => {
@@ -154,9 +154,9 @@ test('new stock type submits required material fields and quantity tracking', as
     await expect(dialog).not.toBeVisible()
     expect(saved?.tracking_mode).toBe('stock')
     expect(saved?.schema?.map(field => ({ key: field.key, type: field.type, required: field.required, unique: !!field.is_unique_key }))).toEqual([
-        { key: 'material_code', type: 'text', required: true, unique: true },
-        { key: 'material_name', type: 'text', required: true, unique: false },
-        { key: 'quantity', type: 'number', required: true, unique: false },
+        { key: 'material_code', type: 'text', required: false, unique: true },
+        { key: 'material_name', type: 'text', required: false, unique: false },
+        { key: 'quantity', type: 'number', required: false, unique: false },
     ])
 })
 

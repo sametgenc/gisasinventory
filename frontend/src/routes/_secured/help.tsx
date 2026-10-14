@@ -7,12 +7,13 @@ import { Button, Modal, formControlClass } from '@/components/ui'
 import { guideContent, type GuideTask, type GuideTaskId } from '@/modules/guide-content'
 import { helpCopy } from '@/modules/help-copy'
 import { isDemoMode } from '@/modules/demo'
+import { canUseSharedUsage } from '@/modules/assets/usage'
 
-const taskIds: GuideTaskId[] = ['inspect', 'add', 'excel', 'publish', 'catalog']
+const taskIds: GuideTaskId[] = ['inspect', 'add', 'excel', 'publish', 'catalog', 'usage']
 export const Route = createFileRoute('/_secured/help')({
     validateSearch: (search: Record<string, unknown>): { task?: GuideTaskId; step?: number } => ({
-        task: typeof search.task === 'string' && taskIds.includes(search.task as GuideTaskId) ? search.task as GuideTaskId : undefined,
-        step: Number.isInteger(Number(search.step)) && Number(search.step) >= 0 ? Number(search.step) : undefined,
+        task: typeof search.task === 'string' && taskIds.includes(search.task as GuideTaskId) ? search.task as GuideTaskId : 'inspect',
+        step: typeof search.task === 'string' && taskIds.includes(search.task as GuideTaskId) && Number.isInteger(Number(search.step)) && Number(search.step) >= 0 ? Number(search.step) : 0,
     }),
     component: HelpPage,
 })
@@ -58,7 +59,7 @@ function HelpPage() {
     const matchedSteps = normalizedSearch ? copy.tasks.flatMap(item => item.steps.flatMap((itemStep, index) =>
         matches([item.title, item.summary, itemStep.title, itemStep.body].join(' ')) ? [{ task: item, step: itemStep, index }] : [])) : []
     const questions = normalizedSearch ? copy.faq.filter(item => matches(item.question + ' ' + item.answer)) : copy.faq.filter(item => item.taskId === task.id)
-    const isPlatform = !!user?.is_superuser || user?.role === 'platform_admin'
+    const isPlatform = !!user?.is_superuser && !user.tenant_slug
     const isManager = isPlatform || user?.role === 'tenant_admin'
     const hasShipyard = isPlatform || !!user?.tenant_slug
     const canPerform = !!user && hasShipyard && (task.audienceRole === 'all' || (task.audienceRole === 'manager' ? isManager : isPlatform))
@@ -70,6 +71,7 @@ function HelpPage() {
 
     function actionFor(item: GuideTask, className: string) {
         if (!user) return <Link to="/login" search={{ redirect: item.route }} className={className}>{ui.signIn}<ArrowRight size={16} /></Link>
+        if (item.id === 'usage' && !canUseSharedUsage(user)) return <p className="text-sm text-slate-500 dark:text-slate-400">{ui.requiresShipyard}</p>
         if (canPerform) return <Link to={item.route} className={className}>{item.action}<ArrowRight size={16} /></Link>
         return <p className="text-sm text-slate-500 dark:text-slate-400">{hasShipyard ? ui.requiresRole : ui.requiresShipyard}</p>
     }

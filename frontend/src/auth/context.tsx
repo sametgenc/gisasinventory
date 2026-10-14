@@ -16,18 +16,18 @@ export interface AuthContextType {
     pendingFlow: Flow | null;
     login: (data: LoginData) => Promise<AuthResponse>;
     register: (data: SignupData) => Promise<AuthResponse>;
-    loginWithPasskey: () => Promise<AuthResponse>;
-    authenticateWithPasskey: () => Promise<AuthResponse>;
-    signupWithPasskey: (email: string) => Promise<AuthResponse>;
-    createPasskeyAtSignup: (name: string) => Promise<AuthResponse>;
+    loginWithPasskey: (captchaToken?: string) => Promise<AuthResponse>;
+    authenticateWithPasskey: (captchaToken?: string) => Promise<AuthResponse>;
+    signupWithPasskey: (email: string, captchaToken?: string) => Promise<AuthResponse>;
+    createPasskeyAtSignup: (name: string, captchaToken?: string) => Promise<AuthResponse>;
     logout: () => Promise<void>;
     refresh: (silent?: boolean) => Promise<any>;
     needsReauthentication: () => boolean;
     updateFromResponse: (res: AuthResponse) => void;
-    requestLoginCode: (email: string) => Promise<AuthResponse>;
-    loginByCode: (code: string) => Promise<AuthResponse>;
-    redirectToProvider: (providerId: string, callbackURL: string, process?: string) => void;
-    providerSignup: (data: any) => Promise<AuthResponse>;
+    requestLoginCode: (email: string, captchaToken?: string) => Promise<AuthResponse>;
+    loginByCode: (code: string, captchaToken?: string) => Promise<AuthResponse>;
+    redirectToProvider: (providerId: string, callbackURL: string, process?: string, captchaToken?: string) => void;
+    providerSignup: (data: any, captchaToken?: string) => Promise<AuthResponse>;
     meta: AuthResponse['meta'] | null;
 }
 
@@ -154,12 +154,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLastAuthAt(null);
     };
 
-    const loginWithPasskey = async () => {
+    const loginWithPasskey = async (captchaToken?: string) => {
         const optRes = await ALLAUTH_API.getWebAuthnRequestOptionsForLogin();
         if (optRes.status === 200 && optRes.data?.request_options) {
             const options = parseRequestOptionsFromJSON(optRes.data.request_options);
             const credential = await get(options);
-            const res = await ALLAUTH_API.loginUsingWebAuthn(credential);
+            const res = await ALLAUTH_API.loginUsingWebAuthn(credential, captchaToken);
             if (res.status === 200) {
                 await refresh();
             }
@@ -168,12 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return optRes;
     };
 
-    const authenticateWithPasskey = async () => {
+    const authenticateWithPasskey = async (captchaToken?: string) => {
         const optRes = await ALLAUTH_API.getWebAuthnRequestOptionsForAuthentication();
         if (optRes.status === 200 && optRes.data?.request_options) {
             const options = parseRequestOptionsFromJSON(optRes.data.request_options);
             const credential = await get(options);
-            const res = await ALLAUTH_API.authenticateWebAuthn(credential);
+            const res = await ALLAUTH_API.authenticateWebAuthn(credential, captchaToken);
             if (res.status === 200) {
                 await refresh();
             }
@@ -182,17 +182,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return optRes;
     };
 
-    const signupWithPasskey = async (email: string) => {
-        const res = await ALLAUTH_API.signupByPasskey({ email });
+    const signupWithPasskey = async (email: string, captchaToken?: string) => {
+        const res = await ALLAUTH_API.signupByPasskey({ email }, captchaToken);
         return res;
     };
 
-    const createPasskeyAtSignup = async (name: string) => {
+    const createPasskeyAtSignup = async (name: string, captchaToken?: string) => {
         const optRes = await ALLAUTH_API.getWebAuthnCreateOptionsAtSignup();
         if (optRes.status === 200 && optRes.data?.creation_options) {
             const options = parseCreationOptionsFromJSON(optRes.data.creation_options);
             const credential = await create(options);
-            const res = await ALLAUTH_API.signupWebAuthnCredential(name, credential);
+            const res = await ALLAUTH_API.signupWebAuthnCredential(name, credential, captchaToken);
             if (res.status === 200) {
                 await refresh();
             }
@@ -201,14 +201,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return optRes;
     };
 
-    const requestLoginCode = async (email: string) => {
-        const res = await ALLAUTH_API.requestLoginCode(email);
+    const requestLoginCode = async (email: string, captchaToken?: string) => {
+        const res = await ALLAUTH_API.requestLoginCode(email, captchaToken);
         updateFromResponse(res);
         return res;
     };
 
-    const loginByCode = async (code: string) => {
-        const res = await ALLAUTH_API.confirmLoginCode(code);
+    const loginByCode = async (code: string, captchaToken?: string) => {
+        const res = await ALLAUTH_API.confirmLoginCode(code, captchaToken);
         if (res.status === 200) {
             await refresh();
         }
@@ -225,12 +225,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return diff > 300;
     };
 
-    const redirectToProvider = (providerId: string, callbackURL: string, process?: string) => {
-        ALLAUTH_API.redirectToProvider(providerId, callbackURL, process);
+    const redirectToProvider = (providerId: string, callbackURL: string, process?: string, captchaToken?: string) => {
+        ALLAUTH_API.redirectToProvider(providerId, callbackURL, process, captchaToken);
     };
 
-    const providerSignup = async (data: any) => {
-        const res = await ALLAUTH_API.providerSignup(data);
+    const providerSignup = async (data: any, captchaToken?: string) => {
+        const res = await ALLAUTH_API.providerSignup(data, captchaToken);
         updateFromResponse(res);
         if (res.status === 200) {
             await refresh();

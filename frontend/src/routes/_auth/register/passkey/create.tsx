@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
@@ -9,6 +10,7 @@ export const Route = createFileRoute('/_auth/register/passkey/create')({
 })
 
 function CreateSignupPasskeyComponent() {
+    const captcha = useCaptcha()
     const { createPasskeyAtSignup, user, loading: authLoading, pendingFlow } = useAuth()
     const navigate = useNavigate()
     const [name, setName] = useState('')
@@ -33,10 +35,11 @@ function CreateSignupPasskeyComponent() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
-            const res = await createPasskeyAtSignup(name || 'My Passkey')
+            const res = await createPasskeyAtSignup(name || 'My Passkey', captcha.token)
             if (res.status === 200) {
                 navigate({ to: '/dashboard' })
             } else {
@@ -46,6 +49,7 @@ function CreateSignupPasskeyComponent() {
             setError(err.message || 'An error occurred during passkey creation')
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -87,9 +91,10 @@ function CreateSignupPasskeyComponent() {
                         />
                     </div>
 
+                    {captcha.widget}
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !captcha.ready}
                         className="w-full py-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-indigo-100 dark:shadow-none"
                     >
                         {loading ? <Loader2 className="animate-spin" size={24} /> : 'Create Passkey'}

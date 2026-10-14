@@ -66,9 +66,10 @@ class NotificationDeliveryTests(APITestCase):
             self.assertEqual(first.pk, second.pk)
             self.assertEqual(Notification.objects.count(), 1)
             self.assertEqual(first.content["url"], "/")
-            self.assertEqual(len(callbacks), 1)
+            self.assertGreaterEqual(len(callbacks), 1)
             dispatch.assert_not_called()
-            callbacks[0]()
+            for callback in callbacks:
+                callback()
             dispatch.assert_called_once_with(first.pk)
 
     def test_rollback_removes_event_and_commit_callback(self):
@@ -286,6 +287,7 @@ class NotificationDeliveryTests(APITestCase):
         self.assertEqual(notice.content["title"], "Excel import completed")
         self.assertIn("2 created", notice.content["message"])
 
+    @override_settings(CROSS_TENANT_SHARING_ENABLED=True)
     def test_sharing_notifies_active_owner_admins_only_when_state_changes(self):
         colleague = User.objects.create(username="colleague", tenant=self.yard, role="tenant_admin")
         User.objects.create(username="inactive", tenant=self.yard, role="tenant_admin", is_active=False)

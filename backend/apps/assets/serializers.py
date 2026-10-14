@@ -1,13 +1,16 @@
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 from django.utils import timezone
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from .models import AssetType, Asset
 from apps.tenants.models import Tenant
+from apps.tenants.permissions import is_global_admin
 from .validation import (
     MAX_STOCK_QUANTITY, default_stock_schema, stock_quantity_value,
-    validate_custom_data, validate_stock_schema,
+    schema_role_key, validate_custom_data, validate_field_schema, validate_stock_schema,
 )
+from .schema_evolution import advance_schema_revision, notify_schema_change
+from .identity import AssetIdentityIndex
 import re
 
 
@@ -57,9 +60,9 @@ class AssetTypeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'tracking_mode', 'description', 'catalog_code', 'category_code',
             'sharing_class', 'exclusion_reason', 'sharing_excluded',
-            'schema', 'created_at', 'updated_at', 'created_by'
+            'schema', 'schema_revision', 'created_at', 'updated_at', 'created_by'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
+        read_only_fields = ['id', 'schema_revision', 'created_at', 'updated_at', 'created_by']
 
     def validate_catalog_code(self, value):
         value = (value or '').strip().upper() or None
@@ -74,51 +77,17 @@ class AssetTypeSerializer(serializers.ModelSerializer):
         return value
 
     def validate_schema(self, value):
-        """
-        Validate that schema is a list of field definitions.
-        """
-        if value is None:
-            return []
-            
-        if not isinstance(value, list):
-            raise serializers.ValidationError("Schema must be a list of field definitions.")
-        
-        valid_types = ['text', 'number', 'date', 'select', 'checkbox', 'email', 'phone']
-        unique_key_count = 0
-        keys = set()
-        
-        for field in value:
-            if not isinstance(field, dict):
-                raise serializers.ValidationError("Each schema item must be a dictionary.")
-            
-            if 'key' not in field or 'label' not in field or 'type' not in field:
-                raise serializers.ValidationError("Field definition must contain 'key', 'label', and 'type'.")
-            key = field['key']
-            if not isinstance(key, str) or not key.strip() or '__' in key or key in keys:
-                raise serializers.ValidationError("Field keys must be non-empty, unique, and must not contain '__'.")
-            keys.add(key)
-            if not isinstance(field['label'], str) or not field['label'].strip():
-                raise serializers.ValidationError("Field labels must be non-empty text.")
-            
-            if field['type'] not in valid_types:
-                raise serializers.ValidationError(f"Invalid field type: {field['type']}. Valid types: {valid_types}")
-                
-            if field['type'] == 'select':
-                options = field.get('options')
-                if not isinstance(options, list) or not options or not all(isinstance(option, str) and option for option in options):
-                    raise serializers.ValidationError("Select fields must have a non-empty list of text options.")
-
-            if field.get('is_unique_key'):
-                unique_key_count += 1
-
-        if unique_key_count > 1:
-            raise serializers.ValidationError("Only one field can be marked as the unique index key (is_unique_key).")
-                 
-        return value
+        return validate_field_schema(value)
 
     def validate(self, data):
         previous_mode = self.instance.tracking_mode if self.instance else AssetType.TrackingMode.INDIVIDUAL
         mode = data.get('tracking_mode', previous_mode)
+        request = self.context.get('request')
+        if (self.instance and mode != previous_mode and request is not None
+                and not is_global_admin(request.user)):
+            raise serializers.ValidationError({
+                'tracking_mode': 'Only platform administrators can change equipment tracking mode.',
+            })
         if self.instance and mode != previous_mode and self.instance.assets.exists():
             raise serializers.ValidationError({
                 'tracking_mode': 'Bu türe bağlı kayıtlar var. Takip biçimi değiştirilemez; yeni bir tür oluşturun.',
@@ -141,7 +110,14 @@ class AssetTypeSerializer(serializers.ModelSerializer):
             current = AssetType.objects.select_for_update().get(pk=instance.pk)
             self.instance = current
             validated_data = self.validate(validated_data)
-            return super().update(current, validated_data)
+            previous_schema = current.schema
+            if 'schema' in validated_data:
+                current.schema = validated_data['schema']
+            changed = advance_schema_revision(current, previous_schema)
+            result = super().update(current, validated_data)
+            if changed:
+                notify_schema_change(result, previous_schema)
+            return result
 
 
 class AssetSerializer(serializers.ModelSerializer):
@@ -155,6 +131,10 @@ class AssetSerializer(serializers.ModelSerializer):
     assigned_to_username = serializers.CharField(source='assigned_to.username', read_only=True, allow_null=True)
     is_listed_for_sharing = serializers.BooleanField(read_only=True)
     sharing_needs_review = serializers.BooleanField(read_only=True)
+    schema_revision = serializers.IntegerField(source='asset_type.schema_revision', read_only=True)
+    missing_required_fields = serializers.ReadOnlyField()
+    needs_update = serializers.BooleanField(read_only=True)
+    inventory_code = SingleLineCharField(max_length=160, allow_blank=True, required=False)
     
     # Allow tenant to be writable for superusers, auto-assign for regular users
     tenant = serializers.PrimaryKeyRelatedField(
@@ -162,12 +142,25 @@ class AssetSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request is not None and not is_global_admin(request.user):
+            from apps.user.models import User
+
+            tenant_id = getattr(request.user, 'tenant_id', None)
+            self.fields['tenant'].queryset = Tenant.objects.filter(pk=tenant_id, is_active=True)
+            self.fields['assigned_to'].queryset = User.objects.filter(tenant_id=tenant_id, is_active=True)
+            if tenant_id is None:
+                self.fields['assigned_to'].queryset = User.objects.none()
     
     class Meta:
         model = Asset
         fields = [
             'id', 'tenant', 'tenant_name', 'asset_type', 'asset_type_name',
-            'custom_data', 'created_at', 'updated_at', 
+            'custom_data', 'inventory_code', 'schema_revision', 'missing_required_fields', 'needs_update',
+            'created_at', 'updated_at',
             'created_by', 'assigned_to', 'assigned_to_username',
             'is_shared', 'shared_at', 'is_listed_for_sharing', 'sharing_needs_review',
             *SHARING_DETAIL_FIELDS,
@@ -176,6 +169,9 @@ class AssetSerializer(serializers.ModelSerializer):
             'id', 'created_at', 'updated_at', 'created_by', 'tenant_name',
             'is_shared', 'shared_at', *SHARING_DETAIL_FIELDS,
         ]
+        # Tenant is assigned during object validation. Enforce scoped identity there
+        # instead of DRF requiring a caller-supplied tenant for its constraint validator.
+        validators = []
 
     def validate(self, data):
         """
@@ -185,7 +181,7 @@ class AssetSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = request.user if request else None
         
-        privileged = user and (user.is_superuser or user.is_platform_admin)
+        privileged = user and is_global_admin(user)
         if user and not privileged and (not user.tenant or not user.tenant.is_active):
             raise serializers.ValidationError({"tenant": "You must belong to an active tenant."})
 
@@ -209,21 +205,86 @@ class AssetSerializer(serializers.ModelSerializer):
         if (self.instance and self.partial and 'custom_data' in data and isinstance(custom_data, dict)
                 and asset_type.pk == self.instance.asset_type_id):
             custom_data = {**self.instance.custom_data, **custom_data}
+        elif (self.instance and 'custom_data' in data and isinstance(custom_data, dict)
+              and asset_type.pk == self.instance.asset_type_id):
+            field_keys = {field['key'] for field in asset_type.schema or []}
+            historic = {key: value for key, value in self.instance.custom_data.items() if key not in field_keys}
+            custom_data = {**historic, **custom_data}
         if asset_type:
             normalized = validate_custom_data(asset_type.schema or [], custom_data, asset_type.tracking_mode)
             if 'custom_data' in data:
                 data['custom_data'] = normalized
 
+        inventory_code = data.get('inventory_code', self.instance.inventory_code if self.instance else '')
+        identifier = schema_role_key(asset_type.schema, 'identifier') if asset_type else None
+        value = normalized.get(identifier) if identifier and asset_type else None
+        identity_index = self.context.get('asset_identity_index')
+        if identity_index is not None and not identity_index.matches_scope(tenant, asset_type):
+            identity_index = None
+        if identifier and value not in (None, ''):
+            if identity_index is None:
+                identity_index = AssetIdentityIndex(tenant, asset_type)
+        if inventory_code:
+            if identity_index is not None:
+                duplicate = any(record.pk != getattr(self.instance, 'pk', None)
+                                for record in identity_index.matching(inventory_code=inventory_code))
+            else:
+                matches = Asset.objects.filter(tenant=tenant, asset_type=asset_type, inventory_code=inventory_code)
+                if self.instance:
+                    matches = matches.exclude(pk=self.instance.pk)
+                duplicate = matches.exists()
+            if duplicate:
+                raise serializers.ValidationError({
+                    'inventory_code': 'Bu ekipman kodu aynı tersane ve ekipman türünde kullanılıyor.',
+                })
+
+        if value is not None and value != '':
+            duplicate = [record for record in identity_index.identifier_matches(value)
+                         if not self.instance or record.pk != self.instance.pk]
+            if duplicate:
+                raise serializers.ValidationError({'custom_data': {
+                    identifier: 'Bu kayıt kodu aynı tersane ve ekipman türünde kullanılıyor.',
+                }})
+
         return data
 
     def create(self, validated_data):
         with transaction.atomic():
+            self._refresh_submitted_assignee(validated_data)
             validated_data['asset_type'] = self._lock_asset_type(validated_data['asset_type'])
             validated_data = self.validate(validated_data)
             request = self.context.get('request')
             if request and request.user:
                 validated_data['created_by'] = request.user
             return super().create(validated_data)
+
+    @staticmethod
+    def _refresh_submitted_assignee(validated_data):
+        assignee = validated_data.get('assigned_to')
+        if assignee is None:
+            return
+        from apps.user.models import User
+
+        try:
+            with transaction.atomic():
+                validated_data['assigned_to'] = User.objects.select_for_update(nowait=True, no_key=True).get(pk=assignee.pk)
+        except User.DoesNotExist as exc:
+            raise serializers.ValidationError({'assigned_to': 'Selected user is no longer available.'}) from exc
+        except DatabaseError as exc:
+            # The authenticated actor is already locked. Never wait for another
+            # user's lock and create a cycle with a concurrent ownership change.
+            if getattr(exc.__cause__, 'pgcode', None) == '55P03':
+                raise serializers.ValidationError({'assigned_to': 'Selected user changed. Retry the assignment.'}) from exc
+            raise
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.assigned_to_id and (
+            instance.assigned_to.tenant_id != instance.tenant_id or not instance.assigned_to.is_active
+        ):
+            data['assigned_to'] = None
+            data['assigned_to_username'] = None
+        return data
 
     @staticmethod
     def _lock_asset_type(asset_type: AssetType) -> AssetType:
@@ -236,6 +297,7 @@ class AssetSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         self.sharing_paused = False
         with transaction.atomic():
+            self._refresh_submitted_assignee(validated_data)
             try:
                 current = Asset.objects.select_for_update().get(pk=instance.pk)
             except Asset.DoesNotExist as exc:
@@ -247,11 +309,18 @@ class AssetSerializer(serializers.ModelSerializer):
             validated_data['asset_type'] = self._lock_asset_type(
                 validated_data.get('asset_type', current.asset_type),
             )
+            if validated_data['asset_type'].pk == current.asset_type_id:
+                current.asset_type = validated_data['asset_type']
             if self.partial and 'custom_data' in validated_data and 'custom_data' in self.initial_data:
                 # Re-merge the caller's patch with the row locked above, not a stale snapshot.
                 validated_data['custom_data'] = self.initial_data['custom_data']
             validated_data = self.validate(validated_data)
             tenant = validated_data.get('tenant', current.tenant)
+            from .usage import validate_inventory_usage_change
+            validate_inventory_usage_change(
+                current, tenant_id=tenant.pk, asset_type_id=validated_data['asset_type'].pk,
+                custom_data=validated_data.get('custom_data', current.custom_data),
+            )
             if tenant.pk != current.tenant_id:
                 # Consent belongs to the owner; a new owner must explicitly opt in.
                 validated_data.update(
@@ -304,6 +373,11 @@ class AssetSharingSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'is_shared': 'Pasif tersane ekipmanı ortak listede yayınlanamaz.'})
             if self.instance.asset_type.sharing_excluded:
                 raise serializers.ValidationError({'is_shared': 'Bu ekipman türü ortak kullanım kapsamı dışında.'})
+            if self.instance.needs_update:
+                labels = ', '.join(field['label'] for field in self.instance.missing_required_fields)
+                raise serializers.ValidationError({
+                    'is_shared': f'Paylaşımdan önce eksik zorunlu bilgileri tamamlayın: {labels}.',
+                })
         if publishing or any(key in data for key in ('sharing_quantity', 'sharing_availability')):
             quantity = data.get('sharing_quantity', self.instance.sharing_quantity)
             availability = data.get('sharing_availability', self.instance.sharing_availability)
@@ -334,6 +408,9 @@ class AssetSharingSerializer(serializers.ModelSerializer):
             current.asset_type = AssetSerializer._lock_asset_type(current.asset_type)
             self.instance = current
             validated_data = self.validate(validated_data)
+            if 'sharing_quantity' in validated_data:
+                from .usage import validate_inventory_usage_change
+                validate_inventory_usage_change(current, sharing_quantity=validated_data['sharing_quantity'])
             publishing = validated_data.get('is_shared', current.is_shared)
             if publishing and not current.is_shared:
                 validated_data['shared_at'] = timezone.now()

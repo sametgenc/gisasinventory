@@ -12,11 +12,20 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DEMO_DATABASE_PATH,
-        "OPTIONS": {"timeout": 20},
+        # Serialize local audited requests before they read, avoiding SQLite
+        # lock upgrades when the browser loads several panels at once.
+        "OPTIONS": {"timeout": 20, "transaction_mode": "IMMEDIATE"},
     }
 }
 SECRET_KEY = "gisas-local-demo-only-not-for-deployment-2026"
 DEBUG = True
+TURNSTILE_ENABLED = False
+TURNSTILE_SITE_KEY = ""
+TURNSTILE_SECRET_KEY = ""
+AUDIT_SIEM_ENABLED = False
+AUDIT_SIEM_URL = ""
+AUDIT_SIEM_TOKEN = ""
+ADMIN_REQUIRE_MFA = False
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 DOMAIN = "localhost"
 ROOT_URLCONF = "config.demo_urls"

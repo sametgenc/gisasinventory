@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/_auth/login/code/')({
 })
 
 function RequestLoginCodeComponent() {
+    const captcha = useCaptcha()
     const { requestLoginCode, user } = useAuth()
     const { t } = useTranslation()
     const navigate = useNavigate()
@@ -25,13 +27,14 @@ function RequestLoginCodeComponent() {
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault()
+        if (!captcha.ready) return
         if (submitting.current) return
         submitting.current = true
         setLoading(true)
         setError(null)
         const address = email.trim()
         try {
-            const res = await requestLoginCode(address)
+            const res = await requestLoginCode(address, captcha.token)
             // Allauth returns 401 while code verification is pending.
             const codePending = res.data?.flows?.some(flow => flow.id === 'login_by_code' && flow.is_pending)
             if (res.status === 200 || (res.status === 401 && codePending)) {
@@ -45,6 +48,7 @@ function RequestLoginCodeComponent() {
         } finally {
             submitting.current = false
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -71,7 +75,8 @@ function RequestLoginCodeComponent() {
                         onChange={event => { setEmail(event.target.value); setError(null) }}
                     />
                 </FormField>
-                <button type="submit" disabled={loading} className={loginCodeSubmitClass}>
+                {captcha.widget}
+                <button type="submit" disabled={loading || !captcha.ready} className={loginCodeSubmitClass}>
                     {loading && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} aria-hidden />}
                     {loading ? t('loginCodeRequest.sending') : t('loginCodeRequest.sendCode')}
                     {!loading && <ArrowRight size={16} aria-hidden />}

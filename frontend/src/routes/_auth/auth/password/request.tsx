@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
@@ -11,6 +12,7 @@ export const Route = createFileRoute('/_auth/auth/password/request')({
 })
 
 function RequestPasswordReset() {
+    const captcha = useCaptcha()
     const navigate = useNavigate()
     const { config } = useAuth()
     const { t } = useTranslation()
@@ -23,10 +25,11 @@ function RequestPasswordReset() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
-            const res = await ALLAUTH_API.requestPasswordReset(email)
+            const res = await ALLAUTH_API.requestPasswordReset(email, captcha.token)
             if (res.status === 200) {
                 setSuccess(true)
             } else if (res.status === 401) {
@@ -44,6 +47,7 @@ function RequestPasswordReset() {
             setError(message)
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -109,9 +113,10 @@ function RequestPasswordReset() {
                                             onChange={(e) => setEmail(e.target.value)}
                                         />
                                     </div>
+                                    {captcha.widget}
                                     <button
                                         type="submit"
-                                        disabled={loading}
+                                        disabled={loading || !captcha.ready}
                                         className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                                     >
                                         {loading ? (

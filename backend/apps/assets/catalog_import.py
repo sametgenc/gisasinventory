@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from .catalog_constants import CATEGORIES, DEFAULT_SCHEMA
 from .models import AssetType
 from .serializers import AssetTypeSerializer
+from apps.tenants.permissions import is_global_admin
 
 HEADERS = {'Katalog kodu': 'catalog_code', 'Varlık tipi': 'name', 'Kategori kodu': 'category_code',
            'Ön paylaşım sınıfı': 'sharing_class', 'Kapsam dışı nedeni': 'exclusion_reason', 'Açıklama': 'description'}
@@ -147,7 +148,7 @@ def build_plan(rows, mode, request):
 
 class CatalogImportMixin:
     def check_catalog_access(self, request):
-        if not (request.user.is_superuser or request.user.is_platform_admin):
+        if not is_global_admin(request.user):
             raise PermissionDenied('Katalog aktarımı için platform yöneticisi yetkisi gerekir.')
 
     @action(detail=False, methods=['get'])

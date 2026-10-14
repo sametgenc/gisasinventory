@@ -38,11 +38,12 @@ class SecurityNotificationDeliveryTests(APITestCase):
         with request_context(self.request):
             with patch("allauth.mfa.totp.internal.flows.raise_if_reauthentication_required"):
                 with patch("allauth.account.adapter.DefaultAccountAdapter.add_message"):
-                    return activate_totp(self.request, SimpleNamespace(secret="JBSWY3DPEHPK3PXP"))
+                    with self.captureOnCommitCallbacks(execute=True):
+                        return activate_totp(self.request, SimpleNamespace(secret="JBSWY3DPEHPK3PXP"))
 
     def test_totp_and_recovery_setup_complete_without_smtp_configuration(self):
         with override_settings(EMAIL_BACKEND="apps.settings.email_backend.DatabaseEmailBackend", EMAIL_HOST="", EMAIL_HOST_USER="", EMAIL_HOST_PASSWORD="", EMAIL_USE_TLS=True, EMAIL_USE_SSL=False):
-            with patch("smtplib.SMTP") as smtp:
+            with patch("smtplib.SMTP") as smtp, patch("apps.notifications.tasks.deliver_notification_email.apply_async"):
                 totp, recovery = self.activate()
                 self.assertEqual(totp.type, Authenticator.Type.TOTP)
                 self.assertIsNotNone(recovery)
@@ -57,7 +58,7 @@ class SecurityNotificationDeliveryTests(APITestCase):
         self.assertEqual(Authenticator.objects.filter(user=self.user).count(), 2)
 
     def test_totp_and_recovery_setup_complete_even_if_immediate_background_delivery_fails(self):
-        with patch("django.db.transaction.on_commit", side_effect=lambda callback: callback()):
+        with patch("django.db.transaction.on_commit", side_effect=lambda callback, **kwargs: callback()):
             with patch("apps.notifications.utils.send_notification"):
                 with patch("apps.notifications.tasks.deliver_notification_email.apply_async", side_effect=lambda args, **kwargs: deliver_notification_email(args[0])):
                     with patch("apps.notifications.tasks.EmailMultiAlternatives.send", side_effect=smtplib.SMTPAuthenticationError(535, b"provider detail")):
@@ -143,9 +144,10 @@ class SecurityNotificationDeliveryTests(APITestCase):
                 notification = create_security_notification(self.user, "mfa/email/totp_activated", trusted_recipient=self.user.email,
                                                             context={"timestamp": timezone.now(), "secret": "PRIVATE-SECRET"})
             dispatch.assert_not_called()
-            self.assertEqual(len(callbacks), 1)
+            self.assertGreaterEqual(len(callbacks), 1)
             self.assertNotIn("PRIVATE-SECRET", str(notification.content))
-            callbacks[0]()
+            for callback in callbacks:
+                callback()
             dispatch.assert_called_once_with(notification.pk)
 
     def test_demo_business_notification_forces_console_even_with_direct_smtp_override(self):

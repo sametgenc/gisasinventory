@@ -1,10 +1,10 @@
-Django>=5.0
+Django>=5.2.18,<5.3
 psycopg2-binary>=2.9
 django-cors-headers
-django-allauth[headless,mfa]
-cryptography>=45.0.6
+django-allauth[headless,mfa]>=65.19.7,<66
+cryptography>=50.0.0,<51
 fido2
-requests
+requests>=2.33.0,<3
 redis
 uvicorn[standard]
 openpyxl
@@ -15,3 +15,11 @@ gunicorn>=22.0.0
 celery>=5.4.0
 django-celery-beat>=2.7.0
 djangorestframework>=3.14.0
+
+# Minimum security versions for transitive dependencies; uv uses matching constraints.
+anyio>=4.14.2,<5
+idna>=3.15,<4
+PyJWT>=2.15.0,<3
+python-dotenv>=1.2.2,<2
+sqlparse>=0.6.0,<1
+urllib3>=2.8.0,<3

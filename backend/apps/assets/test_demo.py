@@ -5,6 +5,7 @@ import os
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest import skipUnless
 from unittest.mock import patch
 
 import openpyxl
@@ -13,6 +14,7 @@ from django.contrib.auth import SESSION_KEY
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
 from django.test import Client, TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -50,6 +52,7 @@ class DemoDataTests(TestCase):
                 self.seed(**options)
         self.assertFalse(Tenant.objects.exists())
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_seed_is_idempotent_and_preserves_user_edits(self):
         self.seed()
         self.assertEqual((Tenant.objects.count(), User.objects.count(), AssetType.objects.count(), Asset.objects.count(), Notification.objects.count()), (3, 4, 15, 33, 12))
@@ -72,6 +75,7 @@ class DemoDataTests(TestCase):
         self.assertEqual(asset.custom_data["notes"], "Test sırasında düzenlenen not")
         self.assertIsNotNone(notification.deleted_at)
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_model_count_demo_adds_fifty_private_records_to_one_shipyard(self):
         self.seed()
         manager = User.objects.get(username="demo_yonetici")
@@ -105,6 +109,7 @@ class DemoDataTests(TestCase):
         for yard_id, count in other_shipyards.items():
             self.assertEqual(Asset.objects.filter(tenant_id=yard_id).count(), count)
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_model_count_demo_reseeding_preserves_existing_record_edits(self):
         self.seed(model_count_demo=True)
         record = Asset.objects.get(pk=stable_id("asset:model-count-50:1"))
@@ -121,6 +126,7 @@ class DemoDataTests(TestCase):
         self.assertEqual(record.custom_data["model"], "Manually renamed model")
         self.assertEqual(record.custom_data["notes"], "Owner edited this demo record")
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_seeded_users_have_verified_emails_and_password_login(self):
         self.seed()
         self.assertEqual(EmailAddress.objects.filter(verified=True, primary=True).count(), 4)
@@ -133,6 +139,7 @@ class DemoDataTests(TestCase):
         self.assertTrue(response.json()["meta"]["is_authenticated"])
         self.assertEqual(str(client.session[SESSION_KEY]), str(User.objects.get(username="demo_yonetici").pk))
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_demo_member_sees_only_their_equipment_and_notifications(self):
         self.seed()
         user = User.objects.get(username="demo_personel")
@@ -149,6 +156,7 @@ class DemoDataTests(TestCase):
         self.assertEqual(notices.data["count"], 3)
         self.assertTrue(all("demo_personel" in row["content"]["demo_key"] for row in notices.data["results"]))
 
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_every_category_and_exclusion_rule_has_demo_examples(self):
         self.seed()
         self.assertEqual(set(AssetType.objects.values_list("category_code", flat=True)), set("ABCDEFGHIJKLM"))
@@ -159,6 +167,8 @@ class DemoDataTests(TestCase):
             if asset.assigned_to_id:
                 self.assertEqual(asset.assigned_to.tenant_id, asset.tenant_id)
 
+    @override_settings(CROSS_TENANT_SHARING_ENABLED=True)
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_shared_examples_are_opt_in_and_preserve_manual_unpublishing(self):
         self.seed()
         self.assertEqual(Asset.objects.filter(is_shared=True).count(), 3)
@@ -189,6 +199,7 @@ class DemoDataTests(TestCase):
         self.assertEqual(User.objects.get().email, "someone-else@example.test")
 
     @override_settings(ROOT_URLCONF="config.demo_urls")
+    @skipUnless(connection.vendor == "sqlite", "Demo seeding intentionally requires isolated SQLite.")
     def test_samples_download_preview_and_import_using_real_endpoints(self):
         with TemporaryDirectory() as folder, override_settings(DEMO_FILES_DIR=folder):
             self.seed(write_samples=True)

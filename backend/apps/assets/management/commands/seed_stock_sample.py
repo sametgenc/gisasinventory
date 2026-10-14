@@ -12,7 +12,9 @@ from rest_framework.exceptions import ValidationError
 
 from apps.assets.management.commands.seed_demo import assert_demo_database, stable_id
 from apps.assets.models import Asset, AssetType
-from apps.assets.validation import FieldDefinition, JSONValue, default_stock_schema, validate_custom_data
+from apps.assets.validation import (
+    FieldDefinition, JSONValue, default_stock_schema, stock_quantity_value, validate_custom_data,
+)
 from apps.tenants.models import Tenant
 from apps.user.models import User
 
@@ -77,6 +79,14 @@ def read_stock_export(path: Path) -> list[dict[str, JSONValue]]:
             if any(cell.data_type == "f" for cell in cells):
                 raise CommandError(f"{row_number}. satır formül içeriyor; stok aktarımı için hücre değerlerini kullanın.")
             source_id, yard, created_at, code, quantity, name = values
+            # This fixed export format needs complete source identities and counts.
+            # It does not make those fields required in the shared type definition.
+            if any(not isinstance(value, str) or not value.strip() for value in (code, name)):
+                raise CommandError(f"{row_number}. satırda malzeme kodu veya adı eksik.")
+            try:
+                stock_quantity_value(quantity)
+            except ValueError as exc:
+                raise CommandError(f"{row_number}. satırda stok adedi eksik veya geçersiz.") from exc
             if not isinstance(yard, str) or not yard.strip():
                 raise CommandError(f"{row_number}. satırda kaynak tersane eksik.")
             normalized_yard = yard.strip()
@@ -180,6 +190,10 @@ class Command(BaseCommand):
     def get_type(self, name: str) -> AssetType:
         admin = User.objects.filter(username="demo_admin", role="platform_admin").first()
         schema = sample_stock_schema()
+        legacy_schema = [dict(field) for field in schema]
+        for field in legacy_schema[:3]:
+            field['required'] = True
+            field.pop('role', None)
         asset_type, created = AssetType.objects.get_or_create(
             id=STOCK_TYPE_ID,
             defaults={
@@ -197,7 +211,7 @@ class Command(BaseCommand):
             asset_type.name != name
             or asset_type.catalog_code != STOCK_CATALOG_CODE
             or asset_type.tracking_mode != "stock"
-            or asset_type.schema != schema
+            or asset_type.schema not in (schema, legacy_schema)
         ):
             raise CommandError("Örnek stok türünün kimliği veya alanları eşleşmiyor; mevcut veriler değiştirilmedi.")
         return asset_type

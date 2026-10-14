@@ -18,8 +18,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from django.http import HttpResponseNotFound
+from apps.user.captcha import captcha_config
 
 urlpatterns = [
+    path("api/auth/captcha/", captcha_config, name="captcha-config"),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("_allauth/", include("allauth.headless.urls")),

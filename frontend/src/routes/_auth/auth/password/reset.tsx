@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { useRef, useState, type FormEvent } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -12,6 +13,7 @@ export const Route = createFileRoute('/_auth/auth/password/reset')({ component: 
 const CODE_LENGTH = 8
 
 function ResetPasswordCode() {
+    const captcha = useCaptcha()
     const { t } = useTranslation()
     const navigate = useNavigate()
     const [code, setCode] = useState('')
@@ -24,6 +26,7 @@ function ResetPasswordCode() {
 
     const submit = async (event: FormEvent) => {
         event.preventDefault()
+        if (!captcha.ready) return
         if (busy.current || inactive) return
         if (code.length !== CODE_LENGTH) { setError(t('passwordReset.codeLengthError', { length: CODE_LENGTH })); return }
         if (password.length < 8) { setError(t('passwordReset.passwordTooShort')); return }
@@ -31,7 +34,7 @@ function ResetPasswordCode() {
         setLoading(true)
         setError(null)
         try {
-            const res = await ALLAUTH_API.resetPassword({ key: code, password })
+            const res = await ALLAUTH_API.resetPassword({ key: code, password }, captcha.token)
             const hasErrors = Boolean(res.errors?.length)
             const resetFlow = res.data?.flows?.find(flow => flow.id === 'password_reset_by_code')
             // Allauth reports successful unauthenticated resets as 401 after explicitly completing this flow.
@@ -47,7 +50,7 @@ function ResetPasswordCode() {
                 setError(t(res.status === 429 ? 'passwordReset.rateLimit' : res.errors?.some(item => item.param === 'password') ? 'passwordReset.passwordRejected' : 'passwordReset.invalidCredentials'))
             }
         } catch { setError(t('passwordReset.connectionError')) }
-        finally { busy.current = false; setLoading(false) }
+        finally { busy.current = false; setLoading(false); captcha.reset() }
     }
 
     return <SecurityPanel title={t('passwordReset.title')} description={t('passwordReset.subtitle', { length: CODE_LENGTH })}>
@@ -63,7 +66,8 @@ function ResetPasswordCode() {
                 </FormField>
                 <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={loading} className="absolute right-0 top-7 flex h-10 items-center px-3 text-slate-500 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={t(showPassword ? 'passwordReset.hidePassword' : 'passwordReset.showPassword')} aria-pressed={showPassword}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
             </div>
-            <Button type="submit" className="w-full" loading={loading} disabled={inactive || code.length !== CODE_LENGTH || password.length < 8}>{t(loading ? 'passwordReset.submitting' : 'passwordReset.submit')}</Button>
+            {captcha.widget}
+            <Button type="submit" className="w-full" loading={loading} disabled={!captcha.ready || inactive || code.length !== CODE_LENGTH || password.length < 8}>{t(loading ? 'passwordReset.submitting' : 'passwordReset.submit')}</Button>
             <Link to="/auth/password/request" onClick={event => { if (loading) event.preventDefault() }} aria-disabled={loading || undefined} className="inline-flex min-h-9 items-center text-sm font-medium text-blue-700 underline-offset-4 hover:underline dark:text-blue-300">{t('passwordReset.resending')}</Link>
         </form>
     </SecurityPanel>

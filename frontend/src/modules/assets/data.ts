@@ -34,6 +34,11 @@ export const assetsApi = {
         return response.data;
     },
 
+    schemaImpact: async (id: string, schema: AssetTypeCreateInput['schema']): Promise<{ affected_asset_count: number; affected_tenant_count: number }> => {
+        const response = await api.post(`/api/assets/types/${id}/schema_impact/`, { schema });
+        return response.data;
+    },
+
     deleteType: async (id: string): Promise<void> => {
         await api.delete(`/api/assets/types/${id}/`);
     },

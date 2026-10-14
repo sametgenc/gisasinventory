@@ -45,7 +45,7 @@ async function mockInventory(page: Page, assets: Asset[] = inventory, role = 'te
         await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: route.request().url().endsWith('/config') ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'test', email: 'test@example.test', role, tenant_slug: 'test-yard', tenant_name: 'Test Yard' }, methods: [],
+            user: { id: '1', username: 'test', email: 'test@example.test', role, is_superuser: role === 'platform_admin', tenant_id: role === 'platform_admin' ? null : 1, tenant_slug: role === 'platform_admin' ? null : 'test-yard', tenant_name: 'Test Yard' }, methods: [],
         } } })
     })
     await page.route(url => url.pathname.startsWith('/api/'), async route => {

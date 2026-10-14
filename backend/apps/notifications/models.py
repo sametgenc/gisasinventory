@@ -19,6 +19,11 @@ class Notification(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
     )
+    tenant = models.ForeignKey(
+        "tenants.Tenant", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="notifications", editable=False,
+    )
+    tenant_scope_known = models.BooleanField(default=True, editable=False)
     content = models.JSONField(
         help_text="Notification data (title, message, type, etc.)"
     )
@@ -43,6 +48,11 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user.username} at {self.created_at}"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.is_security and self.tenant_id is None:
+            self.tenant_id = self.user.tenant_id
+        super().save(*args, **kwargs)
 
     def delete(self, using=None, keep_parents=False, force=False):
         if force:

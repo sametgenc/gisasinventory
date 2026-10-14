@@ -20,7 +20,8 @@ from openpyxl.workbook.workbook import Workbook
 from rest_framework.exceptions import ValidationError
 
 from .models import AssetType
-from .validation import JSONValue, import_field_value, validate_custom_data
+from .validation import JSONValue, import_field_value, schema_role_key, validate_custom_data
+from .identity import identifier_definition, identifier_token
 
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -289,6 +290,13 @@ def _read_sheets(workbook: Workbook, metadata_by_path: dict[str, SheetMetadata])
 def _field_aliases(field, tracking_mode):
     names = {normalized(field.get('key', '')), normalized(field.get('label', ''))}
     groups = {group for group, aliases in ALIASES.items() if names.intersection(aliases)}
+    role = field.get('role')
+    if role == 'identifier':
+        groups.update(('code', 'serial'))
+    elif role == 'quantity':
+        groups.add('quantity')
+    elif role == 'display_name':
+        groups.add('name')
     if tracking_mode == 'stock' and field.get('key') == 'material_code':
         groups.update(('code', 'serial'))
     for group in groups:
@@ -466,7 +474,8 @@ def _convert_row(cells, headers, mapping, asset_type):
             continue
         try:
             converted[key] = import_field_value(cell.value, fields[key].get('type', 'text'),
-                                               stock_quantity=asset_type.tracking_mode == 'stock' and key == 'quantity')
+                                               stock_quantity=asset_type.tracking_mode == 'stock' and key == schema_role_key(schema, 'quantity'),
+                                               identifier=key == schema_role_key(schema, 'identifier'))
         except (ValueError, TypeError, OverflowError) as exc:
             reasons['invalid_value'].append(key)
             errors.append(f"'{header}': {exc}")
@@ -577,7 +586,8 @@ def analyze_inventory(file: WorkbookSource, asset_types: Iterable[AssetType], *,
     converted = {}
     row_errors = {}
     row_reasons = {}
-    unique = next((field['key'] for field in chosen_type.schema or [] if field.get('is_unique_key')), None) if chosen_type else None
+    unique = schema_role_key(chosen_type.schema, 'identifier') if chosen_type else None
+    identifier_field = identifier_definition(chosen_type.schema) if chosen_type else None
     identifiers = defaultdict(list)
     if chosen_type:
         for number, cells in rows:
@@ -588,7 +598,7 @@ def analyze_inventory(file: WorkbookSource, asset_types: Iterable[AssetType], *,
                 row_errors[number] = errors
             identifier = values.get(unique) if unique else None
             if not is_blank(identifier):
-                identifiers[json.dumps(identifier, sort_keys=True)].append(number)
+                identifiers[identifier_token(identifier_field, identifier)].append(number)
         for numbers in identifiers.values():
             if len(numbers) > 1:
                 for number in numbers:

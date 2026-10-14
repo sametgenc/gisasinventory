@@ -1,9 +1,33 @@
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { test, expect, type Page } from '@playwright/test'
 
 const sample = (name: string) => path.resolve('..', 'var', 'demo', 'downloads', name)
 // Local demo imports can contain private inventories; runtime captures stay outside the public docs.
 const screenshot = (name: string) => path.resolve('..', 'var', 'demo', 'screenshots', name)
+
+function uniquePracticeWorkbook(filename: string, prefix: string, nonce: string): Buffer {
+    // Read fictional samples without changing them or updating an older practice
+    // record which may have been edited by the user since its original import.
+    return execFileSync(path.resolve('..', 'backend', '.venv', 'bin', 'python'), ['-c', `
+import sys
+from io import BytesIO
+from openpyxl import load_workbook
+workbook = load_workbook(sys.argv[1])
+prefix, nonce = sys.argv[2:]
+for sheet in workbook:
+    for row in sheet:
+        for cell in row:
+            if isinstance(cell.value, str) and cell.value.startswith(prefix):
+                cell.value += '-' + nonce
+        if sheet.title == 'Katalog' and isinstance(row[1].value, str) and row[1].value.startswith('Pratik — '):
+            row[1].value += ' (' + nonce + ')'
+stream = BytesIO()
+workbook.save(stream)
+workbook.close()
+sys.stdout.buffer.write(stream.getvalue())
+`, filename, prefix, nonce])
+}
 
 async function login(page: Page, email: string) {
     await page.addInitScript(() => {
@@ -47,8 +71,8 @@ test('real sign-in shows populated dashboard and an accessible guide', async ({ 
     await page.screenshot({ path: screenshot('demo-dashboard.png'), fullPage: true })
     await page.goto('/help')
     await expect(page.getByRole('heading', { name: 'User guide', exact: true })).toBeVisible()
-    await page.getByRole('searchbox', { name: 'Search guide' }).fill('empty Description')
-    await expect(page.locator('summary').filter({ hasText: 'What do empty cells do in a catalog update?' })).toBeVisible()
+    await page.getByRole('searchbox', { name: 'Search guide' }).fill('new fields required')
+    await expect(page.locator('summary').filter({ hasText: 'Are new fields required?' })).toBeVisible()
     await page.getByRole('searchbox', { name: 'Search guide' }).fill('')
     await page.screenshot({ path: screenshot('demo-guide.png'), fullPage: true })
 })
@@ -71,28 +95,37 @@ test('real catalog preview rejects bad rows and commits valid rows', async ({ pa
     await login(page, 'admin@demo.gisas.test')
     const before = await (await page.request.get('/api/assets/types/')).json()
     const beforeIds = new Set(before.map((type: { id: string }) => type.id))
+    const nonce = String(Date.now())
     await page.goto('/assets/types')
     await page.getByRole('button', { name: 'Import catalog', exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: 'Import equipment types from Excel' })
-    await dialog.locator('input[type=file]').setInputFiles(sample('katalog-hatali.xlsx'))
-    await dialog.getByRole('button', { name: 'Preview file', exact: true }).click()
-    await expect(dialog.getByText('No records will be imported until all error rows are fixed.')).toBeVisible()
-    await expect(dialog.getByRole('button', { name: /Import \d+ changes/ })).toBeDisabled()
-    await dialog.locator('input[type=file]').setInputFiles(sample('katalog-gecerli.xlsx'))
-    await dialog.getByRole('button', { name: 'Preview file', exact: true }).click()
-    await expect(dialog.getByText('Pratik — Portatif vinç')).toBeVisible()
-    await dialog.screenshot({ path: screenshot('demo-catalog-preview.png') })
-    const button = dialog.getByRole('button', { name: /Import \d+ changes/ })
-    if (await button.isEnabled()) {
-        await button.click()
-        await expect(dialog.getByRole('heading', { name: 'Catalog imported' })).toBeVisible()
-    }
-    // Remove only practice types created by this test; seeded types and user edits survive.
-    const after = await (await page.request.get('/api/assets/types/')).json()
-    for (const type of after) {
-        if (!beforeIds.has(type.id) && String(type.catalog_code).startsWith('DEMO-PRACTICE-')) {
-            const deleted = await page.request.delete(`/api/assets/types/${type.id}/`, { headers: await csrf(page) })
-            expect(deleted.status()).toBe(204)
+    const dialog = page.getByRole('dialog', { name: 'Type and inventory import' })
+    try {
+        await dialog.locator('input[type=file]').setInputFiles(sample('katalog-hatali.xlsx'))
+        await dialog.getByRole('button', { name: 'Review workbook', exact: true }).click()
+        await expect(dialog.getByRole('alert')).toContainText('Information needs correction in the workbook')
+        await expect(dialog.getByRole('button', { name: 'Import reviewed records', exact: true })).toHaveCount(0)
+        expect(await (await page.request.get('/api/assets/types/')).json()).toEqual(before)
+        await dialog.locator('input[type=file]').setInputFiles({ name: 'fictional-catalog.xlsx',
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            buffer: uniquePracticeWorkbook(sample('katalog-gecerli.xlsx'), 'DEMO-PRACTICE-', nonce),
+        })
+        await dialog.getByRole('button', { name: 'Review workbook', exact: true }).click()
+        await expect(dialog.getByText(`Pratik — Portatif vinç (${nonce})`, { exact: true })).toBeVisible()
+        await dialog.screenshot({ path: screenshot('demo-catalog-preview.png') })
+        const imported = page.waitForResponse(response => new URL(response.url()).pathname === '/api/assets/workbook/commit/' && response.request().method() === 'POST')
+        await dialog.getByRole('button', { name: 'Import reviewed records', exact: true }).click()
+        expect((await imported).status()).toBe(200)
+        await expect(dialog.getByText('Import completed', { exact: true })).toBeVisible()
+        const after = await (await page.request.get('/api/assets/types/')).json()
+        expect(after.filter((type: { catalog_code?: string }) => type.catalog_code?.endsWith(`-${nonce}`))).toHaveLength(3)
+    } finally {
+        // Remove only this run's practice types; seeded types and user edits survive.
+        const after = await (await page.request.get('/api/assets/types/')).json()
+        for (const type of after) {
+            if (!beforeIds.has(type.id) && String(type.catalog_code).startsWith('DEMO-PRACTICE-') && String(type.catalog_code).endsWith(`-${nonce}`)) {
+                const deleted = await page.request.delete(`/api/assets/types/${type.id}/`, { headers: await csrf(page) })
+                expect(deleted.status()).toBe(204)
+            }
         }
     }
 })
@@ -103,22 +136,27 @@ test('inventory template can be imported twice without duplicating equipment', a
     const forklift = types.find((type: { catalog_code: string }) => type.catalog_code === 'DEMO-G-01')
     const before = await (await page.request.get('/api/assets/items/')).json()
     const beforeIds = new Set(before.map((asset: { id: string }) => asset.id))
-    const file = await page.request.get('/demo/downloads/envanter-forklift.xlsx')
-    const buffer = await file.body()
+    const nonce = String(Date.now())
+    const buffer = uniquePracticeWorkbook(sample('envanter-forklift.xlsx'), 'PRACTICE-FL-', nonce)
     const body = { asset_type: forklift.id, file: { name: 'forklift.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer } }
-    const first = await page.request.post('/api/assets/items/bulk_import/', { multipart: body, headers: await csrf(page) })
-    expect(first.ok()).toBeTruthy()
-    expect((await first.json()).error_count).toBe(0)
-    const second = await page.request.post('/api/assets/items/bulk_import/', { multipart: body, headers: await csrf(page) })
-    expect(await second.json()).toMatchObject({ created_count: 0, updated_count: 2, error_count: 0 })
-    const after = await (await page.request.get('/api/assets/items/')).json()
-    expect(after.filter((asset: { custom_data: { asset_code: string } }) => asset.custom_data.asset_code.startsWith('PRACTICE-FL-')).length).toBe(2)
-    await page.goto('/assets')
-    await page.screenshot({ path: screenshot('demo-inventory.png'), fullPage: true })
-    for (const asset of after) {
-        if (!beforeIds.has(asset.id) && String(asset.custom_data.asset_code).startsWith('PRACTICE-FL-')) {
-            const deleted = await page.request.delete(`/api/assets/items/${asset.id}/`, { headers: await csrf(page) })
-            expect(deleted.status()).toBe(204)
+    const ownsCode = (value: unknown) => typeof value === 'string' && value.startsWith('PRACTICE-FL-') && value.endsWith(`-${nonce}`)
+    try {
+        const first = await page.request.post('/api/assets/items/bulk_import/', { multipart: body, headers: await csrf(page) })
+        expect(first.ok()).toBeTruthy()
+        expect(await first.json()).toMatchObject({ created_count: 2, error_count: 0 })
+        const second = await page.request.post('/api/assets/items/bulk_import/', { multipart: body, headers: await csrf(page) })
+        expect(await second.json()).toMatchObject({ created_count: 0, updated_count: 2, error_count: 0 })
+        const after = await (await page.request.get('/api/assets/items/')).json()
+        expect(after.filter((asset: { custom_data: { asset_code?: string } }) => ownsCode(asset.custom_data.asset_code))).toHaveLength(2)
+        await page.goto('/assets')
+        await page.screenshot({ path: screenshot('demo-inventory.png'), fullPage: true })
+    } finally {
+        const after = await (await page.request.get('/api/assets/items/')).json()
+        for (const asset of after) {
+            if (!beforeIds.has(asset.id) && ownsCode(asset.custom_data.asset_code)) {
+                const deleted = await page.request.delete(`/api/assets/items/${asset.id}/`, { headers: await csrf(page) })
+                expect(deleted.status()).toBe(204)
+            }
         }
     }
 })
@@ -171,6 +209,8 @@ test('owner publishes via UI, another shipyard reads only public fields, then ow
         await page.getByRole('button', { name: `Manage sharing: ${code}`, exact: true }).click()
         const dialog = page.getByRole('dialog', { name: 'Shared list visibility' })
         await dialog.getByRole('checkbox').check()
+        await dialog.getByLabel('Name in the shared list').fill(code.replace('SHARING-TEST-', 'Public forklift trial '))
+        await dialog.getByLabel('Quantity offered').fill('1')
         await dialog.getByRole('textbox', { name: 'Public sharing note' }).fill(code.replace('SHARING-TEST-', 'Public forklift trial '))
         await dialog.getByRole('button', { name: 'Save', exact: true }).click()
         await expect(dialog).not.toBeVisible()
@@ -179,7 +219,7 @@ test('owner publishes via UI, another shipyard reads only public fields, then ow
         const publicNote = code.replace('SHARING-TEST-', 'Public forklift trial ')
         await other.getByRole('searchbox', { name: 'Search equipment or shipyard' }).fill(publicNote)
         await other.getByRole('button', { name: 'Search', exact: true }).click()
-        await expect(other.getByText(publicNote, { exact: true })).toBeVisible()
+        await expect(other.getByRole('heading', { name: publicNote, exact: true })).toBeVisible()
         await expect(other.getByText(code, { exact: true })).not.toBeVisible()
         await expect(other.getByText('PRIVATE-LOCATION-NOT-PUBLIC')).not.toBeVisible()
         const publicResults = await (await other.request.get(`/api/assets/items/shared/?search=${encodeURIComponent(publicNote)}`)).json()
@@ -221,6 +261,6 @@ test('mobile navigation, forms and dark guide fit viewport', async ({ page }) =>
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
     await page.screenshot({ path: screenshot('demo-guide-mobile-dark.png'), fullPage: true })
     await page.emulateMedia({ media: 'print' })
-    await expect(page.locator('.guide-print').getByText('In Update by catalog code mode, empty Description', { exact: false })).toBeVisible()
+    await expect(page.locator('.guide-print').getByText('New fields start optional. Making a field required notifies owners of incomplete records.', { exact: false })).toBeVisible()
     expect(await page.getByRole('heading', { name: 'User guide', exact: true }).evaluate(element => getComputedStyle(element).color)).toBe('rgb(17, 17, 17)')
 })

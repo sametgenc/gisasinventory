@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/_auth/login/')({
 })
 
 function LoginComponent() {
+    const captcha = useCaptcha()
     const { login, config, user, loginWithPasskey, redirectToProvider } = useAuth()
     const navigate = useNavigate()
     const search = Route.useSearch()
@@ -30,10 +32,11 @@ function LoginComponent() {
     }
 
     const handleWebAuthnLogin = async () => {
+        if (!captcha.ready || loading) return
         setLoading(true)
         setError(null)
         try {
-            const res = await loginWithPasskey()
+            const res = await loginWithPasskey(captcha.token)
             if (res.status === 200) {
                 const nextStep = pathForPendingFlow(res)
                 if (nextStep) {
@@ -58,6 +61,7 @@ function LoginComponent() {
             setError(err.message || t('login.unexpectedError'))
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -80,10 +84,11 @@ function LoginComponent() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
-            const res = await login(formData)
+            const res = await login({ ...formData, captcha_token: captcha.token })
             if (res.status === 200) {
                 const nextStep = pathForPendingFlow(res)
                 if (nextStep) {
@@ -105,12 +110,14 @@ function LoginComponent() {
             setError(err.message || t('login.unexpectedError'))
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
     const handleSocialLogin = (provider: any) => {
+        if (!captcha.ready || loading) return
         const target = (search.redirect && search.redirect !== '/login') ? search.redirect : '/dashboard'
-        redirectToProvider(provider.id, target)
+        redirectToProvider(provider.id, target, 'login', captcha.token)
     }
 
     const providers = config?.socialaccount?.providers || []
@@ -172,9 +179,10 @@ function LoginComponent() {
                                 />
                             </div>
 
+                            {captcha.widget}
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={loading || !captcha.ready}
                                 className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={18} /> : t('login.signIn')}
@@ -193,7 +201,7 @@ function LoginComponent() {
                                 {webAuthnEnabled && (
                                     <button
                                         type="button"
-                                        disabled={loading}
+                                        disabled={loading || !captcha.ready}
                                         onClick={handleWebAuthnLogin}
                                         className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                                         title={t('login.passkey')}
@@ -224,6 +232,7 @@ function LoginComponent() {
                                             <button
                                                 key={provider.id}
                                                 type="button"
+                                                disabled={loading || !captcha.ready}
                                                 onClick={() => handleSocialLogin(provider)}
                                                 className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                                             >

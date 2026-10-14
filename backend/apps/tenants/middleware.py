@@ -2,23 +2,24 @@
 Tenant middleware for multi-tenancy support.
 Attaches the current tenant to the request based on the authenticated user.
 """
-import threading
+from contextvars import ContextVar
 
 from django.http import HttpRequest
 
 
-# Thread-local storage for current tenant
-_thread_locals = threading.local()
+# Context isolation also protects concurrent ASGI tasks on a shared thread.
+_current_tenant = ContextVar("current_tenant", default=None)
+_current_user = ContextVar("current_tenant_user", default=None)
 
 
 def get_current_tenant():
-    """Get the current tenant from thread-local storage."""
-    return getattr(_thread_locals, "tenant", None)
+    """Get the tenant attached to the current request context."""
+    return _current_tenant.get()
 
 
 def get_current_user():
-    """Get the current user from thread-local storage."""
-    return getattr(_thread_locals, "user", None)
+    """Get the user attached to the current request context."""
+    return _current_user.get()
 
 
 class TenantMiddleware:
@@ -31,22 +32,16 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest):
-        # Clear thread locals at the start of each request
-        _thread_locals.tenant = None
-        _thread_locals.user = None
-
-        # Set tenant from authenticated user
+        user = None
+        tenant = None
         if hasattr(request, "user") and request.user.is_authenticated:
-            _thread_locals.user = request.user
-            _thread_locals.tenant = getattr(request.user, "tenant", None)
-            request.tenant = _thread_locals.tenant
-        else:
-            request.tenant = None
-
-        response = self.get_response(request)
-
-        # Clean up thread locals after request
-        _thread_locals.tenant = None
-        _thread_locals.user = None
-
-        return response
+            user = request.user
+            tenant = getattr(user, "tenant", None)
+        request.tenant = tenant
+        tenant_token = _current_tenant.set(tenant)
+        user_token = _current_user.set(user)
+        try:
+            return self.get_response(request)
+        finally:
+            _current_tenant.reset(tenant_token)
+            _current_user.reset(user_token)

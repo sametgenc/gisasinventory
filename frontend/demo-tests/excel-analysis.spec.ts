@@ -54,7 +54,11 @@ function snapshot(records: DemoAsset[], temporaryTypeId: string) {
 async function createTemporaryType(page: Page) {
     const response = await page.request.post('/api/assets/types/', {
         headers: await csrf(page),
-        data: { name: `Fictional Excel acceptance stock ${Date.now()}`, tracking_mode: 'stock' },
+        data: { name: `Fictional Excel acceptance stock ${Date.now()}`, tracking_mode: 'stock', schema: [
+            { key: 'material_code', label: 'Material code', type: 'text', role: 'identifier', required: true },
+            { key: 'material_name', label: 'Material name', type: 'text', role: 'display_name', required: true },
+            { key: 'quantity', label: 'Stock quantity', type: 'number', role: 'quantity', required: true },
+        ] },
     })
     expect(response.status()).toBe(201)
     return (await response.json()).id as string

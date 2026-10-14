@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Asset, AssetType, SchemaField } from '@/modules/assets'
 import { isStockType } from '@/modules/assets/inventory-groups'
+import { schemaRoleKey } from '@/modules/assets/schema'
 import {
     Modal,
     FormField,
@@ -13,6 +14,7 @@ import {
 type Tenant = { id: number; name: string }
 
 export interface AssetFormPayload {
+    inventory_code?: string
     asset_type: string
     tenant?: number
     custom_data: Record<string, unknown>
@@ -58,6 +60,7 @@ function AssetFormContent({
     const { t } = useTranslation()
     const initialType = mode === 'edit' ? asset?.asset_type ?? '' : initialTypeId ?? ''
     const [selectedTypeId, setSelectedTypeId] = useState(initialType)
+    const [inventoryCode, setInventoryCode] = useState(asset?.inventory_code ?? '')
     const [selectedTenantId, setSelectedTenantId] = useState<number | null>(mode === 'edit' ? asset?.tenant ?? null : null)
     const [formData, setFormData] = useState<Record<string, unknown>>(() => mode === 'edit' ? { ...asset?.custom_data } : Object.fromEntries((assetTypes.find(type => type.id === initialType)?.schema ?? []).flatMap(field => field.default !== undefined ? [[field.key, field.default]] : field.type === 'checkbox' ? [[field.key, false]] : [])))
 
@@ -68,14 +71,15 @@ function AssetFormContent({
 
     const canSubmit = !!selectedTypeId && (!isSuperuser || !!selectedTenantId)
     const stock = isStockType(selectedType)
-    const stockKeys = ['material_code', 'material_name', 'quantity']
-    const stockFields = stockKeys.flatMap(key => selectedType?.schema.filter(field => field.key === key) ?? [])
-    const additionalFields = stock ? selectedType?.schema.filter(field => !stockKeys.includes(field.key)) ?? [] : []
+    const stockKeys = (['identifier', 'display_name', 'quantity'] as const).flatMap(role => { const key = schemaRoleKey(selectedType?.schema ?? [], role); return key ? [key] : [] })
+    const stockFields = selectedType?.schema.filter(field => stockKeys.includes(field.key) || field.required) ?? []
+    const additionalFields = stock ? selectedType?.schema.filter(field => !stockFields.includes(field)) ?? [] : []
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!canSubmit || isLoading) return
         const payload: AssetFormPayload = {
+            inventory_code: inventoryCode.trim(),
             asset_type: selectedTypeId,
             custom_data: {
                 ...Object.fromEntries((selectedType?.schema ?? []).filter(field => field.type === 'checkbox').map(field => [field.key, false])),
@@ -91,8 +95,8 @@ function AssetFormContent({
 
     const renderField = (field: SchemaField) => {
         const value = formData[field.key] ?? ''
-        const stockQuantity = stock && field.key === 'quantity'
-        const label = stock ? ({ material_code: t('inventory.materialCode'), material_name: t('inventory.materialName'), quantity: t('inventory.totalStock') } as Record<string, string>)[field.key] || field.label : field.label
+        const stockQuantity = stock && field.key === schemaRoleKey(selectedType?.schema ?? [], 'quantity')
+        const label = field.label
 
         if (field.type === 'checkbox') {
             return (
@@ -173,6 +177,7 @@ function AssetFormContent({
                         {error}
                     </div>
                 )}
+                {asset?.needs_update && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t('dynamicSchema.missingHelp')} {(asset.missing_required_fields ?? []).map(field => field.label).join(', ')}</div>}
 
                 <fieldset disabled={isLoading} className="min-w-0 space-y-6">
                 <FormSection title={t('assets.fields.generalInfo')} layout={isSuperuser ? 'grid' : 'stack'}>
@@ -213,6 +218,10 @@ function AssetFormContent({
                         </FormField>
                     )}
                 </FormSection>
+
+                <FormField label={t('dynamicSchema.inventoryCode')} help={t('dynamicSchema.inventoryCodeHelp')}>
+                    <input className={formControlClass} maxLength={160} value={inventoryCode} onChange={event => setInventoryCode(event.target.value)} />
+                </FormField>
 
                 {selectedType && (selectedType.schema?.length ?? 0) > 0 && (
                     <FormSection

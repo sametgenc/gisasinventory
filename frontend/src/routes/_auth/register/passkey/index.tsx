@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
@@ -9,6 +10,7 @@ export const Route = createFileRoute('/_auth/register/passkey/')({
 })
 
 function RegisterByPasskeyComponent() {
+    const captcha = useCaptcha()
     const { signupWithPasskey, user, updateFromResponse } = useAuth()
     const navigate = useNavigate()
     const [email, setEmail] = useState('')
@@ -24,10 +26,11 @@ function RegisterByPasskeyComponent() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
-            const res = await signupWithPasskey(email)
+            const res = await signupWithPasskey(email, captcha.token)
             console.log('[RegisterPasskey] Response:', JSON.stringify(res, null, 2))
             updateFromResponse(res)
 
@@ -47,6 +50,7 @@ function RegisterByPasskeyComponent() {
             setError(err.message || 'An unexpected error occurred')
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -92,9 +96,10 @@ function RegisterByPasskeyComponent() {
                         />
                     </div>
 
+                    {captcha.widget}
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || !captcha.ready}
                         className="w-full py-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg shadow-lg shadow-indigo-100 dark:shadow-none"
                     >
                         {loading ? <Loader2 className="animate-spin" size={24} /> : 'Continue'}

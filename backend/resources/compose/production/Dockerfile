@@ -36,5 +36,4 @@ CMD ["gunicorn", "config.asgi:application", \
      "--workers", "3", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
      "--timeout", "300", \
-     "--access-logfile", "-", \
      "--error-logfile", "-"]

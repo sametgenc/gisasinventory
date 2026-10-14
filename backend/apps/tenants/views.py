@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from io import BytesIO
 import openpyxl
+from django.db import transaction
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -12,7 +13,7 @@ from .serializers import (
     TenantSerializer, TenantCreateSerializer, TenantUpdateSerializer,
     TenantUserSerializer, UserCreateSerializer, UserUpdateSerializer
 )
-from .permissions import IsPlatformAdmin, IsTenantAdmin
+from .permissions import IsActiveTenantUser, IsPlatformAdmin, IsTenantAdmin, is_global_admin
 from apps.user.models import User, UserRole
 
 
@@ -24,13 +25,13 @@ class TenantViewSet(viewsets.ModelViewSet):
     Create/Update/Delete: Platform admin only.
     """
     serializer_class = TenantSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsActiveTenantUser]
     lookup_field = "slug"
 
     def get_queryset(self):
         user = self.request.user
         # Platform admins (superusers) can see all tenants
-        if user.is_superuser or (user.is_platform_admin and self.action == 'list'):
+        if is_global_admin(user):
             return Tenant.objects.all()
         elif user.tenant:
             return Tenant.objects.filter(id=user.tenant.id)
@@ -75,6 +76,7 @@ class TenantViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="assign-user")
+    @transaction.atomic
     def assign_user(self, request, slug=None):
         """Assign a user to this tenant."""
         tenant = self.get_object()
@@ -87,8 +89,8 @@ class TenantViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+            user = User.objects.select_for_update(no_key=True).get(id=user_id)
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response(
                 {"detail": "User not found."},
                 status=status.HTTP_404_NOT_FOUND
@@ -96,9 +98,12 @@ class TenantViewSet(viewsets.ModelViewSet):
         
         user.tenant = tenant
         user.save()
+        from apps.assets.models import Asset
+        Asset.objects.filter(assigned_to=user).exclude(tenant=tenant).update(assigned_to=None)
         return Response({"detail": f"User {user.username} assigned to {tenant.name}."})
 
     @action(detail=True, methods=["post"], url_path="remove-user")
+    @transaction.atomic
     def remove_user(self, request, slug=None):
         """Remove a user from this tenant."""
         tenant = self.get_object()
@@ -111,8 +116,8 @@ class TenantViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            user = User.objects.get(id=user_id, tenant=tenant)
-        except User.DoesNotExist:
+            user = User.objects.select_for_update(no_key=True).get(id=user_id, tenant=tenant)
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response(
                 {"detail": "User not found in this tenant."},
                 status=status.HTTP_404_NOT_FOUND
@@ -124,6 +129,8 @@ class TenantViewSet(viewsets.ModelViewSet):
             user.role = UserRole.TENANT_USER
             update_fields.append("role")
         user.save(update_fields=update_fields)
+        from apps.assets.models import Asset
+        Asset.objects.filter(assigned_to=user).update(assigned_to=None)
         return Response({"detail": f"User {user.username} removed from {tenant.name}."})
 
     @action(detail=False, methods=["get"], url_path="available-users")
@@ -544,14 +551,16 @@ class TenantViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=["patch"], url_path="update-user-role/(?P<user_id>[^/.]+)")
+    @transaction.atomic
     def update_user_role(self, request, user_id=None):
         """Update a user's role. Platform admin can update any user, tenant admin can update users in their tenant."""
         try:
-            target_user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+            users = User.objects.all() if is_global_admin(request.user) else User.objects.filter(tenant=request.user.tenant)
+            target_user = users.select_for_update(no_key=True).get(id=user_id)
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not request.user.is_superuser:
+        if not is_global_admin(request.user):
             if (not request.user.is_tenant_admin or request.user.tenant_id is None
                     or target_user.tenant != request.user.tenant
                     or target_user.is_superuser or target_user.is_platform_admin):
@@ -582,6 +591,7 @@ class TenantViewSet(viewsets.ModelViewSet):
         return Response({"detail": "Invalid role."}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["patch"], url_path="update-user/(?P<user_id>[^/.]+)")
+    @transaction.atomic
     def update_user(self, request, user_id=None):
         """
         Partial-update a single user record.
@@ -592,19 +602,20 @@ class TenantViewSet(viewsets.ModelViewSet):
         within their own tenant and cannot grant the `platform_admin` role.
         """
         try:
-            target_user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+            users = User.objects.all() if is_global_admin(request.user) else User.objects.filter(tenant=request.user.tenant)
+            target_user = users.select_for_update(no_key=True).get(id=user_id)
+        except (User.DoesNotExist, ValueError, TypeError):
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         is_tenant_scope = (
-            not request.user.is_superuser
+            not is_global_admin(request.user)
             and request.user.is_tenant_admin
             and request.user.tenant_id is not None
             and target_user.tenant == request.user.tenant
             and not target_user.is_superuser
             and not target_user.is_platform_admin
         )
-        if not request.user.is_superuser and not is_tenant_scope:
+        if not is_global_admin(request.user) and not is_tenant_scope:
             return Response(
                 {"detail": "You can only update users in your tenant."},
                 status=status.HTTP_403_FORBIDDEN,

@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
@@ -10,6 +11,7 @@ export const Route = createFileRoute('/_auth/register/')({
 })
 
 function RegisterComponent() {
+    const captcha = useCaptcha()
     const { register, user, config, redirectToProvider } = useAuth()
     const navigate = useNavigate()
     const { t } = useTranslation()
@@ -35,6 +37,7 @@ function RegisterComponent() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!captcha.ready) return
         setLoading(true)
         setError(null)
         try {
@@ -42,6 +45,7 @@ function RegisterComponent() {
                 username: formData.username,
                 email: formData.email,
                 password: formData.password1,
+                captcha_token: captcha.token,
             })
             if (res.status === 200) {
                 navigate({ to: '/dashboard' })
@@ -57,11 +61,13 @@ function RegisterComponent() {
             setError(err.message)
         } finally {
             setLoading(false)
+            captcha.reset()
         }
     }
 
     const handleSocialLogin = (provider: any) => {
-        redirectToProvider(provider.id, '/dashboard', 'login')
+        if (!captcha.ready || loading) return
+        redirectToProvider(provider.id, '/dashboard', 'login', captcha.token)
     }
 
     const providers = config?.socialaccount?.providers || []
@@ -119,9 +125,10 @@ function RegisterComponent() {
                                 onChange={(e) => setFormData({ ...formData, password1: e.target.value, password2: e.target.value })}
                             />
                         </div>
+                        {captcha.widget}
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || !captcha.ready}
                             className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-indigo-500/20 text-sm active:scale-[0.98]"
                         >
                             {loading ? <Loader2 className="animate-spin" size={18} /> : t('register.submit')}
@@ -143,6 +150,7 @@ function RegisterComponent() {
                                         <button
                                             key={provider.id}
                                             type="button"
+                                            disabled={loading || !captcha.ready}
                                             onClick={() => handleSocialLogin(provider)}
                                             className="w-full inline-flex justify-center py-2.5 px-4 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all items-center gap-2 active:scale-[0.98]"
                                         >

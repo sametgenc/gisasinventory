@@ -8,6 +8,7 @@ export interface User {
     role?: 'platform_admin' | 'tenant_admin' | 'tenant_user';
     tenant_slug?: string | null;
     tenant_name?: string | null;
+    tenant_id?: number | null;
 }
 
 export interface SessionData {
@@ -49,12 +50,14 @@ export interface AuthResponse {
 }
 
 export interface LoginData {
+    captcha_token?: string;
     username?: string;
     email?: string;
     password?: string;
 }
 
 export interface SignupData {
+    captcha_token?: string;
     username: string;
     email: string;
     password?: string;

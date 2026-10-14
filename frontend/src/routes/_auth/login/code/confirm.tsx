@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/_auth/login/code/confirm')({
 })
 
 function ConfirmLoginCodeComponent() {
+    const captcha = useCaptcha()
     const { t } = useTranslation()
     const { loginByCode, user } = useAuth()
     const navigate = useNavigate()
@@ -35,6 +37,7 @@ function ConfirmLoginCodeComponent() {
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault()
+        if (!captcha.ready) return
         if (submitting.current || inactive) return
         if (code.length !== CODE_LENGTH) {
             setError(t('loginCodeConfirm.codeLengthError', { length: CODE_LENGTH }))
@@ -44,7 +47,7 @@ function ConfirmLoginCodeComponent() {
         setLoading(true)
         setError(null)
         try {
-            const res = await loginByCode(code)
+            const res = await loginByCode(code, captcha.token)
             const nextStep = pathForPendingFlow(res)
             if (res.status === 200) {
                 await navigate({ to: nextStep ?? '/dashboard' })
@@ -61,6 +64,7 @@ function ConfirmLoginCodeComponent() {
         } finally {
             submitting.current = false
             setLoading(false)
+            captcha.reset()
         }
     }
 
@@ -91,7 +95,8 @@ function ConfirmLoginCodeComponent() {
                         getCellLabel={position => t('loginCodeConfirm.digitLabel', { position })}
                     />
                 </div>
-                <button type="submit" disabled={loading || inactive || code.length !== CODE_LENGTH} className={loginCodeSubmitClass}>
+                {captcha.widget}
+                <button type="submit" disabled={loading || !captcha.ready || inactive || code.length !== CODE_LENGTH} className={loginCodeSubmitClass}>
                     {loading && <Loader2 className="animate-spin motion-reduce:animate-none" size={18} aria-hidden />}
                     {loading ? t('loginCodeConfirm.verifying') : t('loginCodeConfirm.submit')}
                 </button>

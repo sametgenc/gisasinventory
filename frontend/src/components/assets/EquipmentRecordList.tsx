@@ -5,6 +5,7 @@ import type { Asset, AssetType } from '@/modules/assets'
 import { getEquipmentModelKey, getInventoryModelGroups, getStockRecord, isStockType } from '@/modules/assets/inventory-groups'
 import { Pagination } from '@/components/ui'
 import { useClickOutside } from '@/hooks/useClickOutside'
+import { schemaRoleKey } from '@/modules/assets/schema'
 
 interface EquipmentRecordListProps {
     assets: Asset[]
@@ -76,10 +77,10 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
             {assets.slice((effectivePage - 1) * pageSize, effectivePage * pageSize).map(asset => {
                 const type = typeMap.get(asset.asset_type)
                 const stock = isStockType(type) ? getStockRecord(asset, type) : null
-                const identifierKey = type?.schema.find(field => field.is_unique_key)?.key
+                const identifierKey = schemaRoleKey(type?.schema ?? [], 'identifier')
                 const identifier = identifierKey ? asset.custom_data[identifierKey] : undefined
-                const code = typeof identifier === 'string' && identifier.trim() !== '' ? identifier.trim()
-                    : typeof identifier === 'number' && Number.isFinite(identifier) ? String(identifier) : asset.id
+                const code = asset.inventory_code || (typeof identifier === 'string' && identifier.trim() !== '' ? identifier.trim()
+                    : typeof identifier === 'number' && Number.isFinite(identifier) ? String(identifier) : asset.id)
                 const group = groupMap.get(getEquipmentModelKey(asset, type))
                 const modelName = [group?.brand, group?.model].filter(Boolean).join(' ')
                 const secondaryName = stock ? [code, showType ? asset.asset_type_name : ''].filter(Boolean).join(' · ')
@@ -91,6 +92,7 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
                         {(secondaryName || (showOwner && asset.tenant_name)) && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 [overflow-wrap:anywhere]">{[secondaryName, showOwner ? asset.tenant_name : ''].filter(Boolean).join(' · ')}</p>}
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+                        {asset.needs_update && <button type="button" onClick={() => onEdit(asset)} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t('dynamicSchema.needsUpdate')}</button>}
                         {stock && <span className="text-base font-semibold tabular-nums text-slate-900 dark:text-white">{stock.quantity === null ? t('inventory.quantityUnknown') : t('inventory.stockQuantity', { quantity: numberFormat.format(stock.quantity) })}</span>}
                         <span className={`text-xs ${asset.is_listed_for_sharing ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>{stateLabel}</span>
                         <RecordActions asset={asset} code={code} canManageSharing={canManageSharing} onEdit={onEdit} onDelete={onDelete} onSharing={onSharing} />

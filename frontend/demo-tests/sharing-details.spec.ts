@@ -84,6 +84,11 @@ test('real stock sharing publishes only explicit offer details and pauses safely
 
         const createdType = await page.request.post('/api/assets/types/', { headers: await csrf(page), data: {
             name: `Fictional sharing acceptance stock ${nonce}`, tracking_mode: 'stock',
+            schema: [
+                { key: 'material_code', label: 'Material code', type: 'text', role: 'identifier', required: false },
+                { key: 'material_name', label: 'Material name', type: 'text', role: 'display_name', required: false },
+                { key: 'quantity', label: 'Stock quantity', type: 'number', role: 'quantity', required: false },
+            ],
         } })
         expect(createdType.status()).toBe(201)
         typeId = (await createdType.json()).id as string

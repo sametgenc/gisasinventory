@@ -18,6 +18,8 @@ from django.utils import timezone
 
 from apps.settings.email_backend import SmtpNotConfiguredError, delivery_mode
 from apps.assets.validation import JSONValue
+from apps.tenants.models import Tenant
+from apps.user.models import User
 from .models import Notification
 from .utils import send_notifications
 
@@ -41,6 +43,15 @@ def recipient_for(notification: Notification) -> tuple[str | None, str]:
         return None, "email_opted_out"
     if not user.is_active or (user.tenant_id and not user.tenant.is_active):
         return None, "recipient_inactive"
+    content = notification.content if isinstance(notification.content, dict) else {}
+    if content.get('audience_tenant_id') and str(user.tenant_id) != str(content['audience_tenant_id']):
+        return None, 'tenant_membership_changed'
+    if content.get('audience_role') and user.role != content['audience_role']:
+        return None, 'recipient_role_changed'
+    if not notification.tenant_scope_known or notification.tenant_id != user.tenant_id:
+        from apps.tenants.permissions import is_global_admin
+        if not notification.tenant_scope_known or not is_global_admin(user):
+            return None, "tenant_membership_changed"
     verified = EmailAddress.objects.filter(user=user, email__iexact=user.email, verified=True).first()
     if not verified or not user.email:
         return None, "email_unverified"
@@ -86,6 +97,39 @@ def deliver_notification_email(notification_id: int) -> str:
         notification.email_next_attempt_at = None
         notification.save(update_fields=["email_status", "email_attempts", "email_locked_at", "email_next_attempt_at"])
 
+    return _deliver_claimed_notification(notification_id)
+
+
+def _deliver_claimed_notification(notification_id: int) -> str:
+    """Serialize final authorization and SMTP with membership and tenant changes."""
+    user_id = Notification.objects.filter(pk=notification_id).values_list("user_id", flat=True).first()
+    if user_id is None:
+        return "ignored"
+    with transaction.atomic():
+        # Match private request lock order: recipient first, then tenant, then event.
+        user = User.objects.select_for_update(no_key=True).filter(pk=user_id).first()
+        if user is None:
+            return "ignored"
+        if user.tenant_id is not None:
+            tenant = Tenant.objects.select_for_update(no_key=True).get(pk=user.tenant_id)
+            user.tenant = tenant
+        notification = Notification.objects.select_for_update().filter(pk=notification_id, user=user).first()
+        if notification is None or notification.email_status != Notification.EmailStatus.SENDING:
+            return "ignored"
+        notification.user = user
+        recipient, skip_reason = recipient_for(notification)
+        if skip_reason:
+            notification.email_status = Notification.EmailStatus.SKIPPED
+            notification.email_error_code = skip_reason
+            notification.email_next_attempt_at = None
+            notification.email_locked_at = None
+            notification.save(update_fields=["email_status", "email_error_code", "email_next_attempt_at", "email_locked_at"])
+            return "skipped"
+        # Keep recipient/tenant locks until SMTP and delivery-state recording finish.
+        return _send_notification_email(notification, recipient)
+
+
+def _send_notification_email(notification: Notification, recipient: str) -> str:
     try:
         from apps.user.mail import build_mail_context
         context = build_mail_context(user=notification.user,

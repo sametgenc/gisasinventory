@@ -11,6 +11,7 @@ from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.views import APIView
+from apps.tenants.permissions import is_global_admin
 
 
 PRIMARY_FACTORS = (Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN)
@@ -19,7 +20,7 @@ PRIMARY_FACTORS = (Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN)
 class IsActivePlatformAdmin(permissions.BasePermission):
     def has_permission(self, request: Request, view: APIView) -> bool:
         user = request.user
-        return user.is_authenticated and user.is_active and user.is_superuser
+        return is_global_admin(user)
 
 
 def mfa_status(request: Request) -> dict[str, bool]:

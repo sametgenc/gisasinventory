@@ -24,6 +24,49 @@ jobs:
       - run: uv run python manage.py makemigrations --check --dry-run --settings=config.test_settings
       - run: uv run python manage.py test --settings=config.test_settings --noinput
 
+  backend-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: gisas_ci
+          POSTGRES_USER: gisas_ci
+          POSTGRES_PASSWORD: gisas-ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gisas_ci -d gisas_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install uv
+      - run: uv sync --locked
+      - name: Test PostgreSQL isolation and competing approvals
+        run: |
+          uv run python - <<'PY'
+          import os
+          os.environ['DJANGO_SETTINGS_MODULE'] = 'config.test_settings'
+          from django.conf import settings
+          settings.DATABASES = {'default': {
+              'ENGINE': 'django.db.backends.postgresql',
+              'NAME': 'gisas_ci', 'USER': 'gisas_ci', 'PASSWORD': 'gisas-ci-only',
+              'HOST': '127.0.0.1', 'PORT': '5432',
+          }}
+          import django
+          django.setup()
+          from django.core.management import call_command
+          call_command('test', interactive=False)
+          PY
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

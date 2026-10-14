@@ -57,7 +57,7 @@ class AssetAccessTests(APITestCase):
 
     def test_partial_update_preserves_required_data_and_tenant(self):
         self.user.is_superuser = True
-        self.user.tenant = self.other
+        self.user.tenant = None
         self.user.save()
         response = self.client.patch(f"/api/assets/items/{self.asset.pk}/", {"assigned_to": None}, format="json")
         self.assertEqual(response.status_code, 200, response.data)
@@ -88,6 +88,7 @@ class AssetAccessTests(APITestCase):
 
     def test_schema_rejects_duplicate_keys(self):
         self.user.is_superuser = True
+        self.user.tenant = None
         self.user.save()
         response = self.client.post("/api/assets/types/", {
             "name": "Duplicate", "schema": self.asset_type.schema * 2,

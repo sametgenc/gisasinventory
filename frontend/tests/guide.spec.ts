@@ -1,17 +1,21 @@
 import { test, expect, type Page } from '@playwright/test'
 
 async function session(page: Page, role = 'tenant_admin', assigned = true) {
+    let authenticated = true
     await page.addInitScript(() => localStorage.setItem('language', 'en'))
     await page.route('**/_allauth/browser/v1/**', async route => {
         const config = route.request().url().endsWith('/config')
-        await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: config ? {
+        const status = config || authenticated ? 200 : 401
+        await route.fulfill({ status, json: { status, meta: { is_authenticated: authenticated }, data: config ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
-        } : { user: { id: '1', username: 'guide-user', email: 'guide@example.test', role, tenant_slug: assigned ? 'test-yard' : null }, methods: [] } } })
+        } : authenticated ? { user: { id: '1', username: 'guide-user', email: 'guide@example.test', role, tenant_id: assigned ? 1 : null, tenant_slug: assigned ? 'test-yard' : null }, methods: [] } : { flows: [] } } })
     })
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         if (route.request().url().endsWith('/stream/')) return route.abort()
-        await route.fulfill({ json: route.request().url().includes('unread_count') ? { unread_count: 0 } : [] })
+        const path = new URL(route.request().url()).pathname
+        await route.fulfill({ json: path === '/api/auth/captcha/' ? { enabled: false } : path.includes('unread_count') ? { unread_count: 0 } : [] })
     })
+    return { revoke: () => { authenticated = false } }
 }
 
 async function guestSession(page: Page) {
@@ -30,7 +34,8 @@ async function guestSession(page: Page) {
     })
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         if (route.request().url().endsWith('/stream/')) return route.abort()
-        await route.fulfill({ json: route.request().url().includes('unread_count') ? { unread_count: 0 } : [] })
+        const path = new URL(route.request().url()).pathname
+        await route.fulfill({ json: path === '/api/auth/captcha/' ? { enabled: false } : path.includes('unread_count') ? { unread_count: 0 } : [] })
     })
 }
 
@@ -63,9 +68,10 @@ test('direct guide access requires sign-in and returns to the selected step', as
 })
 
 test('guide disappears when the authenticated session is revoked', async ({ page }) => {
-    await session(page)
+    const auth = await session(page)
     await page.goto('/help?task=inspect&step=1')
     await expect(page.getByRole('heading', { name: 'User guide', exact: true })).toBeVisible()
+    auth.revoke()
     await page.evaluate(() => document.dispatchEvent(new CustomEvent('allauth.auth.change', {
         detail: { status: 401, meta: { is_authenticated: false }, data: { flows: [] } },
     })))
@@ -101,10 +107,10 @@ for (const width of [1280, 390]) {
         if (width < 1024) await page.getByRole('combobox', { name: 'What would you like to do?' }).selectOption('excel')
         else await page.getByRole('link', { name: 'Import my Excel inventory', exact: true }).click()
         await expect(page.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1')
-        await page.getByRole('searchbox', { name: 'Search guide' }).fill('empty Description')
-        const question = page.locator('.guide-interactive').getByText('What do empty cells do in a catalog update?', { exact: true })
+        await page.getByRole('searchbox', { name: 'Search guide' }).fill('fields required')
+        const question = page.locator('.guide-interactive').getByText('Are new fields required?', { exact: true })
         await question.click()
-        await expect(page.locator('.guide-interactive').getByText('In Update by catalog code mode, empty Description', { exact: false })).toBeVisible()
+        await expect(page.locator('.guide-interactive').getByText('New fields start optional. Making a field required notifies owners of incomplete records. Renaming a field preserves existing values.', { exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
         expect(writes).toEqual([])
     })
@@ -118,8 +124,8 @@ test('print includes every task and answer while hiding an open screenshot dialo
     await page.emulateMedia({ media: 'print' })
     await expect(page.getByRole('dialog')).not.toBeVisible()
     await expect(page.locator('.guide-print')).toBeVisible()
-    await expect(page.locator('.guide-print section')).toHaveCount(6)
-    await expect(page.locator('.guide-print').getByText('In Update by catalog code mode, empty Description', { exact: false })).toBeVisible()
+    await expect(page.locator('.guide-print section')).toHaveCount(7)
+    await expect(page.locator('.guide-print').getByText('New fields start optional. Making a field required notifies owners of incomplete records. Renaming a field preserves existing values.', { exact: true })).toBeVisible()
     expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('visible')
 })
 

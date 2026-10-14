@@ -5,8 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.db import connection
+from django.apps import apps
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.test import APITestCase
@@ -19,6 +20,7 @@ from .test_sharing import import_file
 from .validation import MAX_STOCK_QUANTITY, default_stock_schema
 
 
+@override_settings(CROSS_TENANT_SHARING_ENABLED=True)
 class SharingDetailTests(APITestCase):
     def setUp(self):
         self.owner = Tenant.objects.create(name='Offer sample yard', email='internal-yard@example.test')
@@ -184,7 +186,9 @@ class SharingDetailTests(APITestCase):
     def test_owner_transfer_clears_every_public_detail_and_consent(self):
         self.assertEqual(self.offer().status_code, 200)
         self.manager.role = 'platform_admin'
-        self.manager.save(update_fields=['role'])
+        self.manager.is_superuser = True
+        self.manager.tenant = None
+        self.manager.save(update_fields=['role', 'is_superuser', 'tenant'])
         response = self.client.patch(f'/api/assets/items/{self.asset.pk}/', {'tenant': self.other.pk}, format='json')
         self.assertEqual(response.status_code, 200, response.data)
         self.assertFalse(response.data['is_shared'])
@@ -251,7 +255,9 @@ class SharingDetailTests(APITestCase):
         ]:
             with self.subTest(tracking_mode=source_type.tracking_mode, quantity=quantity):
                 asset = Asset.objects.create(
-                    tenant=self.owner, asset_type=source_type, custom_data=dict(self.asset.custom_data),
+                    tenant=self.owner, asset_type=source_type, custom_data={
+                        **self.asset.custom_data, 'material_code': f'TYPE-CHANGE-{source_type.tracking_mode}-{quantity}',
+                    },
                 )
                 published = self.sharing(
                     asset, is_shared=True, sharing_quantity=quantity, sharing_title='Owner-approved original offer',
@@ -415,6 +421,7 @@ class SharingDetailsMigrationTests(TransactionTestCase):
 
     old_target = [('assets', '0005_assettype_tracking_mode')]
     new_target = [('assets', '0006_asset_sharing_details')]
+    available_apps = [app.name for app in apps.get_app_configs() if app.label != 'audit']
 
     def test_additive_migration_preserves_existing_inventory_and_publication(self):
         executor = MigrationExecutor(connection)
@@ -451,4 +458,5 @@ class SharingDetailsMigrationTests(TransactionTestCase):
                         if field not in ('sharing_note', 'sharing_quantity', 'sharing_availability'):
                             self.assertEqual(getattr(migrated, field), '')
         finally:
-            MigrationExecutor(connection).migrate(self.new_target)
+            executor = MigrationExecutor(connection)
+            executor.migrate(executor.loader.graph.leaf_nodes())

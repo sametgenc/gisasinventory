@@ -8,6 +8,7 @@ async function mock(page: Page, password = true, types?: string[]) {
         await route.fulfill({ json: path.endsWith('/config') ? { status: 200, data: { account: {}, socialaccount: { providers: [] }, mfa: { supported_types: ['totp', 'webauthn', 'recovery_codes'] } } } : path === base ? { status: 200, data: [totp] } : { status: types ? 401 : 200, meta: { is_authenticated: !types }, data: { user: types ? undefined : { id: 'admin', username: 'admin', email: 'admin@shipyard.test', role: 'platform_admin', has_usable_password: password }, methods: [{ method: 'password', at: Date.now() / 1000 }], flows: types ? [{ id: 'mfa_authenticate', is_pending: true, types }] : [] } } })
     })
     await page.route('**/api/**', route => new URL(route.request().url()).pathname.startsWith('/api/') ? route.fulfill({ json: { count: 0, results: [] } }) : route.continue())
+    await page.route('**/api/auth/captcha/', route => route.fulfill({ json: { enabled: false, site_key: '' } }))
 }
 test('passwordless TOTP uses reauthentication endpoint and rejects external next', async ({ page }) => {
     await mock(page, false)

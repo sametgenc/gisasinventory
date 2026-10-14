@@ -50,6 +50,29 @@ SECRET_KEY = _configured_secret_key if _configured_secret_key.strip() else (
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", os.environ.get("DOMAIN", "localhost")]
 DOMAIN = os.environ.get("DOMAIN", "localhost")
 
+# Private inventory is never published across shipyards unless an operator
+# deliberately enables the existing, owner-controlled publication feature.
+CROSS_TENANT_SHARING_ENABLED = os.environ.get("CROSS_TENANT_SHARING_ENABLED", "false").lower() == "true"
+TURNSTILE_ENABLED = os.environ.get(
+    "TURNSTILE_ENABLED", "false" if DEBUG or _uses_local_settings else "true"
+).lower() == "true"
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "")
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+TURNSTILE_ALLOWED_HOSTNAMES = [
+    hostname.strip() for hostname in os.environ.get("TURNSTILE_ALLOWED_HOSTNAMES", DOMAIN).split(",")
+    if hostname.strip()
+]
+# MFA remains opt-in for every account unless the operator explicitly changes
+# the administrator policy. This does not bypass an account's enabled factor.
+ADMIN_REQUIRE_MFA = os.environ.get('ADMIN_REQUIRE_MFA', 'false').lower() == 'true'
+AUDIT_TRUST_PROXY_IP = not DEBUG and not _uses_local_settings
+if not DEBUG and not _uses_local_settings and not TURNSTILE_ENABLED:
+    raise ImproperlyConfigured("CAPTCHA cannot be disabled in production.")
+if TURNSTILE_ENABLED and not (
+    TURNSTILE_SITE_KEY.strip() and TURNSTILE_SECRET_KEY.strip() and TURNSTILE_ALLOWED_HOSTNAMES
+):
+    raise ImproperlyConfigured("Configure TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY and TURNSTILE_ALLOWED_HOSTNAMES.")
+
 CORS_ALLOWED_ORIGINS = [
     f"https://{DOMAIN}",
 ]
@@ -85,16 +108,21 @@ INSTALLED_APPS = [
     "apps.assets.apps.AssetsConfig",
     "apps.settings.apps.SettingsConfig",
     "apps.platform_feedback.apps.PlatformFeedbackConfig",
+    "apps.audit.apps.AuditConfig",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "apps.audit.middleware.AuditMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "config.security.SecurityAccessMiddleware",
+    "config.security.AuthenticationRateLimitMiddleware",
+    "apps.user.captcha.CaptchaMiddleware",
     "apps.tenants.middleware.TenantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -125,6 +153,20 @@ WSGI_APPLICATION = "config.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "KEY_PREFIX": "gisasinventory",
+    }
+}
+
+# Password-only HTTP Basic authentication bypasses allauth's MFA challenge.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+}
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -221,6 +263,8 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # Code-based verification required when MFA_PASSKEY_SIGNUP_ENABLED=True (allauth E001).
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True
+ACCOUNT_LOGIN_BY_CODE_FORMAT = {"length": 6, "numeric": True, "dashed": False}
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_FORMAT = {"length": 6, "numeric": True, "dashed": False}
 ACCOUNT_ADAPTER = "apps.user.adapters.CustomAccountAdapter"
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
@@ -262,6 +306,7 @@ SOCIALACCOUNT_PROVIDERS = {
 # Headless
 HEADLESS_ADAPTER = "apps.user.adapters.CustomHeadlessAdapter"
 HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ("browser",)
 HEADLESS_FRONTEND_URLS = {
     "browser": f"https://{DOMAIN}{{path}}",
     "account_confirm_email": f"https://{DOMAIN}/auth/email/confirm/{{key}}",
@@ -297,6 +342,15 @@ CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 8 * 60 * 60
+SECURE_SSL_REDIRECT = not DEBUG and not _uses_local_settings
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG and not _uses_local_settings else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = not DEBUG and not _uses_local_settings
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "no-referrer"
+X_FRAME_OPTIONS = "DENY"
 
 # Email settings — SMTP config is loaded from the database at runtime
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "apps.settings.email_backend.DatabaseEmailBackend")
@@ -312,6 +366,13 @@ SMTP_CREDENTIAL_KEY = os.environ.get("SMTP_CREDENTIAL_KEY", "")
 MFA_CREDENTIAL_KEY = os.environ.get("MFA_CREDENTIAL_KEY", "")
 NOTIFICATION_EMAIL_ENABLED = True
 
+AUDIT_SIEM_ENABLED = os.environ.get("AUDIT_SIEM_ENABLED", "false").lower() == "true"
+AUDIT_SIEM_URL = os.environ.get("AUDIT_SIEM_URL", "")
+AUDIT_SIEM_TOKEN = os.environ.get("AUDIT_SIEM_TOKEN", "")
+AUDIT_SIEM_TIMEOUT = 5
+AUDIT_SIEM_BATCH_SIZE = 100
+AUTH_CAPTCHA_RATE_LIMIT = 60
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -320,18 +381,26 @@ LOGGING = {
             "format": "[{asctime}] {levelname} {name}: {message}",
             "style": "{",
         },
+        "audit_json": {"()": "apps.audit.logging.AuditJSONFormatter"},
+        "security_json": {"()": "config.security.SecurityLogFormatter"},
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "audit_console": {"class": "logging.StreamHandler", "formatter": "audit_json"},
+        "security_console": {"class": "logging.StreamHandler", "formatter": "security_json"},
+        "discard": {"class": "logging.NullHandler"},
     },
     "loggers": {
         "apps.user.adapters": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "apps.settings.email_backend": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "allauth": {"handlers": ["console"], "level": "WARNING", "propagate": False},
-        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "django.request": {"handlers": ["security_console"], "level": "ERROR", "propagate": False},
+        "django.security": {"handlers": ["security_console"], "level": "WARNING", "propagate": False},
+        "uvicorn.access": {"handlers": ["discard"], "propagate": False},
+        "apps.audit": {"handlers": ["audit_console"], "level": "INFO", "propagate": False},
     },
 }
 
@@ -350,5 +419,9 @@ CELERY_BEAT_SCHEDULE = {
     'retry-notification-emails': {
         'task': 'apps.notifications.tasks.retry_pending_notification_emails',
         'schedule': 60.0,
+    },
+    'retry-audit-siem': {
+        'task': 'apps.audit.tasks.deliver_pending_audit_events',
+        'schedule': 30.0,
     },
 }

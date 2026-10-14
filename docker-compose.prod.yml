@@ -1,5 +1,12 @@
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   traefik:
+    logging: *default-logging
     build:
       context: ./traefik
       dockerfile: compose/production/Dockerfile
@@ -12,7 +19,6 @@ services:
       - ./traefik/compose/production/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/compose/production/dynamic.yml:/etc/traefik/conf/dynamic.yml:ro
       - ./traefik/acme:/etc/traefik/acme
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     env_file:
       - ./.envs/.env.traefik
     restart: always
@@ -20,6 +26,7 @@ services:
       - webnet
 
   redis:
+    logging: *default-logging
     image: redis:7-alpine
     container_name: redis_prod_container
     expose:
@@ -36,6 +43,7 @@ services:
       - webnet
 
   postgres:
+    logging: *default-logging
     build:
       context: ./backend
       dockerfile: resources/compose/production/postgres/Dockerfile
@@ -55,6 +63,7 @@ services:
       - webnet
 
   web:
+    logging: *default-logging
     build:
       context: ./backend
       dockerfile: resources/compose/production/Dockerfile
@@ -78,6 +87,7 @@ services:
       - webnet
 
   celeryworker:
+    logging: *default-logging
     build:
       context: ./backend
       dockerfile: resources/compose/production/Dockerfile
@@ -97,6 +107,7 @@ services:
       - webnet
 
   celerybeat:
+    logging: *default-logging
     build:
       context: ./backend
       dockerfile: resources/compose/production/Dockerfile
@@ -114,6 +125,7 @@ services:
       - webnet
 
   frontend:
+    logging: *default-logging
     build:
       context: ./frontend
       dockerfile: compose/production/Dockerfile

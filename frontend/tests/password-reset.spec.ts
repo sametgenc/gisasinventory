@@ -1,4 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
+
+test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/captcha/', route => route.fulfill({ json: { enabled: false, site_key: '' } }))
+})
 const endpoint = '/_allauth/browser/v1/auth/password/reset'
 const pending = { status: 401, meta: { is_authenticated: false }, data: { flows: [{ id: 'password_reset_by_code', is_pending: true }] } }
 const completed = { status: 401, meta: { is_authenticated: false }, data: { flows: [{ id: 'login' }, { id: 'password_reset_by_code', is_pending: false }] } }

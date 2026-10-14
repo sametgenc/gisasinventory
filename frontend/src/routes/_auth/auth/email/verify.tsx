@@ -1,3 +1,4 @@
+import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/_auth/auth/email/verify')({
 const CODE_LENGTH = 6
 
 function VerifyEmail() {
+    const captcha = useCaptcha()
     const { t } = useTranslation()
     const navigate = useNavigate()
     const { updateFromResponse, config } = useAuth()
@@ -26,6 +28,7 @@ function VerifyEmail() {
 
     const handleVerifyCode = async (e?: React.FormEvent) => {
         e?.preventDefault()
+        if (!captcha.ready) return
         if (code.length !== CODE_LENGTH) {
             setError(t('emailVerify.codeLengthError', { length: CODE_LENGTH }))
             return
@@ -33,7 +36,7 @@ function VerifyEmail() {
         setVerifyingCode(true)
         setError(null)
         try {
-            const res = await ALLAUTH_API.verifyEmailByCode(code)
+            const res = await ALLAUTH_API.verifyEmailByCode(code, captcha.token)
             updateFromResponse(res)
             const nextPath = pathForPendingFlow(res)
             if (nextPath) {
@@ -49,6 +52,7 @@ function VerifyEmail() {
             setError(err.message)
         } finally {
             setVerifyingCode(false)
+            captcha.reset()
         }
     }
 
@@ -89,9 +93,10 @@ function VerifyEmail() {
                                         onComplete={() => handleVerifyCode()}
                                     />
                                 </div>
+                                {captcha.widget}
                                 <button
                                     type="submit"
-                                    disabled={verifyingCode || code.length !== CODE_LENGTH}
+                                    disabled={verifyingCode || !captcha.ready || code.length !== CODE_LENGTH}
                                     className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {verifyingCode ? <Loader2 className="animate-spin" size={16} /> : t('emailVerify.submit')}

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { catalog: { importTitle: string } }
+const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { workbook: { title: string } }
 
 test('asset form stays open with entered values when the API rejects a save', async ({ page }) => {
     const typeId = 'a0000000-0000-4000-8000-000000000001'
@@ -11,7 +11,7 @@ test('asset form stays open with entered values when the API rejects a save', as
         await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: config ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'member', email: 'member@example.com', role: 'tenant_user', tenant_slug: 'yard', tenant_name: 'Yard' },
+            user: { id: '1', username: 'member', email: 'member@example.test', role: 'tenant_user', tenant_id: 1, tenant_slug: 'yard', tenant_name: 'Yard' },
             methods: [],
         } } })
     })
@@ -35,10 +35,10 @@ test('asset form stays open with entered values when the API rejects a save', as
     await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('combobox').selectOption(typeId)
-    await dialog.getByRole('textbox').fill('MY-SERIAL')
+    await dialog.getByRole('textbox', { name: 'Serial', exact: true }).fill('MY-SERIAL')
     await dialog.getByRole('button', { name: 'Create', exact: true }).click()
     await expect(dialog.getByText('This equipment needs a valid serial number.')).toBeVisible()
-    await expect(dialog.getByRole('textbox')).toHaveValue('MY-SERIAL')
+    await expect(dialog.getByRole('textbox', { name: 'Serial', exact: true })).toHaveValue('MY-SERIAL')
     await expect(dialog).toBeVisible()
 })
 
@@ -49,7 +49,7 @@ test('platform admin previews and confirms a catalog Excel import', async ({ pag
         await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: config ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'admin', email: 'admin@example.com', role: 'platform_admin', is_superuser: false },
+            user: { id: '1', username: 'admin', email: 'admin@example.test', role: 'platform_admin', is_superuser: true, tenant_id: null },
             methods: [],
         } } })
     })
@@ -59,19 +59,19 @@ test('platform admin previews and confirms a catalog Excel import', async ({ pag
         const request = route.request()
         const path = new URL(request.url()).pathname
         if (path.endsWith('/stream/')) return route.abort()
-        if (path === '/api/assets/types/catalog_preview/' && request.method() === 'POST') {
+        if (path === '/api/assets/workbook/preview/' && request.method() === 'POST') {
             return route.fulfill({ json: {
-                summary: { create: 1, update: 0, skip: 0, error: 0 },
-                preview_token: 'signed-preview',
-                rows: [{ row: 2, values: {
+                summary: { types_created: 1, types_updated: 0, assets_created: 0, assets_updated: 0, skipped_rows_count: 0 },
+                preview_token: 'signed-preview', can_commit: true, notices: [], action_required: [], errors: [],
+                rows: [{ sheet: 'Ekipman türleri', row: 2,
                     catalog_code: 'B-001', name: 'Portal crane', category_code: 'B',
                     sharing_class: 'B', exclusion_reason: '', description: 'Test type',
-                }, errors: [], operation: 'create', sharing_excluded: false }],
+                errors: [], operation: 'create', sharing_excluded: false }],
             } })
         }
-        if (path === '/api/assets/types/catalog_import/' && request.method() === 'POST') {
+        if (path === '/api/assets/workbook/commit/' && request.method() === 'POST') {
             imported = true
-            return route.fulfill({ json: { summary: { create: 1, update: 0, skip: 0, error: 0 } } })
+            return route.fulfill({ json: { summary: { types_created: 1, types_updated: 0, assets_created: 0, assets_updated: 0, skipped_rows_count: 0 } } })
         }
         let data: unknown = []
         if (path === '/api/assets/types/') data = []
@@ -82,16 +82,16 @@ test('platform admin previews and confirms a catalog Excel import', async ({ pag
 
     await page.goto('/assets/types')
     await page.getByRole('button', { name: 'Import catalog' }).click()
-    const dialog = page.getByRole('dialog', { name: english.catalog.importTitle })
+    const dialog = page.getByRole('dialog', { name: english.workbook.title })
     await expect(dialog.getByText('Catalog and inventory are separate steps')).not.toBeVisible()
     await dialog.locator('input[type=file]').setInputFiles({
         name: 'catalog.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         buffer: Buffer.from('mock workbook'),
     })
-    await dialog.getByRole('button', { name: 'Preview file' }).click()
+    await dialog.getByRole('button', { name: 'Review workbook' }).click()
     await expect(dialog.getByText('Portal crane')).toBeVisible()
-    await expect(dialog.getByText('Create: 1')).toBeVisible()
-    await dialog.getByRole('button', { name: 'Import 1 changes' }).click()
-    await expect(dialog.getByText('Catalog imported')).toBeVisible()
+    await expect(dialog.getByText('New equipment types', { exact: true })).toBeVisible()
+    await dialog.getByRole('button', { name: 'Import reviewed records' }).click()
+    await expect(dialog.getByText('Import completed')).toBeVisible()
     expect(imported).toBe(true)
 })

@@ -23,7 +23,7 @@ class FeedbackAttachmentTests(APITestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(b"".join(response.streaming_content), b"proof")
             self.assertIn("attachment", response["Content-Disposition"])
-            response.close()
+            self.assertTrue(response.closed)
             self.client.force_authenticate(ordinary)
             self.assertEqual(self.client.get(url).status_code, 403)
             self.client.force_authenticate(None)

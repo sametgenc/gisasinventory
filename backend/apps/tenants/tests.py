@@ -16,13 +16,13 @@ class TenantUserPermissionsTests(APITestCase):
             self.client.force_authenticate(user)
             self.assertEqual(self.client.get("/api/tenants/available-users/").status_code, 403)
 
-    def test_platform_role_can_choose_shipyard_without_management_permissions(self):
+    def test_platform_role_cannot_read_other_shipyards_or_manage_them(self):
         other = Tenant.objects.create(name='Another yard')
         platform = User.objects.create(username='catalog-manager', role='platform_admin')
         self.client.force_authenticate(platform)
         response = self.client.get('/api/tenants/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual({item['id'] for item in response.data}, {self.tenant.pk, other.pk})
+        self.assertEqual(response.data, [])
         self.assertEqual(self.client.post('/api/tenants/', {'name': 'Forbidden'}, format='json').status_code, 403)
         self.assertEqual(self.client.get('/api/tenants/all-users/').status_code, 403)
 
@@ -65,6 +65,7 @@ class TenantUserPermissionsTests(APITestCase):
 
     def test_bulk_user_import_rejects_missing_password(self):
         self.admin.is_superuser = True
+        self.admin.tenant = None
         self.admin.save()
         response = self.client.post('/api/tenants/bulk-import-users/', {
             'file': workbook_file([

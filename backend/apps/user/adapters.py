@@ -1,4 +1,5 @@
 import logging
+import ipaddress
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,26 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         except Exception:
             logger.exception("Failed loading SmtpSettings.from_email")
         return super().get_from_email()
+
+    def get_client_ip(self, request) -> str:
+        # Only the production reverse proxy may supply X-Real-IP. Do not use
+        # attacker-controlled X-Forwarded-For to partition authentication limits.
+        value = request.META.get("REMOTE_ADDR", "127.0.0.1")
+        if getattr(settings, "AUDIT_TRUST_PROXY_IP", False):
+            value = request.META.get("HTTP_X_REAL_IP", value)
+        try:
+            return str(ipaddress.ip_address(value))
+        except ValueError:
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied("Invalid client address.") from None
+
+    def generate_password_reset_code(self) -> str:
+        # Preserve the existing eight-character reset flow across allauth's
+        # code-format default change. Login/email verification remain six digits.
+        from allauth.core.internal.cryptokit import generate_user_code
+
+        return generate_user_code(length=8, dashed=False)
 
     def send_mail(self, template_prefix, email, context):
         from_email = self.get_from_email()
@@ -85,6 +106,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         data["role"] = user.role
         data["tenant_slug"] = user.tenant.slug if user.tenant else None
         data["tenant_name"] = user.tenant.name if user.tenant else None
+        data["tenant_id"] = user.tenant_id
         return data
 
 

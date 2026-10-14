@@ -12,6 +12,7 @@ import { useClickOutside } from '../hooks/useClickOutside';
 import { helpCopy } from '@/modules/help-copy';
 import { isDemoMode } from '@/modules/demo';
 import { getApiErrorMessage } from '@/api/errors';
+import { canUseSharedUsage, usageCopy } from '@/modules/assets/usage';
 
 function NavItem({
     to,
@@ -50,6 +51,7 @@ export const RootLayout: React.FC = () => {
     const navigate = useNavigate();
     const { t, i18n } = useTranslation();
     const guide = helpCopy[i18n.language.startsWith('tr') ? 'tr' : 'en'];
+    const usage = usageCopy[i18n.language.startsWith('tr') ? 'tr' : 'en'];
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [logoutError, setLogoutError] = useState('');
@@ -185,6 +187,7 @@ export const RootLayout: React.FC = () => {
                                                     <User size={16} className="text-slate-400" />
                                                     {t('nav.emailSettings', 'Email Settings')}
                                                 </Link>
+                                                {canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} onClick={closeUserMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><Share2 size={16} className="text-slate-400" />{usage.title}</Link>}
                                                 <Link
                                                     to="/account/password"
                                                     onClick={closeUserMenu}
@@ -291,6 +294,7 @@ export const RootLayout: React.FC = () => {
                                         {t('nav.assetTypes')}
                                     </Link>
                                     <Link to="/help" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"><BookOpen size={18} />{guide.nav}</Link>
+                                    {canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Share2 size={18} />{usage.title}</Link>}
                                     {isPlatformAdmin && (
                                         <div className="border-t border-slate-200 dark:border-slate-800 pt-2 mt-1 space-y-1">
                                             <p className="px-3 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
