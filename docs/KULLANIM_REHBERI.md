@@ -30,9 +30,10 @@ Uzun listelerde alttaki sayfa numaraları veya **Önceki / Sonraki** düğmeleri
 
 1. **Envanterim → Diğer İşlemler → Excel'e Dışa Aktar** açın; türü seçip **Şablonu İndir** kullanın.
 2. Gerçek ekipmanları **4. satırdan itibaren** yazın. İlk üç satırı, başlıkları ve gizli `_mapping` sayfasını koruyun.
-3. **Excel'den İçe Aktar** açın; dosyayı seçip **Önizle ve Devam Et** kullanın. Dış Excel dosyasında başlık satırı, tür ve sütun eşleşmelerini kontrol edin.
-4. Hedef tersaneyi kontrol edin. Şablonda **Şablon İçe Aktarmayı Başlat**, dış dosyada **İçe Aktar** seçin.
-5. **Oluşturuldu, Güncellendi, Atlandı, Hata** sonuçlarını inceleyin; envanterde birkaç kaydı doğrulayın.
+3. **Excel'den İçe Aktar** açın; dosyayı seçip **Önizle ve Devam Et** kullanın. **Dosyayı inceledik** bölümünde önerilen Excel sayfasını, başlık satırını, ekipman türünü ve sütun eşleşmelerini kontrol edin.
+4. Hazır, atlanan ve kontrol bekleyen satırları inceleyin. Güvenle ayırt edilen toplam/ara toplam, tekrarlanan sütun başlıkları ve bölüm başlıkları aktarılmaz; hangi Excel satırının neden atlandığı gösterilir. Belirsiz alanları düzeltin. Sorunlu satırları Excel’de düzeltip yeniden yükleyin veya tamamını bu aktarımda hariç tutmayı açıkça seçin.
+5. Tür, sütun veya dosya düzenini değiştirdiyseniz **Dosyayı yeniden kontrol et** kullanın. Hedef tersaneyi doğrulayın; **hazır kaydı aktar** düğmesiyle işlemi tamamlayın.
+6. **Oluşturuldu, Güncellendi, Atlandı, Hata** sonuçlarını inceleyin; envanterde birkaç kaydı doğrulayın.
 
 **Sonuç:** Geçerli ekipman satırları eklenir veya eşleşen kayıtlar güncellenir. Aktarım paylaşımı açmaz. Hata varsa başarılı satırlar kaydedilmiş olabilir; dosyayı tekrar göndermeden sonuçları kontrol edin. Benzersiz anahtar olmayan türlerde tekrar aktarım yeni kayıt oluşturabilir.
 
@@ -41,11 +42,13 @@ Uzun listelerde alttaki sayfa numaraları veya **Önceki / Sonraki** düğmeleri
 ### Adetli malzeme dosyasını aktar
 
 1. Platform yöneticisi **Ekipman türleri → Tür ekle** ekranında **Adetli malzeme stoku** takip biçimini seçer. Malzeme kodu, malzeme adı ve stok adedi alanları hazır gelir.
-2. Envanterde **Excel'den aktar** açılır; dış dosya için **Ham Excel** kullanılır. Başlık birinci satırdaysa **Başlık satırı: 1** seçilir; veriler ikinci satırdan alınır.
-3. Kaynak sütunları eşlenir: **Seri Numarası → Malzeme kodu**, **İsim → Malzeme adı**, **Adet → Stok adedi**. Dosyadaki “Seri Numarası” burada ayrı parçaların seri numarası değildir.
+2. Envanterde **Excel'den İçe Aktar** açılır; dosya seçilip önizlenir. Başlık ve Excel sayfası otomatik önerilir. Birden fazla sayfa uygunsa **Dosya düzeni** bölümünden seçim yapılır.
+3. Kaynak sütunları önerilir: **Seri Numarası → Malzeme kodu**, **İsim → Malzeme adı**, **Adet → Stok adedi**. Önerileri kontrol edin; eksik zorunlu eşleştirmeleri tamamlayın. Dosyadaki “Seri Numarası” burada ayrı parçaların seri numarası değildir.
 4. Doğru tersane ve stok türü seçilir; önizlemede ilk iki kayıt ve sıfır adetli kalem kontrol edilir. Aktarım sonucu kalem sayısı ile parça toplamı ayrı görünür.
 
 **Kurmaca örnek:** **3 stok kalemi, 750 parça** vardır: `ORNEK-STOK-01` yürüme platformu 500 adet, `ORNEK-STOK-02` bariyer 250 adet, `ORNEK-STOK-03` diyagonal eleman 0 adet. “Örnek yürüme platformu · 500 adet” tek stok kaydıdır; **Ayrıntıyı aç** ile kodunu ve bilgilerini görürsünüz. Sıfır adetli kalem silinmez. Bu değerler gerçek envanterden alınmamıştır. Kaynak ID ve tarih ek bilgi olarak saklanabilir; uygulamanın kayıt kimliği veya oluşturulma tarihi yerine geçirilmez. Toplam stok, paylaşıma verilebilecek miktar değildir.
+
+Formüller, Excel hücre hataları, yinelenen ekipman kodları ve eksik/geçersiz değerler kontrol bekleyen satırlarda görünür. Aynı modeldeki farklı ekipman kodları normal kayıtlardır. Birden fazla ekipman türü aynı sayfadaysa türleri ayrı Excel sayfalarına veya dosyalara ayırın. Sıfır adet ve adında “toplam” geçen gerçek malzemeler korunur; belirsiz değerler tahminen değiştirilmez. Dosyadaki tersane sütunu sahiplik atamaz.
 
 Tek tek ekipman türünü stok türüne çevirmek mevcut kayıtların anlamını değiştirir. Kayıt içeren türlerde takip biçimi değiştirilemez; ayrı bir stok türü açılır.
 

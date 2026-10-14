@@ -272,14 +272,18 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     const [file, setFile] = useState<File | null>(null)
     const [tenantId, setTenantId] = useState<number | null>(null)
     const [headerRow, setHeaderRow] = useState(1)
-    const [skipRows, setSkipRows] = useState<string[]>(['TOPLAM', 'GENEL TOPLAM', 'TOTAL'])
+    const [manualHeader, setManualHeader] = useState(false)
+    const [sheetName, setSheetName] = useState('')
+    const [skipRows, setSkipRows] = useState<string[]>([])
     const [skipInput, setSkipInput] = useState('')
     const [previewing, setPreviewing] = useState(false)
     const [preview, setPreview] = useState<ImportPreview | null>(null)
     const [assetTypeId, setAssetTypeId] = useState('')
     const [mapping, setMapping] = useState<ColumnMapping>({})
-    /** Keys of headers that were auto-matched so we can display a confidence mark. */
+    const [manualMapping, setManualMapping] = useState(false)
     const [autoMatched, setAutoMatched] = useState<Set<string>>(new Set())
+    const [analysisDirty, setAnalysisDirty] = useState(false)
+    const [excludeReviewRows, setExcludeReviewRows] = useState(false)
     const [importing, setImporting] = useState(false)
     const [templateResult, setTemplateResult] = useState<BulkImportResult | null>(null)
     const [rawResult, setRawResult] = useState<RawImportResult | null>(null)
@@ -287,11 +291,17 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     const [dragOver, setDragOver] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const skipInputId = useId()
+    // Closing, replacing a file or editing settings invalidates any in-flight response.
+    const requestSequence = useRef(0)
+    const settingsRevision = useRef(0)
 
     const reset = useCallback(() => {
+        requestSequence.current += 1
+        settingsRevision.current += 1
         setStep(1); setFile(null); setTenantId(null); setHeaderRow(1)
-        setSkipRows(['TOPLAM', 'GENEL TOPLAM', 'TOTAL']); setSkipInput('')
+        setManualHeader(false); setSheetName(''); setSkipRows([]); setSkipInput('')
         setPreview(null); setAssetTypeId(''); setMapping({}); setAutoMatched(new Set())
+        setAnalysisDirty(false); setExcludeReviewRows(false); setManualMapping(false)
         setTemplateResult(null); setRawResult(null); setError(null)
         setPreviewing(false); setImporting(false); setDragOver(false)
     }, [])
@@ -301,13 +311,34 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     const selectedAssetType = assetTypes.find(at => at.id === assetTypeId)
     const uniqueKeyField = selectedAssetType?.schema?.find(f => f.is_unique_key)
     const isTemplate = !!preview?.detected_template
+    const analysis = preview?.analysis
     const needsTenant = isSuperuser
+    const mappedFields = Object.values(mapping).filter((value): value is string => !!value)
+    const missingFields = !isTemplate && analysis ? (selectedAssetType?.schema ?? []).filter(field => field.required && !mappedFields.includes(field.key)) : []
+    const duplicateFields = !isTemplate && analysis ? [...new Set(mappedFields.filter((key, index) => mappedFields.indexOf(key) !== index))] : []
+    const reviewNumbers = analysis?.review_row_numbers ?? []
+    const analysisBlocked = !!analysis && (
+        analysis.layout_confidence !== 'high' || analysis.blockers.length > 0 ||
+        missingFields.length > 0 || duplicateFields.length > 0 ||
+        (reviewNumbers.length > 0 && !excludeReviewRows) || analysis.counts.ready === 0
+    )
+
+    const invalidateAnalysis = () => {
+        settingsRevision.current += 1
+        setAnalysisDirty(!!analysis)
+        setExcludeReviewRows(false)
+        setError(null)
+    }
 
     const pickFile = (f: File | null) => {
         if (previewing || importing) return
-        if (f && !f.name.toLowerCase().endsWith('.xlsx')) { setFile(null); setPreview(null); setAssetTypeId(''); setError(t('ux.inventoryInvalidFile')); return }
-        setFile(f); setPreview(null); setError(null); setAssetTypeId('')
-        setMapping({}); setAutoMatched(new Set())
+        requestSequence.current += 1
+        settingsRevision.current += 1
+        setFile(f); setPreview(null); setAssetTypeId(''); setMapping({}); setAutoMatched(new Set())
+        setHeaderRow(1); setManualHeader(false); setSheetName(''); setSkipRows([]); setSkipInput('')
+        setAnalysisDirty(false); setExcludeReviewRows(false); setManualMapping(false); setTemplateResult(null); setRawResult(null)
+        setError(f && !f.name.toLowerCase().endsWith('.xlsx') ? t('ux.inventoryInvalidFile') : null)
+        if (f && !f.name.toLowerCase().endsWith('.xlsx')) setFile(null)
     }
 
     const onDrop = (e: React.DragEvent) => {
@@ -317,32 +348,52 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     }
 
     const runPreview = async () => {
-        if (!file) return
+        if (!file || previewing || importing) return
         if (needsTenant && !tenantId) { setError(t('assets.shipyardRequired')); return }
+        const request = ++requestSequence.current
+        const revision = settingsRevision.current
         setPreviewing(true); setError(null)
         try {
-            const res = await assetsApi.previewImport(file, headerRow)
+            const res = await assetsApi.previewImport(file, {
+                headerRow: manualHeader ? headerRow : undefined,
+                sheetName: sheetName || undefined,
+                assetTypeId: assetTypeId || undefined,
+                mapping: preview && assetTypeId && !isTemplate && manualMapping ? mapping : undefined,
+                skipRows,
+            })
+            if (request !== requestSequence.current || revision !== settingsRevision.current) return
             setPreview(res)
-            if (res.detected_template) {
+            if (res.analysis) {
+                const proposedTypeId = res.analysis.suggested_asset_type_id
+                const suggestion = res.analysis.type_suggestions.find(candidate => candidate.asset_type_id === proposedTypeId)
+                const suggestedTypeId = suggestion?.confidence === 'high' && !res.analysis.blockers.some(issue => issue.code === 'asset_type_selection_required') ? res.analysis.suggested_asset_type_id : ''
+                const chosenTypeId = res.detected_template?.asset_type_id || assetTypeId || suggestedTypeId || ''
+                setAssetTypeId(chosenTypeId)
+                setHeaderRow(res.analysis.header_row)
+                const nextMapping = res.analysis.analysis_mapping ?? res.analysis.suggested_mapping ?? {}
+                setMapping(nextMapping)
+                setAutoMatched(manualMapping ? new Set() : new Set(Object.entries(nextMapping).filter(([, value]) => value).map(([header]) => header)))
+                setAnalysisDirty(false)
+                setExcludeReviewRows(false)
+            } else if (res.detected_template) {
                 setAssetTypeId(res.detected_template.asset_type_id)
             } else if (assetTypes.length === 1) {
                 setAssetTypeId(assetTypes[0].id)
             }
             setStep(2)
         } catch (err) {
-            setError(extractApiError(err, t('assets.wizard.uploadFailed')))
+            if (request === requestSequence.current && revision === settingsRevision.current) setError(extractApiError(err, t('assets.wizard.uploadFailed')))
         } finally {
-            setPreviewing(false)
+            if (request === requestSequence.current) setPreviewing(false)
         }
     }
 
-    // Auto-map columns once preview + asset type are available
+    // Older servers return no analysis; retain their existing column-alias behavior.
     useEffect(() => {
-        if (!preview || !selectedAssetType || isTemplate) return
+        if (!preview || preview.analysis || !selectedAssetType || isTemplate) return
         const schema = selectedAssetType.schema || []
         const next: ColumnMapping = {}
         const matches = new Set<string>()
-        const headers = preview.headers ?? []
         const stockAliases: Record<string, string[]> = {
             material_code: ['malzeme kodu', 'material code', 'seri numarası', 'seri numarasi'],
             material_name: ['malzeme adı', 'malzeme adi', 'material name', 'isim', 'name'],
@@ -351,7 +402,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
             source_created_at: ['kaynak kayıt tarihi', 'oluşturulma tarihi', 'olusturulma tarihi', 'created at'],
             original_shipyard: ['kaynak tersane', 'tersane', 'shipyard'],
         }
-        for (const h of headers) {
+        for (const h of preview.headers ?? []) {
             if (!h) continue
             const header = normalizeInventoryText(h)
             const found = schema.find(f => normalizeInventoryText(f.label ?? '') === header)
@@ -363,32 +414,58 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         setAutoMatched(matches)
     }, [preview, selectedAssetType, isTemplate])
 
+    const changeAssetType = (id: string) => {
+        setAssetTypeId(id)
+        setManualMapping(false)
+        if (analysis) {
+            const suggestion = analysis.type_suggestions.find(candidate => candidate.asset_type_id === id)
+            setMapping(suggestion?.mapping ?? Object.fromEntries((preview?.headers ?? []).map(header => [header, null])))
+            setAutoMatched(new Set())
+            invalidateAnalysis()
+        }
+    }
+
     const runImport = async () => {
-        if (!file || !assetTypeId) return
+        if (!file || !assetTypeId || previewing || importing) return
         if (needsTenant && !tenantId) { setError(t('assets.shipyardRequired')); return }
+        if (analysisDirty) { await runPreview(); return }
+        if (analysisBlocked) return
+        const request = ++requestSequence.current
+        const revision = settingsRevision.current
         setImporting(true); setError(null)
         try {
+            const options = analysis ? {
+                headerRow: analysis.header_row,
+                dataStartRow: analysis.data_start_row,
+                skipRows,
+                mapping: analysis.analysis_mapping,
+                sheetName: analysis.sheet_name,
+                excludeRowNumbers: excludeReviewRows ? reviewNumbers : [],
+                requireReview: true,
+            } : {}
             if (isTemplate) {
-                const res = await assetsApi.bulkImport(file, assetTypeId, tenantId || undefined)
+                const res = await assetsApi.bulkImport(file, assetTypeId, tenantId || undefined, options)
+                if (request !== requestSequence.current || revision !== settingsRevision.current) return
                 setTemplateResult(res)
             } else {
                 const res = await assetsApi.rawImport(
-                    file, assetTypeId, mapping, tenantId || undefined, headerRow, skipRows,
+                    file, assetTypeId, mapping, tenantId || undefined, analysis?.header_row ?? headerRow, skipRows, options,
                 )
+                if (request !== requestSequence.current || revision !== settingsRevision.current) return
                 setRawResult(res)
             }
             setStep(3)
             onImported()
         } catch (err) {
-            setError(extractApiError(err, t('assets.importFailed')))
+            if (request === requestSequence.current && revision === settingsRevision.current) setError(extractApiError(err, t('assets.importFailed')))
         } finally {
-            setImporting(false)
+            if (request === requestSequence.current) setImporting(false)
         }
     }
 
     const addSkipRow = () => {
         const v = skipInput.trim()
-        if (v && !skipRows.includes(v)) setSkipRows([...skipRows, v])
+        if (v && !skipRows.includes(v)) { setSkipRows([...skipRows, v]); invalidateAnalysis() }
         setSkipInput('')
     }
 
@@ -404,7 +481,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         if (templateResult) return {
             created_count: templateResult.created_count ?? templateResult.success_count ?? 0,
             updated_count: templateResult.updated_count ?? 0,
-            skipped_count: 0,
+            skipped_count: templateResult.skipped_count ?? 0,
             error_count: templateResult.error_count ?? 0,
             errors: templateResult.errors ?? [],
             message: templateResult.message ?? '',
@@ -417,6 +494,67 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         { n: 2, label: t('assets.wizard.stepPreview') },
         { n: 3, label: t('assets.wizard.stepResult') },
     ]
+
+    const layoutOptions = (
+        <details className="rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
+            <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+                {t('assets.wizard.fileLayout')}
+                <span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">{manualHeader ? t('assets.wizard.fileLayoutSummary', { headerRow, count: skipRows.length }) : t('assets.wizard.analysis.automaticLayout', { count: skipRows.length })}</span>
+            </summary>
+            <FormSection layout="grid" className="mt-4">
+                {analysis && (
+                    <FormField label={t('assets.wizard.analysis.sheet')} help={t('assets.wizard.analysis.sheetHelp')}>
+                        <select value={sheetName} onChange={event => { setSheetName(event.target.value); setManualMapping(false); setMapping({}); setAutoMatched(new Set()); invalidateAnalysis() }} className={formControlClass}>
+                            <option value="">{t('assets.wizard.analysis.automatic')}</option>
+                            {analysis.sheet_names.map(name => <option key={name} value={name}>{name}</option>)}
+                        </select>
+                    </FormField>
+                )}
+                <FormField label={t('assets.wizard.headerRow')} help={t('assets.wizard.headerRowHelp')}>
+                    <input
+                        type="number"
+                        min={1}
+                        value={headerRow}
+                        onChange={(e) => { setHeaderRow(Number(e.target.value) || 1); setManualHeader(true); setManualMapping(false); setMapping({}); setAutoMatched(new Set()); invalidateAnalysis() }}
+                        className={formControlClass}
+                    />
+                </FormField>
+                <div>
+                    <label htmlFor={skipInputId} className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('assets.wizard.skipRows')}</label>
+                    <div className="flex gap-2">
+                        <input
+                            id={skipInputId}
+                            aria-describedby={`${skipInputId}-help`}
+                            type="text"
+                            value={skipInput}
+                            onChange={(e) => setSkipInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkipRow() } }}
+                            placeholder="TOPLAM"
+                            className={formControlClass}
+                        />
+                        <Button type="button" variant="secondary" size="md" onClick={addSkipRow}>
+                            {t('common.add')}
+                        </Button>
+                    </div>
+                    {skipRows.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            {skipRows.map(r => (
+                                <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs">
+                                    {r}
+                                    <button type="button" aria-label={t('assets.wizard.removeSkipRule', { value: r })} onClick={() => { setSkipRows(skipRows.filter(x => x !== r)); invalidateAnalysis() }} className="hover:text-red-500"><X size={10} aria-hidden="true" /></button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    <p id={`${skipInputId}-help`} className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assets.wizard.skipRowsHelp')}</p>
+                </div>
+            </FormSection>
+            {analysis && <div className="mt-3 flex flex-wrap gap-2">
+                {analysis.layout_confidence === 'review' && <Button type="button" variant="secondary" onClick={() => { setManualHeader(true); setSheetName(sheetName || analysis.sheet_name); setManualMapping(false); setMapping({}); setAutoMatched(new Set()); invalidateAnalysis() }}>{t('assets.wizard.analysis.confirmLayout')}</Button>}
+                <Button type="button" variant="secondary" onClick={runPreview} loading={previewing} disabled={previewing || importing}>{t('assets.wizard.analysis.recheck')}</Button>
+            </div>}
+        </details>
+    )
 
     // Per-step footer is rendered in the Modal's `footer` slot so it can
     // never overlap the scrollable body content.
@@ -435,10 +573,10 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     } else if (step === 2 && preview) {
         footerNode = (
             <FormFooter
-                primaryLabel={isTemplate ? t('assets.wizard.runTemplateImport') : t('assets.wizard.importAction')}
+                primaryLabel={analysisDirty ? t('assets.wizard.analysis.recheck') : analysis ? t('assets.wizard.analysis.importReady', { count: analysis.counts.ready }) : isTemplate ? t('assets.wizard.runTemplateImport') : t('assets.wizard.importAction')}
                 icon={<Upload size={16} />}
-                loading={importing}
-                disabled={!assetTypeId || (!isTemplate && !Object.values(mapping).some(Boolean))}
+                loading={previewing || importing}
+                disabled={!assetTypeId || (!analysisDirty && (analysisBlocked || (!isTemplate && !Object.values(mapping).some(Boolean))))}
                 onPrimary={runImport}
                 onCancel={() => setStep(1)}
                 cancelLabel={t('assets.wizard.back')}
@@ -550,58 +688,66 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                             </div>
                         </div>
 
-                        <details className="rounded-md border border-slate-200 px-4 py-3 dark:border-slate-700">
-                            <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
-                                {t('assets.wizard.fileLayout')}
-                                <span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">{t('assets.wizard.fileLayoutSummary', { headerRow, count: skipRows.length })}</span>
-                            </summary>
-                            <FormSection layout="grid" className="mt-4">
-                                <FormField label={t('assets.wizard.headerRow')} help={t('assets.wizard.headerRowHelp')}>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={headerRow}
-                                        onChange={(e) => setHeaderRow(Number(e.target.value) || 1)}
-                                        className={formControlClass}
-                                    />
-                                </FormField>
-                                <div>
-                                    <label htmlFor={skipInputId} className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">{t('assets.wizard.skipRows')}</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            id={skipInputId}
-                                            aria-describedby={`${skipInputId}-help`}
-                                            type="text"
-                                            value={skipInput}
-                                            onChange={(e) => setSkipInput(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkipRow() } }}
-                                            placeholder="TOPLAM"
-                                            className={formControlClass}
-                                        />
-                                        <Button type="button" variant="secondary" size="md" onClick={addSkipRow}>
-                                            {t('common.add')}
-                                        </Button>
-                                    </div>
-                                    {skipRows.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                            {skipRows.map(r => (
-                                                <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs">
-                                                    {r}
-                                                    <button type="button" aria-label={t('assets.wizard.removeSkipRule', { value: r })} onClick={() => setSkipRows(skipRows.filter(x => x !== r))} className="hover:text-red-500"><X size={10} aria-hidden="true" /></button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <p id={`${skipInputId}-help`} className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assets.wizard.skipRowsHelp')}</p>
-                                </div>
-                            </FormSection>
-                        </details>
+                        {layoutOptions}
                     </div>
                 )}
 
                 {/* ── STEP 2: Mapping + preview ─────────────────────────── */}
                 {step === 2 && preview && (
                     <div className="space-y-4">
+                        {analysis && (
+                            <section aria-label={t('assets.wizard.analysis.title')} className="min-w-0 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 dark:text-white">{t('assets.wizard.analysis.title')}</h4>
+                                    <p className="mt-1 break-words text-sm text-slate-600 dark:text-slate-300">{t('assets.wizard.analysis.detectedLayout', { sheet: analysis.sheet_name, row: analysis.header_row })}</p>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assets.wizard.analysis.ownership')}</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                                    <p><span className="font-semibold tabular-nums">{analysis.counts.ready}</span> {t('assets.wizard.analysis.ready')}</p>
+                                    <p><span className="font-semibold tabular-nums">{analysis.counts.skipped + (excludeReviewRows ? reviewNumbers.length : 0)}</span> {t('assets.wizard.analysis.skipped')}</p>
+                                    <p><span className="font-semibold tabular-nums">{excludeReviewRows ? 0 : analysis.counts.review}</span> {t('assets.wizard.analysis.review')}</p>
+                                </div>
+                                {analysisDirty && <p role="status" className="text-sm font-medium text-amber-800 dark:text-amber-300">{t('assets.wizard.analysis.dirty')}</p>}
+                                {!analysisDirty && analysis.layout_confidence === 'review' && <p className="text-sm text-amber-800 dark:text-amber-300">{t('assets.wizard.analysis.layoutReview')}</p>}
+                                {analysis.type_suggestions.length > 0 && !isTemplate && (
+                                    <p className="break-words text-sm text-slate-600 dark:text-slate-300">{t('assets.wizard.analysis.typeSuggestions', { names: analysis.type_suggestions.map(candidate => `${candidate.asset_type_name} (${candidate.matched_fields})`).join(', ') })}</p>
+                                )}
+                                {!analysisDirty && analysis.blockers.length > 0 && (
+                                    <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-300" aria-label={t('assets.wizard.analysis.requiredActions')}>
+                                        {analysis.blockers.map((issue, index) => <li key={`${issue.code}-${index}`}>{t(`assets.wizard.analysis.issues.${issue.code}`, { defaultValue: t('assets.wizard.analysis.manualRequired'), fields: (issue.fields ?? issue.headers ?? []).map(key => selectedAssetType?.schema.find(field => field.key === key)?.label ?? key).join(', ') })}</li>)}
+                                    </ul>
+                                )}
+                                {missingFields.length > 0 && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">{t('assets.wizard.analysis.issues.missing_required_mapping', { fields: missingFields.map(field => field.label).join(', ') })}</p>}
+                                {duplicateFields.length > 0 && <p role="status" className="text-sm text-amber-800 dark:text-amber-300">{t('assets.wizard.analysis.issues.ambiguous_mapping', { fields: duplicateFields.map(key => selectedAssetType?.schema.find(field => field.key === key)?.label ?? key).join(', ') })}</p>}
+                                {analysis.warnings.length > 0 && <ul className="space-y-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{analysis.warnings.map((issue, index) => <li key={`${issue.code}-${index}`}>{t(`assets.wizard.analysis.issues.${issue.code}`, { defaultValue: t('assets.wizard.analysis.manualRequired'), fields: (issue.fields ?? issue.headers ?? []).join(', ') })}</li>)}</ul>}
+                                {analysis.skipped_rows.length > 0 && (
+                                    <details>
+                                        <summary className="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">{t('assets.wizard.analysis.skippedDetails', { count: analysis.counts.skipped })}</summary>
+                                        <ul className="mt-2 max-h-44 space-y-1 overflow-y-auto text-xs leading-5 text-slate-600 dark:text-slate-300">
+                                            {analysis.skipped_rows.map(row => <li key={row.row_number} className="break-words">{t('assets.wizard.analysis.excelRow', { row: row.row_number })} · {t(`assets.wizard.analysis.reasons.${row.reason}`, { defaultValue: row.reason })}{row.label ? ` · ${row.label}` : ''}</li>)}
+                                        </ul>
+                                        {analysis.skipped_rows.length < analysis.counts.skipped && <p className="mt-2 text-xs text-slate-500">{t('assets.wizard.analysis.detailSample', { count: analysis.skipped_rows.length, total: analysis.counts.skipped })}</p>}
+                                    </details>
+                                )}
+                                {reviewNumbers.length > 0 && (
+                                    <details open>
+                                        <summary className="cursor-pointer text-sm font-medium text-amber-800 dark:text-amber-300">{t('assets.wizard.analysis.reviewDetails', { count: analysis.counts.review })}</summary>
+                                        <ul className="mt-2 max-h-44 space-y-1 overflow-y-auto text-xs leading-5 text-slate-600 dark:text-slate-300">
+                                            {analysis.review_rows.map(row => <li key={`${row.row_number}-${row.reason}`} className="break-words">{t('assets.wizard.analysis.excelRow', { row: row.row_number })} · {t(`assets.wizard.analysis.reasons.${row.reason}`, { defaultValue: row.reason })}{row.fields?.length ? ` · ${row.fields.map(key => selectedAssetType?.schema.find(field => field.key === key)?.label ?? key).join(', ')}` : ''}</li>)}
+                                        </ul>
+                                        {analysis.review_rows.length < analysis.counts.review && <p className="mt-2 text-xs text-slate-500">{t('assets.wizard.analysis.detailSample', { count: analysis.review_rows.length, total: analysis.counts.review })}</p>}
+                                        <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">{t('assets.wizard.analysis.reviewHelp')}</p>
+                                        <label className="mt-3 flex items-start gap-2 text-sm leading-5 text-slate-700 dark:text-slate-200">
+                                            <input type="checkbox" checked={excludeReviewRows} disabled={analysisDirty} onChange={event => setExcludeReviewRows(event.target.checked)} className="mt-1 shrink-0" />
+                                            <span>{t('assets.wizard.analysis.excludeReview', { count: reviewNumbers.length })}</span>
+                                        </label>
+                                    </details>
+                                )}
+                                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assets.wizard.analysis.sampleHelp', { count: preview.preview_rows.length, total: analysis.counts.data })}</p>
+                            </section>
+                        )}
+                        {layoutOptions}
+
                         {isTemplate ? (
                             <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                                 <div className="flex items-start gap-3">
@@ -613,7 +759,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                         <p className="text-sm text-slate-600 dark:text-slate-400">
                                             {t('assets.wizard.templateDetectedBody', {
                                                 name: preview.detected_template?.asset_type_name,
-                                                count: preview.total_rows,
+                                                count: analysis?.counts.ready ?? preview.total_rows,
                                             })}
                                         </p>
                                     </div>
@@ -622,7 +768,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                         ) : (
                             <FormSection title={t('assets.fields.generalInfo')}>
                                 <FormField label={t('assets.typeLabel')} required>
-                                    <select value={assetTypeId} onChange={(e) => setAssetTypeId(e.target.value)} className={formControlClass} required>
+                                    <select value={assetTypeId} onChange={(e) => changeAssetType(e.target.value)} className={formControlClass} required>
                                         <option value="">{t('assets.typePlaceholder')}</option>
                                         {assetTypes.map((type) => (
                                             <option key={type.id} value={type.id}>{type.name}</option>
@@ -669,6 +815,8 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                                             value={mapped}
                                                             onChange={(e) => {
                                                                 setMapping({ ...mapping, [header]: e.target.value || null })
+                                                                setManualMapping(true)
+                                                                invalidateAnalysis()
                                                                 setAutoMatched((prev) => {
                                                                     const next = new Set(prev)
                                                                     next.delete(header)
@@ -679,7 +827,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                                         >
                                                             <option value="">{t('assets.wizard.ignore')}</option>
                                                             {(selectedAssetType?.schema || []).map((f: SchemaField) => (
-                                                                <option key={f.key} value={f.key}>
+                                                                <option key={f.key} value={f.key} disabled={!!analysis && f.key !== mapped && mappedFields.includes(f.key)}>
                                                                     {f.label}
                                                                 </option>
                                                             ))}
@@ -775,7 +923,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
 // Import preview table — uses shared DataTable with pagination & column badges
 // ─────────────────────────────────────────────────────────────────────────────
 
-type PreviewRow = { _idx: number; cells: string[] }
+type PreviewRow = { _idx: number; excelRow: number; cells: string[] }
 
 function ImportPreviewTable({
     preview,
@@ -789,12 +937,12 @@ function ImportPreviewTable({
     const { t } = useTranslation()
 
     const rows: PreviewRow[] = useMemo(
-        () => (preview.preview_rows ?? []).map((cells, idx) => ({ _idx: idx, cells: cells ?? [] })),
-        [preview.preview_rows],
+        () => (preview.preview_rows ?? []).map((cells, idx) => ({ _idx: idx, excelRow: preview.preview_row_numbers?.[idx] ?? idx + (preview.analysis?.data_start_row ?? 2), cells: cells ?? [] })),
+        [preview.preview_rows, preview.preview_row_numbers, preview.analysis?.data_start_row],
     )
 
     const columns: ColumnDef<PreviewRow>[] = useMemo(() => {
-        return (preview.headers ?? []).map((header, colIndex) => {
+        const dataColumns: ColumnDef<PreviewRow>[] = (preview.headers ?? []).map((header, colIndex) => {
             const mappedKey = mapping[header]
             const field = mappedKey ? schema.find((f) => f.key === mappedKey) : null
             return {
@@ -825,7 +973,8 @@ function ImportPreviewTable({
                 ),
             }
         })
-    }, [preview.headers, mapping, schema, t])
+        return preview.analysis ? [{ key: 'excelRow', header: t('assets.wizard.analysis.excelRowColumn'), cell: row => <span className="text-xs tabular-nums">{row.excelRow}</span> }, ...dataColumns] : dataColumns
+    }, [preview.headers, preview.analysis, mapping, schema, t])
 
     return (
         <DataTable

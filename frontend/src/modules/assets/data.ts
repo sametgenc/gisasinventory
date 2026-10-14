@@ -1,11 +1,12 @@
 import api from '@/api/client';
-import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, ColumnMapping, ImportPreview, RawImportResult, SharedEquipmentFilters, SharedEquipmentPage } from './types';
+import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, ColumnMapping, ImportPreview, ImportPreviewOptions, ImportSafetyOptions, RawImportResult, SharedEquipmentFilters, SharedEquipmentPage } from './types';
 
 export interface BulkImportResult {
     message: string;
     success_count: number;
     created_count?: number;
     updated_count?: number;
+    skipped_count?: number;
     error_count: number;
     errors: { row: number; errors: string[] }[];
 }
@@ -81,10 +82,17 @@ export const assetsApi = {
     },
 
     // Bulk import from Excel
-    bulkImport: async (file: File, assetTypeId: string, tenantId?: number): Promise<BulkImportResult> => {
+    bulkImport: async (file: File, assetTypeId: string, tenantId?: number, options: ImportSafetyOptions = {}): Promise<BulkImportResult> => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('asset_type', assetTypeId);
+        if (options.headerRow !== undefined) formData.append('header_row', String(options.headerRow));
+        if (options.dataStartRow !== undefined) formData.append('data_start_row', String(options.dataStartRow));
+        if (options.skipRows?.length) formData.append('skip_rows', JSON.stringify(options.skipRows));
+        if (options.mapping) formData.append('mapping', JSON.stringify(options.mapping));
+        if (options.sheetName) formData.append('sheet_name', options.sheetName);
+        if (options.excludeRowNumbers?.length) formData.append('exclude_row_numbers', JSON.stringify(options.excludeRowNumbers));
+        if (options.requireReview) formData.append('require_review', 'true');
         if (tenantId) {
             formData.append('tenant', String(tenantId));
         }
@@ -93,10 +101,14 @@ export const assetsApi = {
     },
 
     // Preview headers and first rows from an arbitrary Excel file
-    previewImport: async (file: File, headerRow = 1): Promise<ImportPreview> => {
+    previewImport: async (file: File, options: ImportPreviewOptions = {}): Promise<ImportPreview> => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('header_row', String(headerRow));
+        if (options.headerRow !== undefined) formData.append('header_row', String(options.headerRow));
+        if (options.sheetName) formData.append('sheet_name', options.sheetName);
+        if (options.assetTypeId) formData.append('asset_type', options.assetTypeId);
+        if (options.mapping) formData.append('mapping', JSON.stringify(options.mapping));
+        if (options.skipRows?.length) formData.append('skip_rows', JSON.stringify(options.skipRows));
         const response = await api.post('/api/assets/items/preview_import/', formData);
         return response.data;
     },
@@ -109,6 +121,7 @@ export const assetsApi = {
         tenantId?: number,
         headerRow = 1,
         skipRows: string[] = [],
+        options: ImportSafetyOptions = {},
     ): Promise<RawImportResult> => {
         const formData = new FormData();
         formData.append('file', file);
@@ -116,6 +129,9 @@ export const assetsApi = {
         formData.append('mapping', JSON.stringify(mapping));
         formData.append('header_row', String(headerRow));
         formData.append('skip_rows', JSON.stringify(skipRows));
+        if (options.sheetName) formData.append('sheet_name', options.sheetName);
+        if (options.excludeRowNumbers?.length) formData.append('exclude_row_numbers', JSON.stringify(options.excludeRowNumbers));
+        if (options.requireReview) formData.append('require_review', 'true');
         if (tenantId) {
             formData.append('tenant', String(tenantId));
         }

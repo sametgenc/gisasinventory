@@ -23,6 +23,68 @@ export interface ImportPreview {
     preview_rows: string[][];
     total_rows: number;
     detected_template?: DetectedTemplate | null;
+    preview_row_numbers?: number[];
+    analysis?: ImportAnalysis;
+}
+
+export interface ImportAnalysisIssue {
+    code: string;
+    fields?: string[];
+    headers?: string[];
+}
+
+export interface ImportAnalysisRow {
+    row_number: number;
+    reason: string;
+    label?: string;
+    fields?: string[];
+    message?: string;
+}
+
+export interface ImportTypeSuggestion {
+    asset_type_id: string;
+    asset_type_name: string;
+    confidence: 'high' | 'review';
+    mapping: ColumnMapping;
+    matched_fields: number;
+}
+
+export interface ImportAnalysis {
+    version: 1;
+    sheet_name: string;
+    sheet_names: string[];
+    header_row: number;
+    data_start_row: number;
+    layout_confidence: 'high' | 'review';
+    suggested_asset_type_id: string | null;
+    analysis_asset_type_id: string | null;
+    analysis_mapping: ColumnMapping;
+    suggested_mapping: ColumnMapping;
+    type_suggestions: ImportTypeSuggestion[];
+    counts: { data: number; skipped: number; review: number; ready: number };
+    blockers: ImportAnalysisIssue[];
+    warnings: ImportAnalysisIssue[];
+    skipped_rows: ImportAnalysisRow[];
+    review_rows: ImportAnalysisRow[];
+    review_row_numbers: number[];
+}
+
+export interface ImportPreviewOptions {
+    headerRow?: number;
+    sheetName?: string;
+    assetTypeId?: string;
+    mapping?: ColumnMapping;
+    skipRows?: string[];
+}
+
+export interface ImportSafetyOptions {
+    headerRow?: number;
+    dataStartRow?: number;
+    skipRows?: string[];
+    mapping?: ColumnMapping;
+    sheetName?: string;
+    excludeRowNumbers?: number[];
+    requireReview?: boolean;
 }
 
 export interface RawImportResult {
