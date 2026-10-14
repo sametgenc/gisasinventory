@@ -52,7 +52,7 @@ function RoleBadge({ user }: { user: TenantUser & { is_superuser?: boolean } }) 
 function UserAvatar({ user }: { user: TenantUser }) {
     return (
         <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
+            <div className="w-9 h-9 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-600 font-medium text-xs shrink-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {user.username.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">

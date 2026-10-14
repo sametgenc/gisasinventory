@@ -50,7 +50,7 @@ export const FormField: React.FC<FormFieldProps> = ({
     return (
         <div className={className}>
             {label !== undefined && (
-                <div className="flex items-baseline justify-between mb-1.5">
+                <div className="flex items-baseline justify-between gap-3 mb-1.5">
                     <label
                         htmlFor={fieldId}
                         className="text-sm font-medium text-slate-700 dark:text-slate-300"
@@ -58,14 +58,14 @@ export const FormField: React.FC<FormFieldProps> = ({
                         {label}
                         {required && <span className="text-red-500 ml-1" aria-hidden="true">*</span>}
                     </label>
-                    {labelAddon && <span className="text-xs text-slate-400">{labelAddon}</span>}
+                    {labelAddon && <span className="text-xs text-slate-500 dark:text-slate-400">{labelAddon}</span>}
                 </div>
             )}
             {child}
             {(error || help) && (
                 <p
                     id={describedById}
-                    className={`mt-1 text-xs ${error ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
+                    className={`mt-1.5 text-xs leading-5 ${error ? 'text-red-700 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}
                 >
                     {error ?? help}
                 </p>
@@ -76,4 +76,4 @@ export const FormField: React.FC<FormFieldProps> = ({
 
 /** Shared baseline input className so every `<input>`, `<select>`, `<textarea>` in forms looks identical. */
 export const formControlClass =
-    'w-full px-3.5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors disabled:opacity-60 disabled:cursor-not-allowed aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:ring-red-400';
+    'w-full min-h-10 px-3 py-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-600 dark:focus:border-blue-400 transition-colors disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 disabled:cursor-not-allowed aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus:ring-red-400/25';

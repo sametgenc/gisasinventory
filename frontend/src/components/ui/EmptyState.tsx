@@ -27,13 +27,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         )}
     >
         {icon && (
-            <div className={cn('mb-3 text-slate-300 dark:text-slate-700', compact && 'mb-2')}>
+            <div className={cn('mb-3 text-slate-400 dark:text-slate-500 [&>svg]:h-7 [&>svg]:w-7', compact && 'mb-2')}>
                 {icon}
             </div>
         )}
-        <p className="font-medium text-slate-600 dark:text-slate-300">{title}</p>
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</p>
         {description && (
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-md">{description}</p>
+            <p className="text-sm leading-6 text-slate-500 dark:text-slate-400 mt-1 max-w-md">{description}</p>
         )}
         {action && <div className="mt-4">{action}</div>}
     </div>

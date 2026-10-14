@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { isAxiosError } from 'axios';
 import { assetsApi } from './data';
-import type { AssetTypeCreateInput, AssetCreateInput } from './types';
+import type { AssetTypeCreateInput, AssetCreateInput, SharedEquipmentFilters } from './types';
 
 // Query keys
 export const assetKeys = {
@@ -10,7 +11,28 @@ export const assetKeys = {
     items: () => [...assetKeys.all, 'items'] as const,
     itemsByType: (typeId: string) => [...assetKeys.all, 'items', 'byType', typeId] as const,
     itemDetail: (id: string) => [...assetKeys.all, 'items', id] as const,
+    shared: (filters: SharedEquipmentFilters = {}) => [...assetKeys.all, 'shared', filters] as const,
 };
+
+export function useSharedEquipment(filters: SharedEquipmentFilters = {}, enabled = true) {
+    return useQuery({
+        queryKey: assetKeys.shared(filters),
+        queryFn: () => assetsApi.listSharedEquipment(filters),
+        enabled,
+        retry: (failureCount, error) => {
+            if (isAxiosError(error) && error.response && error.response.status >= 400 && error.response.status < 500) return false;
+            return failureCount < 2;
+        },
+    });
+}
+
+export function useSetAssetSharing() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, ...data }: { id: string; is_shared: boolean; sharing_note: string }) => assetsApi.setSharing(id, data),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: assetKeys.all }),
+    });
+}
 
 // Asset Type Hooks
 export function useAssetTypes() {
@@ -35,6 +57,8 @@ export function useCreateAssetType() {
         mutationFn: (data: AssetTypeCreateInput) => assetsApi.createType(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assetKeys.types() });
+            queryClient.invalidateQueries({ queryKey: ['assets', 'shared'] });
+            queryClient.invalidateQueries({ queryKey: assetKeys.items() });
         },
     });
 }
@@ -48,6 +72,8 @@ export function useUpdateAssetType() {
         onSuccess: (_data, { id }) => {
             queryClient.invalidateQueries({ queryKey: assetKeys.types() });
             queryClient.invalidateQueries({ queryKey: assetKeys.typeDetail(id) });
+            queryClient.invalidateQueries({ queryKey: ['assets', 'shared'] });
+            queryClient.invalidateQueries({ queryKey: assetKeys.items() });
         },
     });
 }
@@ -64,10 +90,11 @@ export function useDeleteAssetType() {
 }
 
 // Asset Hooks
-export function useAssets(assetTypeId?: string) {
+export function useAssets(assetTypeId?: string, enabled = true) {
     return useQuery({
         queryKey: assetTypeId ? assetKeys.itemsByType(assetTypeId) : assetKeys.items(),
         queryFn: () => assetsApi.listAssets(assetTypeId),
+        enabled,
     });
 }
 
@@ -99,6 +126,7 @@ export function useUpdateAsset() {
             assetsApi.updateAsset(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assetKeys.items() });
+            queryClient.invalidateQueries({ queryKey: ['assets', 'shared'] });
         },
     });
 }
@@ -110,6 +138,7 @@ export function useDeleteAsset() {
         mutationFn: (id: string) => assetsApi.deleteAsset(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: assetKeys.items() });
+            queryClient.invalidateQueries({ queryKey: ['assets', 'shared'] });
         },
     });
 }

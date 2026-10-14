@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 import path from "path"
 
-declare const process: { env: { [key: string]: string | undefined } };
+const demoApiTarget = process.env.DEMO_API_TARGET
 
 export default defineConfig({
   resolve: {
@@ -20,7 +20,7 @@ export default defineConfig({
     react()
   ],
   server: {
-    allowedHosts: [(process.env as any).DOMAIN || 'localhost'],
+    allowedHosts: [process.env.DOMAIN || 'localhost'],
     host: true,
     strictPort: true,
     port: 5173,
@@ -29,8 +29,14 @@ export default defineConfig({
       interval: 100,
       ignored: ['**/node_modules/**', '**/dist/**'],
     },
-    hmr: {
-      clientPort: 443
-    }
+    // Docker uses the HTTPS proxy; a direct local Vite session uses its own port.
+    hmr: process.env.DOMAIN ? { clientPort: 443 } : undefined,
+    proxy: demoApiTarget ? Object.fromEntries(
+      ['/api', '/_allauth', '/admin', '/static', '/media', '/demo'].map(prefix => [prefix, {
+        target: demoApiTarget,
+        // Preserve the browser's Host and Origin for Django's session/CSRF checks.
+        changeOrigin: false,
+      }]),
+    ) : undefined,
   },
 })

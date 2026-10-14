@@ -34,7 +34,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-import type { AssetType, AssetTypeCreateInput, SchemaField } from '@/modules/assets'
+import { CatalogMetadataFields } from './CatalogMetadataFields'
+import type { CatalogMetadata, AssetType, AssetTypeCreateInput, SchemaField } from '@/modules/assets'
 import {
     Modal,
     FormField,
@@ -53,21 +54,19 @@ type FieldType = SchemaField['type']
 
 type EditableField = SchemaField & { _uid: string }
 
-const FIELD_TYPES: Array<{ id: FieldType; icon: React.ComponentType<{ size?: number; className?: string }> }> = [
-    { id: 'text', icon: Type },
-    { id: 'number', icon: Hash },
-    { id: 'date', icon: Calendar },
-    { id: 'select', icon: List },
-    { id: 'checkbox', icon: CheckSquare },
-    { id: 'email', icon: Mail },
-    { id: 'phone', icon: Phone },
+const FIELD_TYPES: Array<{ id: FieldType; icon: React.ReactNode }> = [
+    { id: 'text', icon: <Type size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'number', icon: <Hash size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'date', icon: <Calendar size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'select', icon: <List size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'checkbox', icon: <CheckSquare size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'email', icon: <Mail size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
+    { id: 'phone', icon: <Phone size={16} className="shrink-0 text-slate-500 dark:text-slate-400" /> },
 ]
 
-const iconForType = (t: FieldType) => FIELD_TYPES.find((x) => x.id === t)?.icon ?? Type
+const iconForType = (type: FieldType) => FIELD_TYPES.find((item) => item.id === type)?.icon
 
-const makeUid = () =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any)?.crypto?.randomUUID?.() ?? `f_${Date.now()}_${Math.random().toString(36).slice(2)}`
+const makeUid = () => globalThis.crypto?.randomUUID?.() ?? `f_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
 const slugify = (label: string) =>
     label
@@ -89,13 +88,33 @@ export interface AssetTypeFormModalProps {
     error?: string | null
 }
 
-interface EditableForm {
+interface EditableForm extends CatalogMetadata {
+    tracking_mode: 'individual' | 'stock'
     name: string
     description: string
     schema: EditableField[]
 }
 
-export function AssetTypeFormModal({
+function initialForm(assetType?: AssetType | null): EditableForm {
+    if (!assetType) return { name: '', description: '', schema: [], tracking_mode: 'individual' }
+    return {
+        tracking_mode: assetType.tracking_mode ?? 'individual',
+        name: assetType.name,
+        description: assetType.description || '',
+        catalog_code: assetType.catalog_code,
+        category_code: assetType.category_code,
+        sharing_class: assetType.sharing_class,
+        exclusion_reason: assetType.exclusion_reason,
+        schema: (assetType.schema || []).map((field) => ({ ...field, _uid: makeUid() })),
+    }
+}
+
+export function AssetTypeFormModal(props: AssetTypeFormModalProps) {
+    if (!props.isOpen) return null
+    return <AssetTypeFormModalContent key={props.assetType?.id ?? 'new'} {...props} />
+}
+
+function AssetTypeFormModalContent({
     isOpen,
     onClose,
     assetType,
@@ -104,30 +123,23 @@ export function AssetTypeFormModal({
     error,
 }: AssetTypeFormModalProps) {
     const { t } = useTranslation()
-    const [formData, setFormData] = useState<EditableForm>({ name: '', description: '', schema: [] })
+    const [formData, setFormData] = useState<EditableForm>(() => initialForm(assetType))
     const [expandedUid, setExpandedUid] = useState<string | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
 
-    useEffect(() => {
-        if (!isOpen) return
-        if (assetType) {
-            const schema = (assetType.schema || []).map((f) => ({ ...f, _uid: makeUid() }))
-            setFormData({
-                name: assetType.name,
-                description: assetType.description || '',
-                schema,
-            })
-        } else {
-            setFormData({ name: '', description: '', schema: [] })
-        }
-        setExpandedUid(null)
-        setLocalError(null)
-    }, [isOpen, assetType])
-
     const toPayload = (form: EditableForm): AssetTypeCreateInput => ({
+        tracking_mode: form.tracking_mode,
+        catalog_code: form.catalog_code || null,
+        category_code: form.category_code || '',
+        sharing_class: form.sharing_class || '',
+        exclusion_reason: form.exclusion_reason || '',
         name: form.name,
         description: form.description,
-        schema: form.schema.map(({ _uid: _u, ...rest }) => rest),
+        schema: form.schema.map((field) => {
+            const result = { ...field }
+            delete (result as Partial<EditableField>)._uid
+            return result
+        }),
     })
 
     const validate = (): string | null => {
@@ -142,6 +154,7 @@ export function AssetTypeFormModal({
     }
 
     const handleSave = async () => {
+        if (isLoading) return
         const err = validate()
         if (err) { setLocalError(err); return }
         setLocalError(null)
@@ -149,6 +162,7 @@ export function AssetTypeFormModal({
     }
 
     const addField = (type: FieldType) => {
+        if (isLoading) return
         const newField: EditableField = {
             _uid: makeUid(),
             key: `field_${Date.now()}`,
@@ -161,14 +175,37 @@ export function AssetTypeFormModal({
         setExpandedUid(newField._uid)
     }
 
+    const changeTrackingMode = (trackingMode: 'individual' | 'stock') => {
+        if (isLoading || assetType) return
+        setFormData(previous => {
+            if (trackingMode === 'individual') return { ...previous, tracking_mode: trackingMode }
+            const stockFields: SchemaField[] = [
+                { key: 'material_code', label: t('inventory.materialCode'), type: 'text', required: true, is_unique_key: true },
+                { key: 'material_name', label: t('inventory.materialName'), type: 'text', required: true },
+                { key: 'quantity', label: t('inventory.totalStock'), type: 'number', required: true },
+            ]
+            const schema = previous.schema.map(field => {
+                const stockField = stockFields.find(item => item.key === field.key)
+                return stockField ? { ...field, ...stockField, label: field.label || stockField.label }
+                    : { ...field, is_unique_key: false }
+            })
+            stockFields.forEach(field => {
+                if (!schema.some(item => item.key === field.key)) schema.push({ ...field, _uid: makeUid() })
+            })
+            return { ...previous, tracking_mode: trackingMode, schema }
+        })
+    }
+
     const updateField = useCallback((uid: string, updates: Partial<SchemaField>) => {
+        if (isLoading) return
         setFormData((prev) => ({
             ...prev,
             schema: prev.schema.map((f) => (f._uid === uid ? { ...f, ...updates } : f)),
         }))
-    }, [])
+    }, [isLoading])
 
     const removeField = (uid: string) => {
+        if (isLoading) return
         setFormData((prev) => ({ ...prev, schema: prev.schema.filter((f) => f._uid !== uid) }))
     }
 
@@ -178,6 +215,7 @@ export function AssetTypeFormModal({
     )
 
     const handleDragEnd = (e: DragEndEvent) => {
+        if (isLoading) return
         const { active, over } = e
         if (!over || active.id === over.id) return
         setFormData((prev) => {
@@ -198,6 +236,7 @@ export function AssetTypeFormModal({
     return (
         <Modal
             isOpen={isOpen}
+            closeDisabled={isLoading}
             onClose={onClose}
             size="xl"
             title={assetType ? t('assetTypes.editType') : t('assetTypes.createType')}
@@ -216,9 +255,9 @@ export function AssetTypeFormModal({
                 />
             }
         >
-            <div className="space-y-6">
+            <fieldset disabled={isLoading} className="min-w-0 space-y-6">
                 {displayError && (
-                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
+                    <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
                         {displayError}
                     </div>
                 )}
@@ -242,6 +281,20 @@ export function AssetTypeFormModal({
                         />
                     </FormField>
                 </FormSection>
+
+                <fieldset className="min-w-0">
+                    <legend className="text-sm font-semibold text-slate-900 dark:text-white">{t('assetTypes.trackingTitle')}</legend>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {(['individual', 'stock'] as const).map(mode => <label key={mode} className={cn('flex items-start gap-3 rounded-md border p-4', assetType ? 'cursor-default' : 'cursor-pointer', formData.tracking_mode === mode ? 'border-blue-600 bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/20' : 'border-slate-200 dark:border-slate-700')}>
+                            <input type="radio" name="tracking-mode" value={mode} checked={formData.tracking_mode === mode} disabled={!!assetType} onChange={() => changeTrackingMode(mode)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
+                            <span className="min-w-0"><span className="block text-sm font-medium text-slate-900 dark:text-white">{t(`assetTypes.tracking.${mode}`)}</span><span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-300">{t(`assetTypes.trackingHelp.${mode}`)}</span></span>
+                        </label>)}
+                    </div>
+                    {formData.tracking_mode === 'stock' && <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assetTypes.stockFieldsHelp')}</p>}
+                    {assetType && <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assetTypes.trackingChangeHelp')}</p>}
+                </fieldset>
+
+                <CatalogMetadataFields value={formData} onChange={updates => setFormData(previous => ({ ...previous, ...updates }))} />
 
                 <FormSection
                     title={t('assetTypes.builder.fields')}
@@ -273,6 +326,7 @@ export function AssetTypeFormModal({
                                             onUpdate={(updates) => updateField(field._uid, updates)}
                                             onRemove={() => removeField(field._uid)}
                                             hasOtherUniqueKey={!!uniqueKeyUid && uniqueKeyUid !== field._uid}
+                                            stockField={formData.tracking_mode === 'stock' && ['material_code', 'material_name', 'quantity'].includes(field.key)}
                                         />
                                     ))}
                                 </SortableContext>
@@ -284,7 +338,7 @@ export function AssetTypeFormModal({
                         </div>
                     )}
                 </FormSection>
-            </div>
+            </fieldset>
         </Modal>
     )
 }
@@ -325,13 +379,13 @@ function AddFieldPicker({ onPick }: { onPick: (t: FieldType) => void }) {
             {open && (
                 <div
                     ref={popRef}
-                    className="absolute right-0 top-full mt-1.5 w-64 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-lg p-2 animate-dropdown"
+                    className="absolute right-0 top-full z-20 mt-1.5 w-64 rounded-md border border-slate-300 bg-white p-2 shadow-sm dark:border-slate-600 dark:bg-slate-900"
                 >
                     <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 px-2 pb-1">
                         {t('assetTypes.builder.pickType')}
                     </p>
                     <div className="grid grid-cols-2 gap-1">
-                        {FIELD_TYPES.map(({ id, icon: Icon }) => (
+                        {FIELD_TYPES.map(({ id, icon }) => (
                             <button
                                 key={id}
                                 type="button"
@@ -341,7 +395,7 @@ function AddFieldPicker({ onPick }: { onPick: (t: FieldType) => void }) {
                                 }}
                                 className="flex items-center gap-2 px-2.5 py-2 rounded-md text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                             >
-                                <Icon size={16} className="text-blue-500 shrink-0" />
+                                {icon}
                                 <div className="min-w-0">
                                     <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                                         {t(`assetTypes.fieldTypes.${id}`)}
@@ -370,6 +424,7 @@ function FieldRow({
     onUpdate,
     onRemove,
     hasOtherUniqueKey,
+    stockField = false,
 }: {
     field: EditableField
     isExpanded: boolean
@@ -377,13 +432,12 @@ function FieldRow({
     onUpdate: (updates: Partial<SchemaField>) => void
     onRemove: () => void
     hasOtherUniqueKey: boolean
+    stockField?: boolean
 }) {
     const { t } = useTranslation()
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: field._uid,
     })
-
-    const Icon = iconForType(field.type)
 
     const style: React.CSSProperties = {
         transform: CSS.Transform.toString(transform),
@@ -393,7 +447,7 @@ function FieldRow({
     }
 
     const handleLabelChange = (label: string) => {
-        const key = slugify(label) || `field_${field._uid.slice(0, 6)}`
+        const key = stockField ? field.key : slugify(label) || `field_${field._uid.slice(0, 6)}`
         onUpdate({ label, key })
     }
 
@@ -402,8 +456,8 @@ function FieldRow({
             ref={setNodeRef}
             style={style}
             className={cn(
-                'border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/50 overflow-hidden',
-                isDragging && 'shadow-lg',
+                'overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900',
+                isDragging && 'shadow-sm',
             )}
         >
             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800">
@@ -421,7 +475,7 @@ function FieldRow({
                     onClick={onToggle}
                     className="flex items-center gap-2 flex-1 min-w-0 text-left"
                 >
-                    <Icon size={16} className="text-blue-500 shrink-0" />
+                    {iconForType(field.type)}
                     <span className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate">
                         {field.label || t('assetTypes.newField')}
                     </span>
@@ -438,7 +492,8 @@ function FieldRow({
                 <button
                     type="button"
                     onClick={onRemove}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                    disabled={stockField}
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
                     title={t('common.delete')}
                 >
                     <Trash2 size={14} />
@@ -471,6 +526,7 @@ function FieldRow({
                         <FormField label={t('assetTypes.fieldTypeLabel')}>
                             <select
                                 value={field.type}
+                                disabled={stockField}
                                 onChange={(e) => onUpdate({ type: e.target.value as FieldType })}
                                 className={formControlClass}
                             >
@@ -496,6 +552,7 @@ function FieldRow({
                         <label className="flex items-center gap-2 cursor-pointer">
                             <Toggle
                                 checked={field.required || false}
+                                disabled={stockField}
                                 onChange={(v) => onUpdate({ required: v })}
                             />
                             <span className="text-sm text-slate-600 dark:text-slate-300">
@@ -513,7 +570,7 @@ function FieldRow({
                             >
                                 <Toggle
                                     checked={field.is_unique_key || false}
-                                    disabled={hasOtherUniqueKey && !field.is_unique_key}
+                                    disabled={stockField || (hasOtherUniqueKey && !field.is_unique_key)}
                                     onChange={(v) => onUpdate({ is_unique_key: v })}
                                     tone="amber"
                                 />

@@ -2,7 +2,8 @@ export interface NotificationContent {
     title?: string;
     message?: string;
     type?: string;
-    [key: string]: any;
+    url?: string;
+    [key: string]: unknown;
 }
 
 export interface NotificationData {
@@ -13,6 +14,12 @@ export interface NotificationData {
     type: string;
     created_at: string;
     read_at?: string | null;
+    email_status?: 'queued' | 'sending' | 'sent' | 'failed' | 'skipped' | 'preview';
+}
+
+export interface NotificationPreferences {
+    email_notifications_enabled: boolean;
+    preferred_language: 'tr' | 'en';
 }
 
 export interface UnreadCountResponse {

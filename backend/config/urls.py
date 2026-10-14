@@ -17,6 +17,7 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from django.http import HttpResponseNotFound
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -27,11 +28,12 @@ urlpatterns = [
     path("api/assets/", include("apps.assets.urls")),
     path("api/settings/", include("apps.settings.urls")),
     path("api/platform-feedback/", include("apps.platform_feedback.urls")),
+    # Do not let Django's development media handler bypass attachment permissions.
+    path("media/platform_feedback/<path:filename>", lambda request, filename: HttpResponseNotFound()),
 ]
 
 from django.conf import settings as _settings
 from django.conf.urls.static import static as _static
 
 urlpatterns += _static(_settings.MEDIA_URL, document_root=_settings.MEDIA_ROOT)
-
 

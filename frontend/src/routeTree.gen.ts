@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SecuredRouteRouteImport } from './routes/_secured/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SecuredSharedEquipmentRouteImport } from './routes/_secured/shared-equipment'
 import { Route as SecuredNotificationsRouteImport } from './routes/_secured/notifications'
+import { Route as SecuredHelpRouteImport } from './routes/_secured/help'
 import { Route as SecuredDashboardRouteImport } from './routes/_secured/dashboard'
 import { Route as SecuredTenantRouteRouteImport } from './routes/_secured/tenant/route'
 import { Route as SecuredPlatformRouteRouteImport } from './routes/_secured/platform/route'
@@ -60,9 +62,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SecuredSharedEquipmentRoute = SecuredSharedEquipmentRouteImport.update({
+  id: '/shared-equipment',
+  path: '/shared-equipment',
+  getParentRoute: () => SecuredRouteRoute,
+} as any)
 const SecuredNotificationsRoute = SecuredNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => SecuredRouteRoute,
+} as any)
+const SecuredHelpRoute = SecuredHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
 const SecuredDashboardRoute = SecuredDashboardRouteImport.update({
@@ -246,7 +258,9 @@ export interface FileRoutesByFullPath {
   '/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
+  '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
+  '/shared-equipment': typeof SecuredSharedEquipmentRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -282,7 +296,9 @@ export interface FileRoutesByTo {
   '/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
+  '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
+  '/shared-equipment': typeof SecuredSharedEquipmentRoute
   '/account/providers': typeof AuthAccountProvidersRoute
   '/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -321,7 +337,9 @@ export interface FileRoutesById {
   '/_secured/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/_secured/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/_secured/dashboard': typeof SecuredDashboardRoute
+  '/_secured/help': typeof SecuredHelpRoute
   '/_secured/notifications': typeof SecuredNotificationsRoute
+  '/_secured/shared-equipment': typeof SecuredSharedEquipmentRoute
   '/_auth/account/providers': typeof AuthAccountProvidersRoute
   '/_auth/auth/reauthenticate': typeof AuthAuthReauthenticateRoute
   '/_secured/account/authenticators': typeof SecuredAccountAuthenticatorsRoute
@@ -360,7 +378,9 @@ export interface FileRouteTypes {
     | '/platform'
     | '/tenant'
     | '/dashboard'
+    | '/help'
     | '/notifications'
+    | '/shared-equipment'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -396,7 +416,9 @@ export interface FileRouteTypes {
     | '/platform'
     | '/tenant'
     | '/dashboard'
+    | '/help'
     | '/notifications'
+    | '/shared-equipment'
     | '/account/providers'
     | '/auth/reauthenticate'
     | '/account/authenticators'
@@ -434,7 +456,9 @@ export interface FileRouteTypes {
     | '/_secured/platform'
     | '/_secured/tenant'
     | '/_secured/dashboard'
+    | '/_secured/help'
     | '/_secured/notifications'
+    | '/_secured/shared-equipment'
     | '/_auth/account/providers'
     | '/_auth/auth/reauthenticate'
     | '/_secured/account/authenticators'
@@ -495,11 +519,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_secured/shared-equipment': {
+      id: '/_secured/shared-equipment'
+      path: '/shared-equipment'
+      fullPath: '/shared-equipment'
+      preLoaderRoute: typeof SecuredSharedEquipmentRouteImport
+      parentRoute: typeof SecuredRouteRoute
+    }
     '/_secured/notifications': {
       id: '/_secured/notifications'
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof SecuredNotificationsRouteImport
+      parentRoute: typeof SecuredRouteRoute
+    }
+    '/_secured/help': {
+      id: '/_secured/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof SecuredHelpRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/dashboard': {
@@ -840,7 +878,9 @@ interface SecuredRouteRouteChildren {
   SecuredPlatformRouteRoute: typeof SecuredPlatformRouteRouteWithChildren
   SecuredTenantRouteRoute: typeof SecuredTenantRouteRouteWithChildren
   SecuredDashboardRoute: typeof SecuredDashboardRoute
+  SecuredHelpRoute: typeof SecuredHelpRoute
   SecuredNotificationsRoute: typeof SecuredNotificationsRoute
+  SecuredSharedEquipmentRoute: typeof SecuredSharedEquipmentRoute
   SecuredAccountAuthenticatorsRoute: typeof SecuredAccountAuthenticatorsRoute
   SecuredAccountEmailRoute: typeof SecuredAccountEmailRoute
   SecuredAccountPasswordRoute: typeof SecuredAccountPasswordRoute
@@ -852,7 +892,9 @@ const SecuredRouteRouteChildren: SecuredRouteRouteChildren = {
   SecuredPlatformRouteRoute: SecuredPlatformRouteRouteWithChildren,
   SecuredTenantRouteRoute: SecuredTenantRouteRouteWithChildren,
   SecuredDashboardRoute: SecuredDashboardRoute,
+  SecuredHelpRoute: SecuredHelpRoute,
   SecuredNotificationsRoute: SecuredNotificationsRoute,
+  SecuredSharedEquipmentRoute: SecuredSharedEquipmentRoute,
   SecuredAccountAuthenticatorsRoute: SecuredAccountAuthenticatorsRoute,
   SecuredAccountEmailRoute: SecuredAccountEmailRoute,
   SecuredAccountPasswordRoute: SecuredAccountPasswordRoute,

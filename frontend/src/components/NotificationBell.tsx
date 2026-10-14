@@ -1,107 +1,71 @@
-import React, { useState, useCallback } from 'react';
-import { Bell, ExternalLink, Calendar } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
-import { useNotificationContext } from '../context/NotificationContext';
-import { formatDistanceToNow } from 'date-fns';
-import { useClickOutside } from '../hooks/useClickOutside';
-import { useTranslation } from 'react-i18next';
+import { useState, useCallback, useRef, useEffect, useId, type CSSProperties } from 'react'
+import { Bell, ArrowRight } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useNotificationContext } from '../context/notification-context'
+import { useNotificationMutations } from '@/modules/notification/hooks'
+import { notificationPath, notificationTime } from '@/modules/notification/presentation'
+import type { NotificationData } from '@/modules/notification/types'
+import { useClickOutside } from '../hooks/useClickOutside'
+import { useTranslation } from 'react-i18next'
 
-export const NotificationBell: React.FC = () => {
-    const { unreadCount, recentNotifications } = useNotificationContext();
-    const [isOpen, setIsOpen] = useState(false);
-    const { t } = useTranslation();
+export function NotificationBell() {
+    const { unreadCount, recentNotifications } = useNotificationContext()
+    const { markAsRead } = useNotificationMutations()
+    const [isOpen, setIsOpen] = useState(false)
+    const [openError, setOpenError] = useState(false)
+    const [position, setPosition] = useState<CSSProperties>({})
+    const { t, i18n } = useTranslation()
+    const navigate = useNavigate()
+    const trigger = useRef<HTMLButtonElement>(null)
+    const regionId = useId()
+    const close = useCallback(() => setIsOpen(false), [])
+    const ref = useClickOutside<HTMLDivElement>(close)
 
-    const close = useCallback(() => setIsOpen(false), []);
-    const ref = useClickOutside<HTMLDivElement>(close);
+    useEffect(() => {
+        if (!isOpen) return
+        const dismiss = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') { event.preventDefault(); close(); trigger.current?.focus() }
+        }
+        document.addEventListener('keydown', dismiss)
+        window.addEventListener('resize', close)
+        return () => { document.removeEventListener('keydown', dismiss); window.removeEventListener('resize', close) }
+    }, [isOpen, close])
 
-    return (
-        <div className="relative" ref={ref}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
-                aria-label={t('notifications.title')}
-            >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                )}
-            </button>
+    const toggle = () => {
+        const bounds = trigger.current?.getBoundingClientRect()
+        if (bounds) {
+            const width = Math.min(384, window.innerWidth - 32)
+            setPosition({ width, left: Math.max(16, Math.min(bounds.right - width, window.innerWidth - width - 16)), top: bounds.bottom + 8 })
+        }
+        markAsRead.reset()
+        setOpenError(false)
+        setIsOpen(value => !value)
+    }
+    const openNotification = async (notification: NotificationData) => {
+        if (markAsRead.isPending) return
+        try {
+            if (!notification.read_at) await markAsRead.mutateAsync(notification.id)
+            await navigate({ to: notificationPath(notification) })
+            close()
+        } catch { setOpenError(true) }
+    }
 
-            {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-lg shadow-slate-200/50 dark:shadow-slate-950/50 border border-slate-200 dark:border-slate-800 overflow-hidden animate-dropdown z-50">
-                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t('notifications.title')}</h3>
-                        {unreadCount > 0 && (
-                            <span className="text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">
-                                {t('notifications.new', { count: unreadCount })}
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="max-h-80 overflow-y-auto">
-                        {recentNotifications.length > 0 ? (
-                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {recentNotifications.map((notification, idx) => (
-                                    <div
-                                        key={notification.id || notification.uuid || idx}
-                                        className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer ${!notification.read_at ? 'bg-indigo-50/40 dark:bg-indigo-500/5' : ''}`}
-                                    >
-                                        <div className="flex gap-3">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between mb-0.5">
-                                                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate uppercase tracking-wider">
-                                                        {notification.content?.type || notification.type || 'SYSTEM'}
-                                                    </p>
-                                                    <div className="flex items-center gap-1 text-slate-400 text-[10px]">
-                                                        <Calendar size={10} />
-                                                        {(() => {
-                                                            try {
-                                                                return notification.created_at
-                                                                    ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })
-                                                                    : t('notifications.justNow');
-                                                            } catch {
-                                                                return t('notifications.justNow');
-                                                            }
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                                <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                                                    {notification.content?.message || notification.message}
-                                                </p>
-                                            </div>
-                                            {!notification.read_at && (
-                                                <div className="flex-shrink-0 pt-1">
-                                                    <div className="h-2 w-2 rounded-full bg-indigo-500"></div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="px-4 py-10 text-center">
-                                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 mb-2">
-                                    <Bell className="text-slate-300 dark:text-slate-600" size={20} />
-                                </div>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">{t('notifications.allCaughtUp')}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="p-2 border-t border-slate-100 dark:border-slate-800">
-                        <Link
-                            to="/notifications"
-                            onClick={close}
-                            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                        >
-                            {t('notifications.viewAll')}
-                            <ExternalLink size={14} />
-                        </Link>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
+    return <div className="relative" ref={ref}>
+        <button type="button" ref={trigger} onClick={toggle} aria-label={t('notifications.title')} aria-expanded={isOpen} aria-controls={regionId} className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+            <Bell size={20} aria-hidden />
+            {unreadCount > 0 && <span className="absolute right-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[10px] font-bold text-white dark:border-slate-900">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+        </button>
+        {isOpen && <section id={regionId} aria-label={t('notifications.title')} style={position} className="fixed z-50 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700"><h2 className="text-sm font-semibold text-slate-900 dark:text-white">{t('notifications.title')}</h2>{unreadCount > 0 && <span className="text-xs text-slate-500">{t('notifications.new', { count: unreadCount })}</span>}</div>
+            {(markAsRead.isError || openError) && <p role="alert" className="px-4 py-3 text-sm text-red-600 dark:text-red-300">{t('notifications.actionFailed')}</p>}
+            <div className="max-h-[min(60dvh,24rem)] overflow-y-auto">
+                {recentNotifications.length ? recentNotifications.map(notification => <button key={notification.id} type="button" disabled={markAsRead.isPending} onClick={() => void openNotification(notification)} className={`block w-full border-b border-slate-100 px-4 py-3 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 disabled:opacity-60 dark:border-slate-800 dark:hover:bg-slate-800 ${!notification.read_at ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''}`}>
+                    <div className="flex items-start justify-between gap-3"><p className="min-w-0 text-sm font-semibold leading-5 text-slate-900 dark:text-white [overflow-wrap:anywhere]">{notification.content?.title || t('notifications.title')}</p>{!notification.read_at && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-600"><span className="sr-only">{t('notifications.unread')}</span></span>}</div>
+                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-slate-600 dark:text-slate-300">{notification.content?.message || notification.message}</p>
+                    <p className="mt-2 text-xs text-slate-500">{notificationTime(notification.created_at, i18n.language, t('notifications.justNow'))}</p>
+                </button>) : <div className="px-4 py-8 text-center text-sm text-slate-500"><Bell size={20} className="mx-auto mb-2" aria-hidden />{t('notifications.allCaughtUp')}</div>}
+            </div>
+            <div className="border-t border-slate-200 p-2 dark:border-slate-700"><Link to="/notifications" onClick={close} className="flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-blue-700 hover:bg-slate-50 dark:text-blue-300 dark:hover:bg-slate-800">{t('notifications.viewAll')}<ArrowRight size={14} aria-hidden /></Link></div>
+        </section>}
+    </div>
+}

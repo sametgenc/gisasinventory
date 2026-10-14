@@ -13,11 +13,11 @@ export interface StatCardProps {
 }
 
 const toneClass: Record<StatCardTone, string> = {
-    neutral: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-    info: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400',
-    success: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
-    warning: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400',
-    danger: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
+    neutral: 'text-slate-500 dark:text-slate-400',
+    info: 'text-blue-600 dark:text-blue-300',
+    success: 'text-emerald-700 dark:text-emerald-300',
+    warning: 'text-amber-700 dark:text-amber-300',
+    danger: 'text-red-700 dark:text-red-300',
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -28,14 +28,14 @@ export const StatCard: React.FC<StatCardProps> = ({
     hint,
     className,
 }) => (
-    <div className={cn(cardClass, 'p-4 flex items-center gap-3', className)}>
-        {icon && (
-            <div className={cn('p-2.5 rounded-lg shrink-0', toneClass[tone])}>{icon}</div>
-        )}
+    <div className={cn(cardClass, 'p-5 flex items-start justify-between gap-4', className)}>
         <div className="min-w-0">
-            <p className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{value}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{label}</p>
-            {hint && <p className="text-[10px] text-slate-400 mt-0.5 truncate">{hint}</p>}
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-5">{label}</p>
+            <p className="mt-1 text-[28px] font-semibold tabular-nums text-slate-900 dark:text-slate-100 leading-9">{value}</p>
+            {hint && <p className="text-xs leading-5 text-slate-500 dark:text-slate-400 mt-1">{hint}</p>}
         </div>
+        {icon && (
+            <div className={cn('mt-1 shrink-0 [&>svg]:h-[18px] [&>svg]:w-[18px]', toneClass[tone])}>{icon}</div>
+        )}
     </div>
 )

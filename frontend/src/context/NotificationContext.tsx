@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import {
     useUnreadCountQuery,
     useRecentNotificationsQuery,
@@ -6,16 +6,7 @@ import {
 } from '../modules/notification/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { notificationKeys } from '../modules/notification/keys';
-
-interface NotificationContextType {
-    lastNotification: any;
-    recentNotifications: any[];
-    unreadCount: number;
-    isConnected: boolean;
-    refreshNotifications: () => Promise<void>;
-}
-
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+import { NotificationContext } from './notification-context';
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
@@ -38,12 +29,4 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             {children}
         </NotificationContext.Provider>
     );
-}
-
-export function useNotificationContext() {
-    const context = useContext(NotificationContext);
-    if (context === undefined) {
-        throw new Error('useNotificationContext must be used within a NotificationProvider');
-    }
-    return context;
 }

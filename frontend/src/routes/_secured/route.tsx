@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { createFileRoute, Navigate, Outlet, redirect, useLocation } from '@tanstack/react-router'
+import { useAuth } from '@/auth/context'
 import type { RouterContext } from '../__root'
 
 
@@ -12,13 +13,18 @@ export const Route = createFileRoute('/_secured')({
             throw redirect({
                 to: '/login',
                 search: {
-                    redirect: location.pathname,
+                    redirect: location.href,
                 },
             })
         }
     },
-    component: () => (
-        <Outlet />
-    ),
+    component: SecuredLayout,
 })
 
+function SecuredLayout() {
+    const { user, loading } = useAuth()
+    const location = useLocation()
+    if (loading) return null
+    if (!user) return <Navigate to="/login" search={{ redirect: location.href }} replace />
+    return <Outlet />
+}

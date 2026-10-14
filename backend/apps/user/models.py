@@ -34,6 +34,8 @@ class User(AbstractUser):
         default="tr",
     )
 
+    email_notifications_enabled = models.BooleanField(default=True)
+
     class Meta:
         verbose_name = "User"
         verbose_name_plural = "Users"
@@ -45,4 +47,3 @@ class User(AbstractUser):
     @property
     def is_tenant_admin(self) -> bool:
         return self.role == UserRole.TENANT_ADMIN
-

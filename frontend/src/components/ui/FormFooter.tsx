@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Save } from 'lucide-react';
+import { Button } from './Button';
 
 export interface FormFooterProps {
     /** Primary action label. Defaults to t('common.save'). */
@@ -15,6 +16,8 @@ export interface FormFooterProps {
     loading?: boolean;
     /** Disables the primary button. */
     disabled?: boolean;
+    /** Disable cancel independently when another action in the form is pending. */
+    cancelDisabled?: boolean;
     /** Visual style for the primary button. Default `primary` (blue). */
     variant?: 'primary' | 'danger';
     /** If true, renders the primary as `type=submit` so the parent `<form>` handles submit. */
@@ -53,6 +56,7 @@ export const FormFooter: React.FC<FormFooterProps> = ({
     onCancel,
     loading = false,
     disabled = false,
+    cancelDisabled = false,
     variant = 'primary',
     asSubmit = false,
     formId,
@@ -66,43 +70,37 @@ export const FormFooter: React.FC<FormFooterProps> = ({
     const primary = primaryLabel ?? t('common.save');
     const cancel = cancelLabel ?? t('common.cancel');
 
-    const primaryClass = variant === 'danger'
-        ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-        : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500';
-
     const leadingIcon = icon === null ? null : (icon ?? <Save size={16} />);
 
     // In `modal` mode the footer is a regular layout row (parent owns the
     // border/background); in `sticky` mode we overlay the scrollable content.
     const wrapperClass = placement === 'sticky'
-        ? `sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_-6px_rgba(15,23,42,0.08)] dark:shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.4)] flex items-center gap-2`
-        : `px-5 py-3 flex items-center gap-2`;
+        ? 'sticky bottom-0 -mx-5 -mb-5 px-5 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2'
+        : 'px-5 py-4 flex flex-wrap items-center gap-2';
 
     return (
         <div className={`${wrapperClass} ${className}`}>
-            <div className="flex-1 min-w-0 text-sm text-slate-500">{leading}</div>
+            <div className="flex-1 min-w-0 text-sm text-slate-500 dark:text-slate-400">{leading}</div>
             {onCancel && (
-                <button
-                    type="button"
+                <Button
+                    variant="secondary"
                     onClick={onCancel}
-                    disabled={loading}
-                    className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+                    disabled={loading || cancelDisabled}
                 >
                     {cancel}
-                </button>
+                </Button>
             )}
-            <button
+            <Button
                 type={asSubmit ? 'submit' : 'button'}
                 form={asSubmit ? formId : undefined}
                 onClick={asSubmit ? undefined : onPrimary}
-                disabled={loading || disabled}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-sm transition-all active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed ${primaryClass}`}
+                variant={variant}
+                loading={loading}
+                disabled={disabled}
+                icon={leadingIcon}
             >
-                {loading
-                    ? <div className="h-4 w-4 rounded-full border-2 border-white/60 border-t-white animate-spin" />
-                    : leadingIcon}
                 {primary}
-            </button>
+            </Button>
         </div>
     );
 };

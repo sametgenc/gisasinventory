@@ -18,17 +18,8 @@ function RequestPasswordReset() {
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
     const byCode = Boolean(config?.account?.password_reset_by_code_enabled)
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        setMousePosition({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-        })
-    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -58,23 +49,14 @@ function RequestPasswordReset() {
 
     return (
         <div className="flex-1 flex w-full min-h-0 items-center justify-center p-4">
-            <div className="max-w-md w-full relative group" onMouseMove={handleMouseMove}>
-                <div className="relative bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all duration-200 overflow-hidden">
-                    <div
-                        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-                        style={{
-                            background: `radial-gradient(500px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(99,102,241,0.04), transparent 40%)`,
-                        }}
-                    />
-
-                    <div className="relative z-20">
+            <div className="max-w-md w-full">
+                <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div>
                         {success ? (
                             <>
-                                <div className="text-center mb-8">
-                                    <div className="w-14 h-14 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-xl flex items-center justify-center mb-4 mx-auto">
-                                        <CheckCircle2 size={28} />
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                <div className="mb-6">
+                                    <CheckCircle2 size={24} className="text-green-600 dark:text-green-400 mb-3" />
+                                    <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
                                         {t('passwordRequest.successTitle')}
                                     </h2>
                                     <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm leading-relaxed">
@@ -88,7 +70,7 @@ function RequestPasswordReset() {
                                 <Link
                                     to="/login"
                                     search={{ redirect: undefined }}
-                                    className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-sm shadow-indigo-500/20 text-sm active:scale-[0.98]"
+                                    className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
                                 >
                                     <ArrowLeft size={18} />
                                     {t('passwordRequest.backToLogin')}
@@ -96,11 +78,9 @@ function RequestPasswordReset() {
                             </>
                         ) : (
                             <>
-                                <div className="text-center mb-8">
-                                    <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4 mx-auto">
-                                        <Mail size={28} />
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                                <div className="mb-6">
+                                    <Mail size={24} className="text-slate-500 dark:text-slate-400 mb-3" />
+                                    <h2 className="text-2xl font-semibold text-slate-900 dark:text-white">
                                         {t('passwordRequest.title')}
                                     </h2>
                                     <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
@@ -123,7 +103,7 @@ function RequestPasswordReset() {
                                         <input
                                             type="email"
                                             required
-                                            className="w-full px-3.5 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all dark:text-white text-sm"
+                                            className="w-full px-3.5 py-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 outline-none transition-colors dark:text-white text-sm"
                                             placeholder={t('login.emailPlaceholder')}
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
@@ -132,7 +112,7 @@ function RequestPasswordReset() {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-indigo-500/20 text-sm active:scale-[0.98]"
+                                        className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
                                     >
                                         {loading ? (
                                             <Loader2 className="animate-spin" size={18} />
@@ -148,7 +128,7 @@ function RequestPasswordReset() {
                                     <Link
                                         to="/login"
                                         search={{ redirect: undefined }}
-                                        className="text-sm text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                                        className="text-sm text-blue-600 dark:text-blue-300 font-medium hover:underline"
                                     >
                                         {t('passwordRequest.backToLogin')}
                                     </Link>

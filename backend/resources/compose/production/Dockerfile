@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -18,10 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-install-project --no-dev
+RUN uv sync --locked --no-install-project --no-dev
 
 COPY . .
-RUN uv sync --no-dev
+RUN uv sync --locked --no-dev
 
 RUN mkdir -p /app/resources/public/static /app/resources/public/media
 

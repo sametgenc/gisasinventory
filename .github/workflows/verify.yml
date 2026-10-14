@@ -1,0 +1,73 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install uv
+      - run: uv sync --locked
+      - run: uv run python manage.py check --settings=config.test_settings
+      - run: uv run python manage.py makemigrations --check --dry-run --settings=config.test_settings
+      - run: uv run python manage.py test --settings=config.test_settings --noinput
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+
+  production-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: backend
+            dockerfile: resources/compose/production/Dockerfile
+          - name: frontend
+            context: frontend
+            dockerfile: compose/production/Dockerfile
+    defaults:
+      run:
+        working-directory: ${{ matrix.context }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gisasinventory-${{ matrix.name }}:ci -f ${{ matrix.dockerfile }} .
+      - if: matrix.name == 'backend'
+        run: docker run --rm --entrypoint python gisasinventory-backend:ci manage.py check --settings=config.test_settings
+      - if: matrix.name == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - if: matrix.name == 'frontend'
+        run: |
+          docker run --rm gisasinventory-frontend:ci nginx -t
+          docker run -d --rm --name gisasinventory-frontend-ci-check -p 127.0.0.1:5295:80 gisasinventory-frontend:ci
+          trap 'docker stop gisasinventory-frontend-ci-check' EXIT
+          node ../scripts/check-production-frontend.mjs http://127.0.0.1:5295

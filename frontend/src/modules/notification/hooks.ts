@@ -3,7 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NOTIFICATION_API } from './data';
 import { notificationKeys } from './keys';
 import { useAuth } from '@/auth/context';
-import type { NotificationData } from './types';
+import type { NotificationData, NotificationPreferences } from './types';
+import { isDemoMode } from '@/modules/demo';
+
+export function useNotificationPreferences() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+    const queryKey = [...notificationKeys.all, 'preferences'];
+    const query = useQuery({ queryKey, queryFn: NOTIFICATION_API.getPreferences, enabled: !!user });
+    const update = useMutation({
+        mutationFn: (data: Partial<NotificationPreferences>) => NOTIFICATION_API.updatePreferences(data),
+        onMutate: data => {
+            const previous = queryClient.getQueryData<NotificationPreferences>(queryKey);
+            if (previous) queryClient.setQueryData(queryKey, { ...previous, ...data });
+            return { previous };
+        },
+        onError: (_error, _data, context) => {
+            if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+        },
+        onSuccess: data => queryClient.setQueryData(queryKey, data),
+    });
+    return { query, update };
+}
 
 export function useUnreadCountQuery() {
     const { user } = useAuth();
@@ -12,26 +33,29 @@ export function useUnreadCountQuery() {
         queryFn: NOTIFICATION_API.getUnreadCount,
         enabled: !!user,
         staleTime: 30000, // 30 seconds
+        refetchInterval: 30000,
     });
 }
 
 export function useRecentNotificationsQuery(limit = 10) {
     const { user } = useAuth();
     return useQuery({
-        queryKey: notificationKeys.recent(),
+        queryKey: [...notificationKeys.recent(), limit],
         queryFn: () => NOTIFICATION_API.getRecent(limit),
         enabled: !!user,
         staleTime: 60000, // 1 minute
+        refetchInterval: 30000,
     });
 }
 
-export function useNotificationsQuery(params?: any) {
+export function useNotificationsQuery(params?: { limit?: number; offset?: number }) {
     const { user } = useAuth();
     return useQuery({
         queryKey: notificationKeys.list(params),
         queryFn: () => NOTIFICATION_API.list(params),
         enabled: !!user,
         staleTime: 60000,
+        refetchInterval: 30000,
     });
 }
 
@@ -78,10 +102,7 @@ export function useNotificationSSE() {
     const activeRef = useRef(false);
 
     useEffect(() => {
-        if (!user) {
-            setIsConnected(false);
-            return;
-        }
+        if (!user || isDemoMode) return;
 
         activeRef.current = true;
         let isAborted = false;
@@ -101,8 +122,6 @@ export function useNotificationSSE() {
         eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log('SSE: Notification received:', data);
-
                 if (data.type !== 'silent' && data.type !== 'ping') {
                     // Invalidate everything under 'notifications' key
                     // This includes unreadCount, lists, details, etc.
@@ -141,5 +160,5 @@ export function useNotificationSSE() {
         };
     }, [user, retryAttempt, queryClient]);
 
-    return { isConnected, lastNotification };
+    return { isConnected: !!user && !isDemoMode && isConnected, lastNotification };
 }

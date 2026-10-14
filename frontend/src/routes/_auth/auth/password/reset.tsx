@@ -1,15 +1,15 @@
-import React, { useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { ALLAUTH_API } from '@/modules/allauth/data'
+import { pathForPendingFlow } from '@/modules/allauth/routing'
+import { SecurityError, SecurityPanel } from '@/modules/allauth/mfa/SecurityPanel'
+import { Button, FormField, formControlClass } from '@/components/ui'
 import { OtpInput } from '@/components/ui/OtpInput'
 
-export const Route = createFileRoute('/_auth/auth/password/reset')({
-    component: ResetPasswordCode,
-})
-
-const CODE_LENGTH = 6
+export const Route = createFileRoute('/_auth/auth/password/reset')({ component: ResetPasswordCode })
+const CODE_LENGTH = 8
 
 function ResetPasswordCode() {
     const { t } = useTranslation()
@@ -18,110 +18,53 @@ function ResetPasswordCode() {
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [submitError, setSubmitError] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [inactive, setInactive] = useState(false)
+    const busy = useRef(false)
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setSubmitError(null)
-
-        if (code.length !== CODE_LENGTH) {
-            setSubmitError(t('passwordReset.codeLengthError', { length: CODE_LENGTH }))
-            return
-        }
-        if (password.length < 8) {
-            setSubmitError(t('passwordReset.passwordTooShort'))
-            return
-        }
-
+    const submit = async (event: FormEvent) => {
+        event.preventDefault()
+        if (busy.current || inactive) return
+        if (code.length !== CODE_LENGTH) { setError(t('passwordReset.codeLengthError', { length: CODE_LENGTH })); return }
+        if (password.length < 8) { setError(t('passwordReset.passwordTooShort')); return }
+        busy.current = true
         setLoading(true)
+        setError(null)
         try {
             const res = await ALLAUTH_API.resetPassword({ key: code, password })
-            if (res.status === 200 || res.status === 401) {
-                navigate({ to: '/login', search: { redirect: undefined } })
-                return
+            const hasErrors = Boolean(res.errors?.length)
+            const resetFlow = res.data?.flows?.find(flow => flow.id === 'password_reset_by_code')
+            // Allauth reports successful unauthenticated resets as 401 after explicitly completing this flow.
+            const completedReset = res.status === 401 && res.meta?.is_authenticated === false && resetFlow?.is_pending === false
+            if (!hasErrors && (res.status === 200 || completedReset)) {
+                const next = pathForPendingFlow(res)
+                if (next && next !== '/auth/password/reset') await navigate({ to: next })
+                else await navigate({ to: '/login', search: { redirect: undefined } })
+            } else if (res.status === 409 || res.status === 410) {
+                setInactive(true)
+                setError(t('passwordReset.inactiveRequest'))
+            } else {
+                setError(t(res.status === 429 ? 'passwordReset.rateLimit' : res.errors?.some(item => item.param === 'password') ? 'passwordReset.passwordRejected' : 'passwordReset.invalidCredentials'))
             }
-            setSubmitError(res.errors?.[0]?.message || t('passwordReset.invalidCredentials'))
-        } catch (err: any) {
-            setSubmitError(err.message || t('login.unexpectedError'))
-        } finally {
-            setLoading(false)
-        }
+        } catch { setError(t('passwordReset.connectionError')) }
+        finally { busy.current = false; setLoading(false) }
     }
 
-    const submitDisabled = loading || code.length !== CODE_LENGTH || password.length < 8
-
-    return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-950">
-            <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-7">
-                <div className="text-center mb-6">
-                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4 mx-auto">
-                        <KeyRound size={22} />
-                    </div>
-                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">{t('passwordReset.title')}</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
-                        {t('passwordReset.subtitle', { length: CODE_LENGTH })}
-                    </p>
-                </div>
-
-                {submitError && (
-                    <div className="mb-5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium">
-                        {submitError}
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 text-center uppercase tracking-wide">
-                            {t('passwordReset.codeLabel')}
-                        </label>
-                        <OtpInput value={code} onChange={setCode} length={CODE_LENGTH} disabled={loading} />
-                    </div>
-
-                    <div>
-                        <label htmlFor="new-password" className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 uppercase tracking-wide">
-                            {t('passwordReset.newPasswordLabel')}
-                        </label>
-                        <div className="relative">
-                            <input
-                                id="new-password"
-                                type={showPassword ? 'text' : 'password'}
-                                required
-                                minLength={8}
-                                className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600"
-                                placeholder={t('passwordReset.newPasswordPlaceholder')}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                disabled={loading}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword((v) => !v)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                aria-label={showPassword ? t('passwordReset.hidePassword') : t('passwordReset.showPassword')}
-                            >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={submitDisabled}
-                        className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : t('passwordReset.submit')}
-                    </button>
-
-                    <div className="text-center">
-                        <Link
-                            to="/auth/password/request"
-                            className="text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                        >
-                            {t('passwordReset.resending')}
-                        </Link>
-                    </div>
-                </form>
+    return <SecurityPanel title={t('passwordReset.title')} description={t('passwordReset.subtitle', { length: CODE_LENGTH })}>
+        {error && <SecurityError>{error}</SecurityError>}
+        <form onSubmit={submit} className="space-y-5" aria-busy={loading}>
+            <div>
+                <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">{t('passwordReset.codeLabel')}</p>
+                <OtpInput value={code} onChange={value => { setCode(value); setError(null) }} length={CODE_LENGTH} disabled={loading || inactive} label={t('passwordReset.codeLabel')} getCellLabel={position => t('passwordReset.characterLabel', { position })} />
             </div>
-        </div>
-    )
+            <div className="relative">
+                <FormField htmlFor="new-password" label={t('passwordReset.newPasswordLabel')} help={t('passwordReset.newPasswordPlaceholder')} required>
+                    <input id="new-password" type={showPassword ? 'text' : 'password'} required minLength={8} autoComplete="new-password" className={`${formControlClass} pr-11`} value={password} onChange={event => setPassword(event.target.value)} disabled={loading || inactive} />
+                </FormField>
+                <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={loading} className="absolute right-0 top-7 flex h-10 items-center px-3 text-slate-500 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={t(showPassword ? 'passwordReset.hidePassword' : 'passwordReset.showPassword')} aria-pressed={showPassword}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+            </div>
+            <Button type="submit" className="w-full" loading={loading} disabled={inactive || code.length !== CODE_LENGTH || password.length < 8}>{t(loading ? 'passwordReset.submitting' : 'passwordReset.submit')}</Button>
+            <Link to="/auth/password/request" onClick={event => { if (loading) event.preventDefault() }} aria-disabled={loading || undefined} className="inline-flex min-h-9 items-center text-sm font-medium text-blue-700 underline-offset-4 hover:underline dark:text-blue-300">{t('passwordReset.resending')}</Link>
+        </form>
+    </SecurityPanel>
 }

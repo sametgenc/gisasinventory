@@ -17,17 +17,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantClass: Record<ButtonVariant, string> = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+    primary: 'border border-blue-700 bg-blue-600 hover:bg-blue-700 text-white',
     secondary:
-        'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700',
-    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm',
+        'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800',
+    danger: 'border border-red-700 bg-red-600 hover:bg-red-700 text-white',
     ghost:
-        'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+        'border border-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
 }
 
 const sizeClass: Record<ButtonSize, string> = {
-    sm: 'px-3 py-1.5 text-xs rounded-md gap-1.5',
-    md: 'px-4 py-2 text-sm rounded-lg gap-2',
+    sm: 'min-h-8 px-3 py-1.5 text-xs rounded-md gap-1.5',
+    md: 'min-h-10 px-4 py-2 text-sm rounded-md gap-2',
 }
 
 /**
@@ -56,18 +56,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
             type={type}
             disabled={isDisabled}
             className={cn(
-                'inline-flex items-center justify-center font-medium transition-colors active:scale-[0.99]',
+                'inline-flex items-center justify-center font-medium leading-5 transition-colors',
                 variantClass[variant],
                 sizeClass[size],
                 focusRingClass,
-                isDisabled && 'opacity-60 cursor-not-allowed',
+                isDisabled && 'opacity-65 cursor-not-allowed',
                 className,
             )}
             {...rest}
         >
             {loading ? (
                 <span
-                    className="inline-block h-3.5 w-3.5 rounded-full border-2 border-white/60 border-t-white animate-spin"
+                    className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border-2 border-current border-t-transparent animate-spin"
                     aria-hidden="true"
                 />
             ) : icon}

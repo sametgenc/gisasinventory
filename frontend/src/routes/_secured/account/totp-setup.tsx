@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { ALLAUTH_API } from '@/modules/allauth/data'
-import type { TOTPSetup as ITOTPSetup } from '@/modules/allauth/types'
+import type { Authenticator } from '@/modules/allauth/types'
 import { TOTPSetup } from '@/modules/allauth/mfa/TOTPSetup'
 import type { RouterContext } from '../../__root'
 
@@ -19,17 +19,17 @@ export const Route = createFileRoute('/_secured/account/totp-setup')({
     loader: async ({ context }) => {
         const { queryClient } = context as unknown as RouterContext
         try {
-            // Use cached authenticators if available
             const authenticators = await queryClient.ensureQueryData({
                 queryKey: ['authenticators'],
                 queryFn: async () => {
                     const res = await ALLAUTH_API.getAuthenticators()
-                    return (res.status === 200 && Array.isArray(res.data)) ? res.data : []
+                    if (res.status !== 200 || !Array.isArray(res.data)) throw new Error('authenticators_unavailable')
+                    return res.data as Authenticator[]
                 },
                 staleTime: 10000,
             })
 
-            const existing = authenticators.find((a: any) => a.type === 'totp')
+            const existing = authenticators.find(a => a.type === 'totp')
 
             if (existing) {
                 return {
@@ -41,19 +41,18 @@ export const Route = createFileRoute('/_secured/account/totp-setup')({
 
             // Only fetch setup data if no existing TOTP
             const setupRes = await ALLAUTH_API.setupTOTP()
-            const data = setupRes.status === 200 ? setupRes.data : setupRes.meta
+            const data = (setupRes.status === 200 ? setupRes.data : setupRes.meta) as Record<string, unknown> | undefined
 
-            if (data && (data as any).secret) {
+            if (data && typeof data.secret === 'string' && typeof data.totp_url === 'string' && data.secret && data.totp_url.startsWith('otpauth://')) {
                 return {
                     mode: 'setup' as const,
                     authenticator: null,
-                    setupData: data as unknown as ITOTPSetup
+                    setupData: { secret: data.secret, totp_url: data.totp_url }
                 }
             }
 
             return { mode: 'error' as const, setupData: null, authenticator: null }
-        } catch (e) {
-            console.error('Failed to load TOTP data', e)
+        } catch {
             return { mode: 'error' as const, setupData: null, authenticator: null }
         }
     },

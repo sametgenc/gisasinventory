@@ -36,11 +36,11 @@ export interface UserFormModalProps {
 
 const defaultRoles: UserRole[] = ['tenant_user', 'tenant_admin']
 
-// Avatar: gradient badge mirroring the table cell look.
+// Compact identity marker, consistent with the user list.
 function Avatar({ username, email }: { username: string; email: string }) {
     const initial = (username || email || '?').trim().charAt(0).toUpperCase()
     return (
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-2xl shadow-sm">
+        <div className="w-12 h-12 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-600 font-medium text-lg dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
             {initial || '?'}
         </div>
     )
@@ -168,7 +168,7 @@ export function UserFormModal({
     const roleIcons: Record<UserRole, React.ReactNode> = {
         tenant_user: <ShieldCheck size={18} className="text-slate-400" />,
         tenant_admin: <Shield size={18} className="text-blue-500" />,
-        platform_admin: <Shield size={18} className="text-purple-500" />,
+        platform_admin: <Shield size={18} className="text-slate-500" />,
     }
     const roleLabel = (r: UserRole) =>
         r === 'platform_admin' ? t('users.platformAdmin')

@@ -1,6 +1,9 @@
 from rest_framework import status, viewsets
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.generics import get_object_or_404
+from django.http import FileResponse, Http404
 
 from apps.tenants.permissions import IsPlatformAdmin
 
@@ -28,6 +31,20 @@ class PlatformFeedbackViewSet(viewsets.ModelViewSet):
             .select_related("submitted_by")
             .prefetch_related("attachments")
         )
+
+    @action(detail=True, methods=["get"], url_path=r"attachments/(?P<attachment_id>[^/.]+)/download")
+    def download_attachment(self, request, id=None, attachment_id=None):
+        feedback = self.get_object()
+        attachment = get_object_or_404(feedback.attachments.all(), pk=attachment_id)
+        try:
+            stream = attachment.file.open("rb")
+        except FileNotFoundError as exc:
+            raise Http404("Attachment file not found.") from exc
+        response = FileResponse(stream, as_attachment=True, filename=attachment.original_name,
+                                content_type="application/octet-stream")
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
     def create(self, request, *args, **kwargs):
         data = {

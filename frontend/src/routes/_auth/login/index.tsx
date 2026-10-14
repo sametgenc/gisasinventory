@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useAuth } from '@/auth/context'
 import { pathForPendingFlow } from '@/modules/allauth/routing'
-import { LogIn, Loader2, AlertCircle, Fingerprint, Mail } from 'lucide-react'
+import { Loader2, AlertCircle, Fingerprint, Mail, Ship } from 'lucide-react'
+import { formControlClass } from '@/components/ui'
 import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/_auth/login/')({
@@ -22,16 +23,6 @@ function LoginComponent() {
     const [formData, setFormData] = useState({ email: '', password: '' })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setMousePosition({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-        });
-    };
 
     const handleSuccessRedirect = () => {
         const target = (search.redirect && search.redirect !== '/login') ? search.redirect : '/dashboard'
@@ -78,7 +69,8 @@ function LoginComponent() {
 
     const { pendingFlow } = useAuth()
     React.useEffect(() => {
-        if (pendingFlow) {
+        // A pending email code must still allow choosing password sign-in.
+        if (pendingFlow && pendingFlow.id !== 'login_by_code') {
             const nextStep = pathForPendingFlow({ data: { flows: [pendingFlow] } } as any)
             if (nextStep) {
                 navigate({ to: nextStep })
@@ -125,44 +117,36 @@ function LoginComponent() {
     const webAuthnEnabled = config?.mfa?.supported_types?.includes('webauthn')
 
     return (
-        <div className="flex-1 flex w-full min-h-0 items-center justify-center p-4">
-            <div
-                className="max-w-md w-full relative group"
-                onMouseMove={handleMouseMove}
-            >
-                <div className="relative bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 transition-all duration-200 overflow-hidden">
-
-                    {/* Spotlight Effect */}
-                    <div
-                        className="pointer-events-none absolute -inset-px opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10"
-                        style={{
-                            background: `radial-gradient(500px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(99,102,241,0.04), transparent 40%)`
-                        }}
-                    />
-
-                    <div className="relative z-20">
-                        <div className="text-center mb-8">
-                            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4 mx-auto">
-                                <LogIn size={28} />
-                            </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{t('login.welcomeBack')}</h2>
-                            <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">{t('login.signInSubtitle')}</p>
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center py-6 sm:py-10">
+            <div className="grid w-full max-w-4xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 md:grid-cols-[1fr_1.1fr]">
+                <aside className="border-b border-slate-200 bg-slate-50 px-6 py-5 dark:border-slate-700 dark:bg-slate-950 sm:px-8 md:border-b-0 md:border-r md:py-10">
+                    <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-600 dark:text-slate-300"><Ship size={18} aria-hidden />{t('home.badge')}</p>
+                    <h1 className="mt-7 hidden text-2xl font-semibold leading-snug tracking-tight text-slate-900 dark:text-white md:block">{t('home.titlePrefix')} {t('home.titleHighlight')}</h1>
+                    <p className="mt-4 hidden text-sm leading-relaxed text-slate-600 dark:text-slate-400 md:block">{t('home.subtitleLead')}</p>
+                </aside>
+                <div className="px-6 py-8 sm:px-8 md:py-10">
+                    <div>
+                        <div className="mb-7">
+                            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{t('login.welcomeBack')}</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{t('login.signInSubtitle')}</p>
                         </div>
 
                         {error && (
-                            <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-sm">
+                            <div role="alert" className="mb-6 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                                 <AlertCircle size={16} />
                                 <span>{error}</span>
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-5" aria-busy={loading}>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('login.emailLabel')}</label>
+                                <label htmlFor="login-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">{t('login.emailLabel')}</label>
                                 <input
+                                    id="login-email"
                                     type="email"
+                                    autoComplete="username"
                                     required
-                                    className="w-full px-3.5 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all dark:text-white text-sm"
+                                    className={formControlClass}
                                     placeholder={t('login.emailPlaceholder')}
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -171,15 +155,17 @@ function LoginComponent() {
 
                             <div>
                                 <div className="flex justify-between items-center mb-1.5">
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('login.passwordLabel')}</label>
+                                    <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">{t('login.passwordLabel')}</label>
                                     <Link to="/auth/password/request" className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
                                         {t('login.forgotPassword')}
                                     </Link>
                                 </div>
                                 <input
+                                    id="login-password"
                                     type="password"
+                                    autoComplete="current-password"
                                     required
-                                    className="w-full px-3.5 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all dark:text-white text-sm"
+                                    className={formControlClass}
                                     placeholder={t('login.passwordPlaceholder')}
                                     value={formData.password}
                                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -189,19 +175,19 @@ function LoginComponent() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm shadow-indigo-500/20 text-sm active:scale-[0.98]"
+                                className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={18} /> : t('login.signIn')}
                             </button>
 
                             {/* Alternative Auth */}
-                            <div className="flex justify-center gap-3 pt-1">
+                            <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-5 dark:border-slate-700">
                                 <Link
                                     to="/login/code"
-                                    className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-slate-200 dark:border-slate-700 transition-all"
+                                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                                     title={t('login.mailCode')}
                                 >
-                                    <Mail size={20} />
+                                    <Mail size={16} aria-hidden />{t('login.mailCode')}
                                 </Link>
 
                                 {webAuthnEnabled && (
@@ -209,14 +195,15 @@ function LoginComponent() {
                                         type="button"
                                         disabled={loading}
                                         onClick={handleWebAuthnLogin}
-                                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-slate-200 dark:border-slate-700 transition-all disabled:opacity-50"
+                                        className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                                         title={t('login.passkey')}
                                     >
                                         {loading ? (
                                             <Loader2 className="animate-spin" size={20} />
                                         ) : (
-                                            <Fingerprint size={20} />
+                                            <Fingerprint size={16} aria-hidden />
                                         )}
+                                        {t('login.passkey')}
                                     </button>
                                 )}
                             </div>
@@ -238,7 +225,7 @@ function LoginComponent() {
                                                 key={provider.id}
                                                 type="button"
                                                 onClick={() => handleSocialLogin(provider)}
-                                                className="w-full inline-flex justify-center py-2.5 px-4 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all items-center gap-2 active:scale-[0.98]"
+                                                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-600 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                                             >
                                                 {provider.name}
                                             </button>

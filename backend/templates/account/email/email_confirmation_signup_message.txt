@@ -1,16 +1,1 @@
-{% extends "account/email/base_message.txt" %}
-{% load account %}
-{% load i18n %}
-
-{% block content %}{% autoescape off %}{% user_display user as user_display %}Hello {{ user_display }},
-
-Thanks for signing up at {{ site_name }}.
-
-Your email verification code:
-
-    {{ code }}
-
-Enter this code in the verification page to activate your account.
-This code expires in 15 minutes.
-
-If you did not sign up, you can ignore this email.{% endautoescape %}{% endblock %}
+{% include "mail/message.txt" %}

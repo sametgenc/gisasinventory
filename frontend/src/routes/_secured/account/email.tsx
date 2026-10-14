@@ -221,39 +221,37 @@ function EmailManagement() {
 
     return (
         <div className="w-full min-w-0 max-w-3xl space-y-6">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                    <h1 className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">
                         {t('account.email.title')}
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">{t('account.email.subtitle')}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('account.email.subtitle')}</p>
                 </div>
-                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
-                    <Mail size={24} />
-                </div>
+                <Mail size={22} className="shrink-0 text-slate-400 dark:text-slate-500" />
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden mb-8 transition-all hover:shadow-2xl duration-300">
-                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden mb-6">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {emails.map((email) => (
-                        <div key={email.email} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                        <div key={email.email} className="p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-2 rounded-lg ${email.verified
-                                        ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                                        : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'}`}>
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <div className={`shrink-0 ${email.verified
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : 'text-amber-600 dark:text-amber-400'}`}>
                                         {email.verified ? <ShieldCheck size={20} /> : <AlertCircle size={20} />}
                                     </div>
-                                    <div>
-                                        <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 flex-wrap">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 flex-wrap break-all">
                                             {email.email}
                                             {email.primary && (
-                                                <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800">
+                                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs px-2 py-0.5 rounded-md font-medium border border-slate-200 dark:border-slate-700">
                                                     {t('account.email.primary')}
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                                             {email.verified ? t('account.email.verified') : t('account.email.unverifiedHint')}
                                         </div>
                                     </div>
@@ -262,7 +260,7 @@ function EmailManagement() {
                                     {!email.primary && email.verified && (
                                         <button
                                             onClick={() => handlePrimary(email.email)}
-                                            className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                                            className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                                             title={t('account.email.makePrimary')}
                                         >
                                             <Star size={18} />
@@ -271,7 +269,7 @@ function EmailManagement() {
                                     {!email.primary && (
                                         <button
                                             onClick={() => handleDeleteClick(email.email)}
-                                            className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                            className="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                             title={t('account.email.remove')}
                                         >
                                             <Trash2 size={18} />
@@ -281,7 +279,7 @@ function EmailManagement() {
                             </div>
 
                             {!email.verified && (
-                                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl">
+                                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-lg">
                                     <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
                                         {t('account.email.enterCodeHint')}
                                     </p>
@@ -294,13 +292,13 @@ function EmailManagement() {
                                                 setVerifyingEmail(email.email)
                                                 setVerificationCode(e.target.value)
                                             }}
-                                            className="flex-1 px-4 py-2 border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                                            className="flex-1 min-w-0 px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                             maxLength={6}
                                         />
                                         <button
                                             onClick={() => handleVerifyCode(email.email)}
                                             disabled={verifyingCode || (verifyingEmail === email.email && !verificationCode.trim())}
-                                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                                            className="px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
                                         >
                                             {verifyingCode && verifyingEmail === email.email ? t('account.email.verifying') : t('account.email.verifyCode')}
                                         </button>
@@ -323,7 +321,7 @@ function EmailManagement() {
                         </div>
                     ))}
                     {emails.length === 0 && (
-                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
                             {t('account.email.noEmails')}
                         </div>
                     )}
@@ -331,21 +329,21 @@ function EmailManagement() {
             </div>
 
             {successMessage && (
-                <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-2xl text-sm border border-green-100 dark:border-green-900/30 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm border border-green-100 dark:border-green-900/30 flex items-center gap-3">
                     <CheckCircle size={20} />
                     <span className="font-medium">{successMessage}</span>
                 </div>
             )}
             {error && (
-                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl text-sm border border-red-100 dark:border-red-900/30 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-900/30 flex items-center gap-3">
                     <AlertCircle size={20} />
                     <span className="font-medium">{error}</span>
                 </div>
             )}
 
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 transition-colors">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                    <Plus size={20} className="text-indigo-600 dark:text-indigo-400" />
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-lg border border-slate-200 dark:border-slate-800">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Plus size={18} className="text-slate-500 dark:text-slate-400" />
                     {t('account.email.addTitle')}
                 </h3>
                 <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3">
@@ -354,13 +352,13 @@ function EmailManagement() {
                         required
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
-                        className="flex-1 px-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                        className="flex-1 min-w-0 px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-blue-400 outline-none transition-colors text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         placeholder={t('account.email.addPlaceholder')}
                     />
                     <button
                         type="submit"
                         disabled={loading}
-                        className="px-8 py-3 bg-gray-900 dark:bg-indigo-600 text-white font-bold rounded-xl hover:bg-black dark:hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-95 duration-200"
+                        className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? t('account.email.adding') : t('account.email.addBtn')}
                     </button>

@@ -1,253 +1,95 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useAuth } from '@/auth/context';
-import { ALLAUTH_API } from '../data';
-import { Lock, Loader2, AlertCircle, Fingerprint, Key, Smartphone } from 'lucide-react';
-import { parseRequestOptionsFromJSON, get as webauthnGet } from '@github/webauthn-json/browser-ponyfill';
+import { useRef, useState, type FormEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+import { parseRequestOptionsFromJSON, get as webauthnGet } from '@github/webauthn-json/browser-ponyfill'
+import { useAuth } from '@/auth/context'
+import { Button, FormField, formControlClass } from '@/components/ui'
+import { Route } from '@/routes/_auth/auth/reauthenticate'
+import { ALLAUTH_API } from '../data'
+import { MethodSelector, SecurityError, SecurityPanel } from './SecurityPanel'
+import { reauthenticationMethods, safeReturnPath, securityErrorKey, type VerificationMethod } from './security'
 
-type AuthMethod = 'password' | 'passkey' | 'totp';
-
-export const Reauthenticate: React.FC = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const { next } = useSearch({ from: '/_auth/auth/reauthenticate' }) as { next?: string };
-
-    const hasPassword = user?.has_usable_password ?? true;
-    const { data: authenticators } = useQuery({
+export function Reauthenticate() {
+    const { t } = useTranslation()
+    const navigate = useNavigate()
+    const { user, refresh, logout } = useAuth()
+    const { next, mfa } = Route.useSearch()
+    const authenticators = useQuery({
         queryKey: ['authenticators'],
         queryFn: async () => {
-            const res = await ALLAUTH_API.getAuthenticators();
-            return (res.status === 200 && Array.isArray(res.data)) ? res.data : [];
+            const res = await ALLAUTH_API.getAuthenticators()
+            if (res.status !== 200 || !Array.isArray(res.data)) throw new Error('authenticators_unavailable')
+            return res.data
         },
-        staleTime: 10000,
-    });
-
-    const hasTOTP = authenticators?.some(a => a.type === 'totp') ?? false;
-
-    // Default to password if they have one, otherwise passkey
-    const [method, setMethod] = useState<AuthMethod>(hasPassword ? 'password' : 'passkey');
-    const [password, setPassword] = useState('');
-    const [totpCode, setTotpCode] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const handleSuccess = () => {
-        if (next) {
-            window.location.href = next;
-        } else {
-            navigate({ to: '/dashboard' });
-        }
-    };
-
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
+        retry: false,
+    })
+    const methods = reauthenticationMethods(authenticators.data ?? [], user?.has_usable_password === true, Boolean(mfa))
+    const [selected, setSelected] = useState<VerificationMethod | null>(null)
+    const method = selected && methods.includes(selected) ? selected : methods[0]
+    const [value, setValue] = useState('')
+    const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+    const busy = useRef(false)
+    const returnToSignIn = async () => {
+        if (busy.current) return
+        busy.current = true
+        setLoading(true)
+        setError(null)
         try {
-            const res = await ALLAUTH_API.reauthenticate(password);
-            if (res.status === 200) {
-                handleSuccess();
-            } else {
-                setError(res.errors?.[0]?.message || 'Re-authentication failed');
-            }
-        } catch (err: any) {
-            setError(err.message || 'An error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+            await logout()
+            await navigate({ to: '/login', search: { redirect: safeReturnPath(next) } })
+        } catch { setError(t('mfa.errors.connection')) }
+        finally { busy.current = false; setLoading(false) }
+    }
 
-    const handlePasskeySubmit = async () => {
-        setLoading(true);
-        setError(null);
-
+    const submit = async (event?: FormEvent) => {
+        event?.preventDefault()
+        if (busy.current || !method) return
+        busy.current = true
+        setLoading(true)
+        setError(null)
         try {
-            const optResp = await ALLAUTH_API.getWebAuthnRequestOptionsForReauthentication();
-            if (!optResp.data?.request_options) {
-                throw new Error('Could not get passkey options');
-            }
-            const jsonOptions = optResp.data.request_options;
-            const options = parseRequestOptionsFromJSON(jsonOptions);
-            const credential = await webauthnGet(options);
-            const res = await ALLAUTH_API.reauthenticateUsingWebAuthn(credential);
-
-            if (res.status === 200) {
-                handleSuccess();
+            let res
+            if (method === 'passkey') {
+                const options = await ALLAUTH_API.getWebAuthnRequestOptionsForReauthentication()
+                if (options.status !== 200 || !options.data?.request_options) {
+                    setError(t(securityErrorKey(options)))
+                    return
+                }
+                const credential = await webauthnGet(parseRequestOptionsFromJSON(options.data.request_options))
+                res = await ALLAUTH_API.reauthenticateUsingWebAuthn(credential)
             } else {
-                setError(res.errors?.[0]?.message || 'Re-authentication failed');
+                res = method === 'totp' ? await ALLAUTH_API.mfaReauthenticate(value) : await ALLAUTH_API.reauthenticate(value)
             }
-        } catch (err: any) {
-            setError(err.message || 'An error occurred during passkey verification');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleTOTPSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        try {
-            const res = await ALLAUTH_API.authenticateMFA(totpCode);
-            if (res.status === 200) {
-                handleSuccess();
-            } else {
-                setError(res.errors?.[0]?.message || 'Invalid code');
+            if (res.status !== 200) {
+                setError(t(securityErrorKey(res)))
+                return
             }
-        } catch (err: any) {
-            setError(err.message || 'An error occurred');
+            const refreshed = await refresh(true)
+            if (refreshed.error || refreshed.sessionRes?.status !== 200) {
+                setError(t('mfa.errors.connection'))
+                return
+            }
+            await navigate({ to: safeReturnPath(next) })
+        } catch {
+            setError(t(method === 'passkey' ? 'mfa.errors.passkey' : 'mfa.errors.connection'))
         } finally {
-            setLoading(false);
+            busy.current = false
+            setLoading(false)
         }
-    };
+    }
 
-    // Count available methods
-    const availableMethods = [
-        hasPassword && 'password',
-        'passkey',
-        hasTOTP && 'totp'
-    ].filter(Boolean) as AuthMethod[];
-
-    return (
-        <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gray-50 dark:bg-gray-950 transition-colors">
-            <div className="max-w-md w-full p-8 bg-white dark:bg-gray-900 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-800 transition-colors">
-                <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-                        <Lock size={32} />
-                    </div>
-                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Verify Identity</h2>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">Please verify your identity to continue with this sensitive action.</p>
-                </div>
-
-                {/* Method Toggle - only show if multiple methods available */}
-                {availableMethods.length > 1 && (
-                    <div className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 mb-6 gap-1">
-                        {hasPassword && (
-                            <button
-                                type="button"
-                                onClick={() => setMethod('password')}
-                                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${method === 'password'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                    }`}
-                            >
-                                <Key size={14} />
-                                Password
-                            </button>
-                        )}
-                        <button
-                            type="button"
-                            onClick={() => setMethod('passkey')}
-                            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${method === 'passkey'
-                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
-                        >
-                            <Fingerprint size={14} />
-                            Passkey
-                        </button>
-                        {hasTOTP && (
-                            <button
-                                type="button"
-                                onClick={() => setMethod('totp')}
-                                className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${method === 'totp'
-                                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                    }`}
-                            >
-                                <Smartphone size={14} />
-                                TOTP
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                {error && (
-                    <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl flex items-center gap-3 text-sm">
-                        <AlertCircle size={18} />
-                        {error}
-                    </div>
-                )}
-
-                {method === 'password' && (
-                    <form onSubmit={handlePasswordSubmit} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Password</label>
-                            <input
-                                type="password"
-                                required
-                                autoFocus
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95"
-                        >
-                            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify Password'}
-                        </button>
-                    </form>
-                )}
-
-                {method === 'passkey' && (
-                    <div className="space-y-5">
-                        <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                            <Fingerprint className="mx-auto mb-3 text-indigo-600 dark:text-indigo-400" size={48} />
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
-                                Click the button below to verify using your passkey or security key.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handlePasskeySubmit}
-                            disabled={loading}
-                            className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95"
-                        >
-                            {loading ? <Loader2 className="animate-spin" size={20} /> : (
-                                <>
-                                    <Fingerprint size={20} />
-                                    Use Passkey
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
-
-                {method === 'totp' && (
-                    <form onSubmit={handleTOTPSubmit} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Authenticator Code</label>
-                            <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                required
-                                autoFocus
-                                maxLength={6}
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-center text-2xl tracking-widest"
-                                placeholder="000000"
-                                value={totpCode}
-                                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                            />
-                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">Enter the 6-digit code from your authenticator app</p>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={loading || totpCode.length !== 6}
-                            className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95"
-                        >
-                            {loading ? <Loader2 className="animate-spin" size={20} /> : 'Verify Code'}
-                        </button>
-                    </form>
-                )}
-            </div>
-        </div>
-    );
-};
+    return <SecurityPanel title={t('mfa.reauthenticateTitle')} description={t(mfa ? 'mfa.reauthenticateMfaDescription' : 'mfa.reauthenticateDescription')}>
+        {authenticators.isPending ? <p role="status">{t('mfa.loading')}</p> : authenticators.isError ? <><SecurityError>{t('mfa.errors.load')}</SecurityError><Button onClick={() => authenticators.refetch()}>{t('mfa.retry')}</Button></> : !method ? <><SecurityError>{error || t('mfa.noRegisteredMethod')}</SecurityError><Button onClick={returnToSignIn} loading={loading}>{t('mfa.backToLogin')}</Button></> : <>
+            <MethodSelector methods={methods} method={method} onChange={item => { setSelected(item); setValue(''); setError(null) }} disabled={loading} />
+            {error && <SecurityError>{error}</SecurityError>}
+            {method === 'passkey' ? <><p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{t('mfa.passkeyHint')}</p><Button onClick={() => submit()} loading={loading}>{t('mfa.methods.passkey')}</Button></> : <form onSubmit={submit} className="space-y-4">
+                <FormField label={t(method === 'password' ? 'mfa.methods.password' : 'mfa.codeLabel')} help={method === 'totp' ? t('mfa.codeHint') : undefined} required>
+                    <input type={method === 'password' ? 'password' : 'text'} className={formControlClass} autoComplete={method === 'password' ? 'current-password' : 'one-time-code'} inputMode={method === 'totp' ? 'numeric' : undefined} pattern={method === 'totp' ? '[0-9]{6}' : undefined} maxLength={method === 'totp' ? 6 : undefined} value={value} onChange={event => setValue(method === 'totp' ? event.target.value.replace(/\D/g, '') : event.target.value)} required disabled={loading} />
+                </FormField>
+                <Button type="submit" loading={loading} disabled={!value || (method === 'totp' && value.length !== 6)}>{t('mfa.verify')}</Button>
+            </form>}
+        </>}
+    </SecurityPanel>
+}

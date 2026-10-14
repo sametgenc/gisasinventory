@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from .models import Tenant
 from .serializers import (
     TenantSerializer, TenantCreateSerializer, TenantUpdateSerializer,
-    TenantUserSerializer, UserCreateSerializer
+    TenantUserSerializer, UserCreateSerializer, UserUpdateSerializer
 )
 from .permissions import IsPlatformAdmin, IsTenantAdmin
 from apps.user.models import User, UserRole
@@ -30,7 +30,7 @@ class TenantViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         # Platform admins (superusers) can see all tenants
-        if user.is_superuser:
+        if user.is_superuser or (user.is_platform_admin and self.action == 'list'):
             return Tenant.objects.all()
         elif user.tenant:
             return Tenant.objects.filter(id=user.tenant.id)
@@ -49,7 +49,7 @@ class TenantViewSet(viewsets.ModelViewSet):
                           "bulk_import_tenants", "bulk_import_users", 
                           "export_tenants_template", "export_users_template",
                           "export_tenants", "export_users",
-                          "all_users", "create_user_unassigned"]:
+                          "all_users", "create_user_unassigned", "available_users"]:
             return [IsPlatformAdmin()]
         if self.action in ["my_users", "update_user_role", "update_user"]:
             return [IsTenantAdmin()]
@@ -279,7 +279,7 @@ class TenantViewSet(viewsets.ModelViewSet):
             "Valid email",
             "First name",
             "Last name",
-            "Min 8 characters (empty defaults to Temp1234!)",
+            "Required; must satisfy the platform password policy",
             "tenant_user / tenant_admin (tenant_admin requires shipyard)",
             "Exact shipyard name (empty = unassigned)",
         ]
@@ -414,7 +414,7 @@ class TenantViewSet(viewsets.ModelViewSet):
                 
                 first_name = str(ws.cell(row=row_idx, column=3).value or '').strip()
                 last_name = str(ws.cell(row=row_idx, column=4).value or '').strip()
-                password = str(ws.cell(row=row_idx, column=5).value or 'Temp1234!').strip()
+                password = str(ws.cell(row=row_idx, column=5).value or '').strip()
                 role = str(ws.cell(row=row_idx, column=6).value or 'tenant_user').strip().lower()
                 tenant_name = str(ws.cell(row=row_idx, column=7).value or '').strip()
                 
@@ -447,15 +447,12 @@ class TenantViewSet(viewsets.ModelViewSet):
                     continue
 
                 try:
-                    user = User.objects.create_user(
-                        username=username,
-                        email=email,
-                        password=password,
-                        first_name=first_name,
-                        last_name=last_name,
-                        role=role,
-                        tenant=tenant
-                    )
+                    serializer = UserCreateSerializer(data={
+                        "username": username, "email": email,
+                        "password": password, "role": role,
+                    })
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save(first_name=first_name, last_name=last_name, tenant=tenant)
                     results["success"] += 1
                 except Exception as e:
                     results["errors"].append({"row": row_idx, "errors": [str(e)]})
@@ -555,7 +552,9 @@ class TenantViewSet(viewsets.ModelViewSet):
             return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if not request.user.is_superuser:
-            if not request.user.is_tenant_admin or target_user.tenant != request.user.tenant:
+            if (not request.user.is_tenant_admin or request.user.tenant_id is None
+                    or target_user.tenant != request.user.tenant
+                    or target_user.is_superuser or target_user.is_platform_admin):
                 return Response(
                     {"detail": "You can only update users in your tenant."},
                     status=status.HTTP_403_FORBIDDEN
@@ -600,7 +599,10 @@ class TenantViewSet(viewsets.ModelViewSet):
         is_tenant_scope = (
             not request.user.is_superuser
             and request.user.is_tenant_admin
+            and request.user.tenant_id is not None
             and target_user.tenant == request.user.tenant
+            and not target_user.is_superuser
+            and not target_user.is_platform_admin
         )
         if not request.user.is_superuser and not is_tenant_scope:
             return Response(
@@ -609,16 +611,6 @@ class TenantViewSet(viewsets.ModelViewSet):
             )
 
         data = request.data or {}
-        update_fields = []
-
-        for field in ("first_name", "last_name", "email"):
-            if field in data:
-                setattr(target_user, field, data[field] or "")
-                update_fields.append(field)
-
-        if "is_active" in data:
-            target_user.is_active = bool(data["is_active"])
-            update_fields.append("is_active")
 
         if "role" in data:
             new_role = data.get("role")
@@ -638,24 +630,9 @@ class TenantViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            target_user.role = new_role
-            update_fields.append("role")
-
-        password = data.get("password")
-        if password:
-            if len(password) < 8:
-                return Response(
-                    {"detail": "Password must be at least 8 characters."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            target_user.set_password(password)
-            # set_password mutates password directly; include it in update_fields below
-            update_fields.append("password")
-
-        if not update_fields:
-            return Response(TenantUserSerializer(target_user).data)
-
-        target_user.save(update_fields=update_fields)
+        serializer = UserUpdateSerializer(target_user, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(TenantUserSerializer(target_user).data)
 
     @action(detail=False, methods=["get"], url_path="export-users")
@@ -723,4 +700,3 @@ class TenantViewSet(viewsets.ModelViewSet):
         )
         response['Content-Disposition'] = 'attachment; filename="users_export.xlsx"'
         return response
-

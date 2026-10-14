@@ -4,7 +4,7 @@ FROM node:22-bookworm-slim
 # 1. Enable Corepack
 # Corepack comes with Node.js and manages package managers like pnpm
 # This ensures you use the exact pnpm version defined in your package.json
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
 # 2. Set Environment Variables
 ENV PNPM_HOME="/pnpm" \
@@ -18,11 +18,11 @@ WORKDIR /app
 RUN pnpm config set store-dir /pnpm/store
 
 # 5. Copy Dependency Manifests
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # 6. Install Dependencies
-# --no-frozen-lockfile: Allows lockfile to be updated during install (handles pnpm version differences)
-RUN pnpm install --no-frozen-lockfile
+# Fail when manifests and the committed dependency lock disagree.
+RUN pnpm install --frozen-lockfile
 
 # 7. Copy Application Code
 # (Note: In your docker-compose, this is shadowed by the volume mount,
@@ -34,4 +34,4 @@ EXPOSE 5173
 
 # 9. Start the Development Server
 # --host 0.0.0.0 is MANDATORY to allow access from outside the container
-CMD ["sh", "-c", "pnpm install && pnpm dev -- --host 0.0.0.0"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm dev -- --host 0.0.0.0"]

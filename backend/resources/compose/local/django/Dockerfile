@@ -1,5 +1,5 @@
-# Use Python 3.12 (Bookworm is the current stable Debian release)
-FROM python:3.12-slim-bookworm
+# Match the Python requirement declared in pyproject.toml.
+FROM python:3.13-slim-bookworm
 
 # 1. Set Environment Variables
 ENV PYTHONUNBUFFERED=1 \
@@ -36,14 +36,14 @@ COPY pyproject.toml uv.lock ./
 # Sync dependencies:
 # --frozen: fails if the lockfile is out of date (ensures reproducibility)
 # --no-install-project: installs dependencies but not your actual app code yet
-RUN uv sync --no-install-project
+RUN uv sync --locked --no-install-project
 
 # 6. Copy Application Code
 COPY . .
 
 # 7. Install the Project
 # Now we install the project itself. Since dependencies are already there, this is fast.
-RUN uv sync
+RUN uv sync --locked
 
 # 8. Entrypoint Configuration
 # We copy a script to handle startup tasks (like migrations)

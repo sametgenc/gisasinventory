@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="{{ mail_language }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ mail_title }}</title></head>
+<body style="margin:0;padding:0;background:#f1f5f9;color:#1e293b;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#fff;border:1px solid #dbe3eb;border-radius:6px">
+<tr><td style="padding:24px 28px;border-bottom:1px solid #dbe3eb;color:#163a51;font-size:20px;font-weight:bold;letter-spacing:1px">GİSAŞ</td></tr>
+<tr><td style="padding:28px;font-size:15px;line-height:1.7"><h1 style="margin:0 0 24px;font-size:23px;line-height:1.35;color:#163a51">{{ mail_title }}</h1><p>{{ mail_greeting }}</p><p>{{ mail_message|linebreaksbr }}</p>
+{% if mail_code %}<p style="padding:18px;background:#eef4f7;border:1px solid #dbe3eb;border-radius:4px;font-family:monospace;font-size:26px;font-weight:bold;text-align:center;letter-spacing:4px">{{ mail_code }}</p><p style="font-size:13px;color:#526579">{{ mail_expiry }}</p>{% endif %}
+{% if mail_event_time %}<p style="font-size:13px;color:#526579">{{ mail_event_time }}</p>{% endif %}
+{% if mail_action_url %}<p style="margin:28px 0"><a href="{{ mail_action_url }}" style="display:inline-block;padding:12px 20px;background:#234e68;color:#fff;text-decoration:none;border-radius:4px;font-weight:bold">{{ mail_action_label }}</a></p>{% endif %}
+{% if mail_security_hint %}<p style="margin-top:28px;padding-top:20px;border-top:1px solid #dbe3eb;font-size:13px;color:#526579">{{ mail_security_hint }}</p>{% endif %}
+</td></tr><tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #dbe3eb;font-size:12px;line-height:1.6;color:#526579">GİSAŞ · {{ mail_footer }}</td></tr>
+</table></td></tr></table></body></html>

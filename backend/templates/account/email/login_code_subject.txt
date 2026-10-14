@@ -1,1 +1,1 @@
-{{ site_name }} - Sign-in code
+{{ mail_title }}

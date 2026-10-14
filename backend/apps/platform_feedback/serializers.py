@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.urls import reverse
 
 from .models import PlatformFeedback, PlatformFeedbackAttachment
 
@@ -15,7 +16,9 @@ class PlatformFeedbackAttachmentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not obj.file:
             return None
-        url = obj.file.url
+        url = reverse("platform-feedback-download-attachment", kwargs={
+            "id": obj.feedback_id, "attachment_id": obj.pk,
+        })
         if request is not None:
             return request.build_absolute_uri(url)
         return url

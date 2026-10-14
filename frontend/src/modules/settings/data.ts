@@ -10,6 +10,10 @@ export interface SmtpSettingsData {
     from_email: string;
     is_configured: boolean;
     updated_at: string | null;
+    delivery_mode: 'smtp' | 'preview';
+    mfa_enabled: boolean;
+    mfa_verified_recently: boolean;
+    reauthentication_required: boolean;
 }
 
 export interface SmtpSettingsInput {
@@ -37,7 +41,7 @@ export const settingsApi = {
         return response.data;
     },
 
-    testSmtpConnection: async (email: string): Promise<{ detail: string }> => {
+    testSmtpConnection: async (email: string): Promise<{ detail: string; delivery_mode: 'smtp' | 'preview' }> => {
         const response = await api.post('/api/settings/smtp/test/', { email });
         return response.data;
     },

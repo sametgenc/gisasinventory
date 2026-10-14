@@ -1,1 +1,1 @@
-{% load account %}{% user_display user as user_display %}{{ site_name }} - Verify your email
+{{ mail_title }}

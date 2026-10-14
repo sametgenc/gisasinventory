@@ -4,6 +4,10 @@
 .envs/.env.local
 .envs/.env.postgres
 .envs/.env.traefik
+.env
+.env.*
+!.env.*.example
+!frontend/.env.development
 !.envs/.env.*.example
 
 # ========================
@@ -65,3 +69,13 @@ Thumbs.db
 # Logs
 # ========================
 *.log
+
+# Local verification artifacts
+.venv/
+*.sqlite3
+frontend/test-results/
+frontend/playwright-report/
+frontend/demo-test-results/
+frontend/demo-artifacts/
+var/demo/
+/output/

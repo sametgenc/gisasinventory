@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
-import { cn } from './tokens'
+import { cardClass, cn, focusRingClass } from './tokens'
 import { Pagination } from './Pagination'
 import { EmptyState } from './EmptyState'
 
@@ -129,19 +129,20 @@ export function DataTable<Row>({
     return (
         <div
             className={cn(
-                'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden',
+                cardClass,
+                'overflow-hidden',
                 className,
             )}
         >
             {toolbar && (
-                <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">{toolbar}</div>
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">{toolbar}</div>
             )}
             <div
                 className="overflow-x-auto overflow-y-auto"
                 style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
             >
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+                    <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10">
                         <tr>
                             {columns.map((col) => {
                                 const isSorted = sort?.key === col.key
@@ -156,7 +157,7 @@ export function DataTable<Row>({
                                         key={col.key}
                                         scope="col"
                                         className={cn(
-                                            'px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap',
+                                            'px-4 py-3 border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap',
                                             alignClass[col.align ?? 'left'],
                                             col.widthClassName,
                                             col.headerClassName,
@@ -167,7 +168,8 @@ export function DataTable<Row>({
                                                 type="button"
                                                 onClick={() => toggleSort(col)}
                                                 className={cn(
-                                                    'inline-flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors',
+                                                    'inline-flex items-center gap-1.5 rounded-sm hover:text-slate-900 dark:hover:text-white transition-colors',
+                                                    focusRingClass,
                                                     col.align === 'right' && 'ml-auto',
                                                 )}
                                             >
@@ -182,13 +184,13 @@ export function DataTable<Row>({
                             })}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800">
                         {isLoading ? (
                             <>
                                 {Array.from({ length: 4 }).map((_, i) => (
                                     <tr key={i}>
                                         {columns.map((col, ci) => (
-                                            <td key={ci} className={cn('px-4 py-3', alignClass[col.align ?? 'left'])}>
+                                            <td key={ci} className={cn('px-4 py-3.5', alignClass[col.align ?? 'left'])}>
                                                 <div className="h-3.5 w-24 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
                                             </td>
                                         ))}
@@ -209,7 +211,7 @@ export function DataTable<Row>({
                                         key={String(rid)}
                                         onClick={onRowClick ? () => onRowClick(row) : undefined}
                                         className={cn(
-                                            'hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors',
+                                            'hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors',
                                             onRowClick && 'cursor-pointer',
                                         )}
                                     >
@@ -217,7 +219,7 @@ export function DataTable<Row>({
                                             <td
                                                 key={col.key}
                                                 className={cn(
-                                                    'px-4 py-3 text-slate-700 dark:text-slate-200',
+                                                    'px-4 py-3.5 leading-5 text-slate-700 dark:text-slate-200',
                                                     alignClass[col.align ?? 'left'],
                                                     col.cellClassName,
                                                 )}

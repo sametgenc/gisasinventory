@@ -1,0 +1,26 @@
+export const dashboardCopy = {
+    tr: {
+        inventory: 'Envanteri aç', openGuide: 'Kullanım rehberi',
+        introTitle: 'Envanteriniz tek yerde',
+        introBody: 'Marka ve modeli, toplam adediyle birlikte görün. Listeyi açarak ekipmanları tek tek inceleyin. Yeni kayıtlar için ekipman ekleyebilir veya Excel dosyanızı aktarabilirsiniz.',
+        queryError: 'Bazı bilgiler yüklenemedi. Gösterilmeyen değerler sıfır stok anlamına gelmez.',
+        retry: 'Tekrar dene', workingYard: 'Çalıştığınız tersane', noYard: 'Tersane ataması bekleniyor',
+        noYardHelp: 'Envanter işlemleri için yöneticinizin hesabınızı aktif bir tersaneye ataması gerekir.',
+        recent: 'Son eklenen ekipmanlar', code: 'Ekipman kodu',
+        notificationsHelp: 'Hesabınıza gelen bildirimler.',
+        notificationsError: 'Bildirimler yüklenemedi.', noNotifications: 'Henüz bildirim yok.',
+        unknownCode: 'Kod belirtilmemiş', quickHelp: 'Yeni başlayanlar için',
+    },
+    en: {
+        inventory: 'Open inventory', openGuide: 'User guide',
+        introTitle: 'Your equipment in one place',
+        introBody: 'See each brand and model with its total quantity. Open a list to inspect individual items. Add equipment or import your Excel file to create new records.',
+        queryError: 'Some information could not be loaded. Missing values do not mean zero stock.',
+        retry: 'Retry', workingYard: 'Your shipyard', noYard: 'Waiting for shipyard assignment',
+        noYardHelp: 'Ask your administrator to assign your account to an active shipyard before managing inventory.',
+        recent: 'Recently added equipment', code: 'Equipment code',
+        notificationsHelp: 'Notifications for your account.',
+        notificationsError: 'Notifications could not be loaded.', noNotifications: 'No notifications yet.',
+        unknownCode: 'No code specified', quickHelp: 'For new users',
+    },
+}

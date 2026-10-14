@@ -10,6 +10,7 @@ export const URLs = Object.freeze({
 
 const flow2path: Record<string, string> = {};
 flow2path[Flows.LOGIN] = "/login";
+flow2path[Flows.LOGIN_BY_CODE] = "/login/code/confirm";
 flow2path[Flows.SIGNUP] = "/register";
 flow2path[Flows.REAUTHENTICATE] = "/auth/reauthenticate";
 flow2path[Flows.VERIFY_EMAIL] = "/auth/email/verify";

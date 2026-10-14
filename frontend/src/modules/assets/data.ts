@@ -1,9 +1,11 @@
 import api from '@/api/client';
-import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, ColumnMapping, ImportPreview, RawImportResult } from './types';
+import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, ColumnMapping, ImportPreview, RawImportResult, SharedEquipmentFilters, SharedEquipmentPage } from './types';
 
 export interface BulkImportResult {
     message: string;
     success_count: number;
+    created_count?: number;
+    updated_count?: number;
     error_count: number;
     errors: { row: number; errors: string[] }[];
 }
@@ -51,6 +53,16 @@ export const assetsApi = {
 
     getAsset: async (id: string): Promise<Asset> => {
         const response = await api.get(`/api/assets/items/${id}/`);
+        return response.data;
+    },
+
+    listSharedEquipment: async (params: SharedEquipmentFilters): Promise<SharedEquipmentPage> => {
+        const response = await api.get('/api/assets/items/shared/', { params });
+        return response.data;
+    },
+
+    setSharing: async (id: string, data: { is_shared: boolean; sharing_note: string }): Promise<Asset> => {
+        const response = await api.patch(`/api/assets/items/${id}/sharing/`, data);
         return response.data;
     },
 
@@ -124,4 +136,3 @@ export const assetsApi = {
         return response.data;
     },
 };
-

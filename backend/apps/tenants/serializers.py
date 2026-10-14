@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Tenant
 from apps.user.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -68,6 +70,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["username", "email", "password", "role"]
+
+    def validate(self, attrs):
+        user = User(**{key: value for key, value in attrs.items() if key != "password"})
+        try:
+            validate_password(attrs["password"], user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": exc.messages}) from exc
+        return attrs
     
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -75,3 +85,32 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "is_active", "role", "password"]
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        if User.objects.filter(email__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("This email is already in use.")
+        return value
+
+    def validate_password(self, value):
+        if value:
+            try:
+                validate_password(value, self.instance)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError(exc.messages) from exc
+        return value
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", None)
+        if password:
+            instance.set_password(password)
+        return super().update(instance, validated_data)

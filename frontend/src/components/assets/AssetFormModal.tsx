@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Asset, AssetType, SchemaField } from '@/modules/assets'
+import { isStockType } from '@/modules/assets/inventory-groups'
 import {
     Modal,
     FormField,
@@ -29,13 +30,19 @@ export interface AssetFormModalProps {
     onSave: (data: AssetFormPayload) => Promise<void> | void
     isLoading: boolean
     error?: string | null
+    initialTypeId?: string | null
 }
 
 /**
  * Unified Asset form modal for create and edit flows.
  * In edit mode the asset type is locked; only custom_data (and tenant for superuser) is editable.
  */
-export function AssetFormModal({
+export function AssetFormModal(props: AssetFormModalProps) {
+    if (!props.isOpen) return null
+    return <AssetFormContent key={`${props.mode}:${props.asset?.id ?? 'new'}:${props.initialTypeId ?? ''}`} {...props} />
+}
+
+function AssetFormContent({
     isOpen,
     onClose,
     mode,
@@ -46,24 +53,13 @@ export function AssetFormModal({
     onSave,
     isLoading,
     error,
+    initialTypeId,
 }: AssetFormModalProps) {
     const { t } = useTranslation()
-    const [selectedTypeId, setSelectedTypeId] = useState('')
-    const [selectedTenantId, setSelectedTenantId] = useState<number | null>(null)
-    const [formData, setFormData] = useState<Record<string, unknown>>({})
-
-    useEffect(() => {
-        if (!isOpen) return
-        if (mode === 'edit' && asset) {
-            setSelectedTypeId(asset.asset_type)
-            setSelectedTenantId(asset.tenant ?? null)
-            setFormData({ ...(asset.custom_data || {}) })
-        } else {
-            setSelectedTypeId('')
-            setSelectedTenantId(null)
-            setFormData({})
-        }
-    }, [isOpen, mode, asset])
+    const initialType = mode === 'edit' ? asset?.asset_type ?? '' : initialTypeId ?? ''
+    const [selectedTypeId, setSelectedTypeId] = useState(initialType)
+    const [selectedTenantId, setSelectedTenantId] = useState<number | null>(mode === 'edit' ? asset?.tenant ?? null : null)
+    const [formData, setFormData] = useState<Record<string, unknown>>(() => mode === 'edit' ? { ...asset?.custom_data } : Object.fromEntries((assetTypes.find(type => type.id === initialType)?.schema ?? []).flatMap(field => field.default !== undefined ? [[field.key, field.default]] : field.type === 'checkbox' ? [[field.key, false]] : [])))
 
     const selectedType = useMemo(
         () => assetTypes.find((at) => at.id === selectedTypeId),
@@ -71,13 +67,20 @@ export function AssetFormModal({
     )
 
     const canSubmit = !!selectedTypeId && (!isSuperuser || !!selectedTenantId)
+    const stock = isStockType(selectedType)
+    const stockKeys = ['material_code', 'material_name', 'quantity']
+    const stockFields = stockKeys.flatMap(key => selectedType?.schema.filter(field => field.key === key) ?? [])
+    const additionalFields = stock ? selectedType?.schema.filter(field => !stockKeys.includes(field.key)) ?? [] : []
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!canSubmit) return
+        if (!canSubmit || isLoading) return
         const payload: AssetFormPayload = {
             asset_type: selectedTypeId,
-            custom_data: formData,
+            custom_data: {
+                ...Object.fromEntries((selectedType?.schema ?? []).filter(field => field.type === 'checkbox').map(field => [field.key, false])),
+                ...formData,
+            },
         }
         if (isSuperuser && selectedTenantId) payload.tenant = selectedTenantId
         onSave(payload)
@@ -88,19 +91,13 @@ export function AssetFormModal({
 
     const renderField = (field: SchemaField) => {
         const value = formData[field.key] ?? ''
+        const stockQuantity = stock && field.key === 'quantity'
+        const label = stock ? ({ material_code: t('inventory.materialCode'), material_name: t('inventory.materialName'), quantity: t('inventory.totalStock') } as Record<string, string>)[field.key] || field.label : field.label
 
         if (field.type === 'checkbox') {
             return (
-                <FormField key={field.key} label={field.label} required={field.required}>
-                    <label className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg cursor-pointer border border-slate-200 dark:border-slate-700">
-                        <input
-                            type="checkbox"
-                            checked={!!value}
-                            onChange={(e) => setFieldValue(field.key, e.target.checked)}
-                            className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-slate-600 dark:text-slate-400">{t('common.yes')}</span>
-                    </label>
+                <FormField key={field.key} label={field.label} required={field.required} help={t('ux.checkboxHelp')}>
+                    <input type="checkbox" checked={!!value} onChange={e => setFieldValue(field.key, e.target.checked)} className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                 </FormField>
             )
         }
@@ -133,13 +130,17 @@ export function AssetFormModal({
             'text'
 
         return (
-            <FormField key={field.key} label={field.label} required={field.required}>
+            <FormField key={field.key} label={label} required={field.required} help={stockQuantity ? t('inventory.stockQuantityHelp') : undefined}>
                 <input
                     type={inputType}
+                    step={stockQuantity ? 1 : field.type === 'number' ? 'any' : undefined}
+                    min={stockQuantity ? 0 : undefined}
+                    max={stockQuantity ? Number.MAX_SAFE_INTEGER : undefined}
+                    inputMode={stockQuantity ? 'numeric' : undefined}
                     value={value as string}
                     onChange={(e) => setFieldValue(field.key, e.target.value)}
                     className={formControlClass}
-                    placeholder={t('assets.enterField', { field: field.label })}
+                    placeholder={t('assets.enterField', { field: label })}
                     required={field.required}
                 />
             </FormField>
@@ -152,7 +153,8 @@ export function AssetFormModal({
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={mode === 'edit' ? t('assets.editAsset') : t('assets.createAsset')}
+            closeDisabled={isLoading}
+            title={stock ? t(mode === 'edit' ? 'inventory.editStock' : 'inventory.createStock') : mode === 'edit' ? t('assets.editAsset') : t('assets.createAsset')}
             footer={
                 <FormFooter
                     asSubmit
@@ -165,19 +167,21 @@ export function AssetFormModal({
             }
         >
             <form id={formId} onSubmit={handleSubmit} className="space-y-6">
+                <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{t(stock ? 'inventory.stockMeaning' : 'inventory.typeMeaning')}</p>
                 {error && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+                    <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                         {error}
                     </div>
                 )}
 
+                <fieldset disabled={isLoading} className="min-w-0 space-y-6">
                 <FormSection title={t('assets.fields.generalInfo')} layout={isSuperuser ? 'grid' : 'stack'}>
                     <FormField label={t('assets.typeLabel')} required>
                         <select
                             value={selectedTypeId}
                             onChange={(e) => {
                                 setSelectedTypeId(e.target.value)
-                                if (mode === 'create') setFormData({})
+                                if (mode === 'create') setFormData(Object.fromEntries((assetTypes.find(type => type.id === e.target.value)?.schema ?? []).flatMap(field => field.default !== undefined ? [[field.key, field.default]] : field.type === 'checkbox' ? [[field.key, false]] : [])))
                             }}
                             className={formControlClass}
                             required
@@ -212,13 +216,18 @@ export function AssetFormModal({
 
                 {selectedType && (selectedType.schema?.length ?? 0) > 0 && (
                     <FormSection
-                        title={t('assets.fields.customFields')}
+                        title={t(stock ? 'inventory.stockInformation' : 'assets.fields.customFields')}
                         description={selectedType.name}
                         layout="grid"
                     >
-                        {(selectedType.schema || []).map(renderField)}
+                        {(stock ? stockFields : selectedType.schema || []).map(renderField)}
                     </FormSection>
                 )}
+                {stock && additionalFields.length > 0 && <details className="rounded-md border border-slate-200 dark:border-slate-700">
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200">{t('inventory.additionalInformation')}</summary>
+                    <div className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">{additionalFields.map(renderField)}</div>
+                </details>}
+                </fieldset>
             </form>
         </Modal>
     )

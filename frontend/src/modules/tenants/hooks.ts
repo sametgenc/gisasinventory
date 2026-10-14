@@ -143,10 +143,11 @@ export function useCreateUnassignedUser() {
     });
 }
 
-export function useAllUsers() {
+export function useAllUsers(enabled = true) {
     return useQuery({
         queryKey: tenantKeys.allUsers(),
         queryFn: tenantsApi.getAllUsers,
+        enabled,
     });
 }
 

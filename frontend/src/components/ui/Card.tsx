@@ -17,8 +17,8 @@ export const Card: React.FC<CardProps> = ({
     <div
         className={cn(
             cardClass,
-            padded && 'p-5',
-            hoverable && 'hover:border-slate-300 dark:hover:border-slate-700 transition-colors',
+            padded && 'p-5 sm:p-6',
+            hoverable && 'hover:border-slate-400 dark:hover:border-slate-500 transition-colors',
             className,
         )}
         {...rest}
@@ -44,18 +44,18 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
 }) => (
     <div
         className={cn(
-            'flex items-start justify-between gap-3 px-5 py-4 border-b',
+            'flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 py-4 border-b',
             dividerClass,
             className,
         )}
         {...rest}
     >
         <div className="flex items-center gap-3 min-w-0">
-            {icon && <div className="shrink-0">{icon}</div>}
+            {icon && <div className="shrink-0 text-slate-500 dark:text-slate-400 [&>svg]:h-4 [&>svg]:w-4">{icon}</div>}
             <div className="min-w-0">
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white truncate">{title}</h2>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
                 {description && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
+                    <p className="text-sm leading-5 text-slate-500 dark:text-slate-400 mt-1">{description}</p>
                 )}
             </div>
         </div>
@@ -68,7 +68,7 @@ export const CardBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     children,
     ...rest
 }) => (
-    <div className={cn('p-5', className)} {...rest}>
+    <div className={cn('p-5 sm:p-6', className)} {...rest}>
         {children}
     </div>
 )

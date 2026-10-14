@@ -14,6 +14,7 @@ import os
 import urllib.parse
 from pathlib import Path
 from corsheaders.defaults import default_headers
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,14 +23,29 @@ APPS_DIR = BASE_DIR / "apps"
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-r05^86mriv&nwvs2uj2h0*radv4d)ozooaiuogp0^ekqni%9",
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DJANGO_DEBUG") == "True"
+
+# Demo and tests import these base settings before applying isolated local settings.
+# Only those exact modules may start without a production key when DEBUG is false.
+_uses_local_settings = os.environ.get("DJANGO_SETTINGS_MODULE") in {
+    "config.demo_settings",
+    "config.test_settings",
+}
+_configured_secret_key = os.environ.get("DJANGO_SECRET_KEY", "")
+if not DEBUG and not _uses_local_settings and (
+    not _configured_secret_key.strip()
+    or _configured_secret_key.strip().startswith("django-insecure-")
+):
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY must be configured with a nonempty production key "
+        "that does not start with 'django-insecure-'."
+    )
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = _configured_secret_key if _configured_secret_key.strip() else (
+    "django-insecure-r05^86mriv&nwvs2uj2h0*radv4d)ozooaiuogp0^ekqni%9"
+)
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", os.environ.get("DOMAIN", "localhost")]
 DOMAIN = os.environ.get("DOMAIN", "localhost")
@@ -210,6 +226,8 @@ ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_REAUTHENTICATION_TIMEOUT = 300
 ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = True
+ACCOUNT_EMAIL_NOTIFICATIONS = True
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[GİSAŞ] "
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 # Unified 6-digit OTP across signup verification, login-by-code, password reset.
@@ -227,6 +245,7 @@ MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
 MFA_WEBAUTHN_RP_ID = DOMAIN
 MFA_WEBAUTHN_RP_NAME = "Gisas Platform"
 MFA_ADAPTER = "apps.user.adapters.CustomMFAAdapter"
+MFA_TOTP_ISSUER = "GİSAŞ"
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
@@ -280,8 +299,18 @@ CSRF_COOKIE_SECURE = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Email settings — SMTP config is loaded from the database at runtime
-EMAIL_BACKEND = "apps.settings.email_backend.DatabaseEmailBackend"
-DEFAULT_FROM_EMAIL = f"noreply@{DOMAIN}"
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "apps.settings.email_backend.DatabaseEmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "false").lower() == "true"
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", f"noreply@{DOMAIN}")
+SMTP_CREDENTIAL_KEY = os.environ.get("SMTP_CREDENTIAL_KEY", "")
+MFA_CREDENTIAL_KEY = os.environ.get("MFA_CREDENTIAL_KEY", "")
+NOTIFICATION_EMAIL_ENABLED = True
 
 LOGGING = {
     "version": 1,
@@ -316,9 +345,10 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+# SSE already sends connection keep-alives; do not create user notifications for them.
 CELERY_BEAT_SCHEDULE = {
-    "send-broadcast-every-10-seconds": {
-        "task": "apps.notifications.tasks.broadcast_heartbeat_notification",
-        "schedule": 100.0,
+    'retry-notification-emails': {
+        'task': 'apps.notifications.tasks.retry_pending_notification_emails',
+        'schedule': 60.0,
     },
 }

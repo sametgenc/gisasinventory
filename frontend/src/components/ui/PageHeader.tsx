@@ -4,7 +4,7 @@ import { cn } from './tokens'
 export interface PageHeaderProps {
     title: React.ReactNode
     subtitle?: React.ReactNode
-    /** Icon shown in a subtle blue badge next to the title. */
+    /** Section icon shown next to the title. */
     icon?: React.ReactNode
     /** Primary action button(s). Rendered at the right edge. */
     actions?: React.ReactNode
@@ -26,23 +26,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => (
     <div className={cn('mb-6 flex flex-col gap-3', className)}>
         {before}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+            <div className="flex items-start gap-3 min-w-0">
                 {icon && (
-                    <div className="shrink-0 p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                    <div className="shrink-0 mt-1 text-slate-500 dark:text-slate-400 [&>svg]:h-5 [&>svg]:w-5">
                         {icon}
                     </div>
                 )}
                 <div className="min-w-0">
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight truncate">
+                    <h1 className="text-[22px] sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight leading-8 break-words">
                         {title}
                     </h1>
                     {subtitle && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-6 max-w-2xl">{subtitle}</p>
                     )}
                 </div>
             </div>
-            {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+            {actions && <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:pt-0.5">{actions}</div>}
         </div>
     </div>
 )

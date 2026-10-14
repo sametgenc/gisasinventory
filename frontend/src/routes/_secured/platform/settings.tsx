@@ -1,30 +1,31 @@
-import { useState, useEffect } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
-import { Settings, Mail, CheckCircle, AlertTriangle, Send, Eye, EyeOff, Server } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Settings, Mail, Send, Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { settingsApi } from '@/modules/settings/data'
-import type { SmtpSettingsData, SmtpSettingsInput } from '@/modules/settings/data'
-import {
-    Modal,
-    FormField,
-    FormSection,
-    FormFooter,
-    PageHeader,
-    Button,
-    Card,
-    formControlClass,
-} from '@/components/ui'
+import axios from 'axios'
+import { settingsApi, type SmtpSettingsData, type SmtpSettingsInput } from '@/modules/settings/data'
+import { Modal, FormField, FormSection, FormFooter, PageHeader, Button, Card, formControlClass } from '@/components/ui'
 
-export const Route = createFileRoute('/_secured/platform/settings')({
-    component: SettingsPage,
-})
+export const Route = createFileRoute('/_secured/platform/settings')({ component: SettingsPage })
+type Gate = 'mfa_verification_required' | 'reauthentication_required' | null
+type Message = { type: 'success' | 'error'; text: string }
 
-type Security = 'tls' | 'ssl' | 'none'
-
-function securityFromForm(f: Pick<SmtpSettingsInput, 'use_tls' | 'use_ssl'>): Security {
-    if (f.use_tls) return 'tls'
-    if (f.use_ssl) return 'ssl'
-    return 'none'
+function errorData(error: unknown): { code?: string; detail?: string; [key: string]: unknown } {
+    if (!axios.isAxiosError(error) || !error.response?.data || typeof error.response.data !== 'object') return {}
+    return error.response.data
+}
+function securityGate(code: unknown): Gate { return code === 'reauthentication_required' || code === 'mfa_verification_required' ? code : null }
+function SecurityGate({ gate }: { gate: Gate }) {
+    const { t } = useTranslation()
+    if (!gate) return null
+    return <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+        <p className="mb-3 leading-6">{t(gate === 'reauthentication_required' ? 'settings.smtp.reauthenticationRequired' : 'settings.smtp.mfaVerificationRequired')}</p>
+        <Link to="/auth/reauthenticate" search={{ next: '/platform/settings', mfa: gate === 'mfa_verification_required' }} className="font-medium underline">{t(gate === 'mfa_verification_required' ? 'settings.smtp.mfaVerify' : 'settings.smtp.verifyIdentity')}</Link>
+    </div>
+}
+function Result({ message }: { message: Message | null }) {
+    if (!message) return null
+    return <p role={message.type === 'error' ? 'alert' : 'status'} className={`rounded-md border p-3 text-sm leading-6 ${message.type === 'error' ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300' : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300'}`}>{message.text}</p>
 }
 
 function SettingsPage() {
@@ -32,365 +33,110 @@ function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-    const [isTestOpen, setIsTestOpen] = useState(false)
-
-    const [formData, setFormData] = useState<SmtpSettingsInput>({
-        host: '',
-        port: 587,
-        username: '',
-        password: '',
-        use_tls: true,
-        use_ssl: false,
-        from_email: '',
-    })
-    const [smtpStatus, setSmtpStatus] = useState<Pick<SmtpSettingsData, 'is_configured' | 'password_set' | 'updated_at'>>({
-        is_configured: false,
-        password_set: false,
-        updated_at: null,
-    })
-
-    useEffect(() => {
-        loadSettings()
-    }, [])
-
-    useEffect(() => {
-        if (!message) return
-        const timer = setTimeout(() => setMessage(null), 5000)
-        return () => clearTimeout(timer)
-    }, [message])
-
-    const loadSettings = async () => {
+    const [message, setMessage] = useState<Message | null>(null)
+    const [status, setStatus] = useState<SmtpSettingsData | null>(null)
+    const [gate, setGate] = useState<Gate>(null)
+    const [fields, setFields] = useState<Record<string, string>>({})
+    const [testOpen, setTestOpen] = useState(false)
+    const busy = useRef(false)
+    const [form, setForm] = useState<SmtpSettingsInput>({ host: '', port: 587, username: '', password: '', use_tls: true, use_ssl: false, from_email: '' })
+    const load = useCallback(async () => {
+        setLoading(true)
+        setMessage(null)
         try {
-            setLoading(true)
             const data = await settingsApi.getSmtpSettings()
-            setFormData({
-                host: data.host,
-                port: data.port,
-                username: data.username,
-                password: '',
-                use_tls: data.use_tls,
-                use_ssl: data.use_ssl,
-                from_email: data.from_email,
-            })
-            setSmtpStatus({
-                is_configured: data.is_configured,
-                password_set: data.password_set,
-                updated_at: data.updated_at,
-            })
-        } catch {
-            setMessage({ type: 'error', text: t('settings.smtp.saveFailed') })
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault()
+            setStatus(data)
+            setForm({ host: data.host, port: data.port, username: data.username, password: '', use_tls: data.use_tls, use_ssl: data.use_ssl, from_email: data.from_email })
+            setGate(data.reauthentication_required ? data.mfa_enabled ? 'mfa_verification_required' : 'reauthentication_required' : null)
+        } catch { setMessage({ type: 'error', text: t('settings.smtp.loadFailed') }) }
+        finally { setLoading(false) }
+    }, [t])
+    useEffect(() => { void load() }, [load])
+    const save = async (event: React.FormEvent) => {
+        event.preventDefault()
+        if (busy.current) return
+        busy.current = true
+        setSaving(true)
+        setFields({})
+        setMessage(null)
         try {
-            setSaving(true)
-            const data = await settingsApi.updateSmtpSettings(formData)
-            setSmtpStatus({
-                is_configured: data.is_configured,
-                password_set: data.password_set,
-                updated_at: data.updated_at,
-            })
-            setFormData(prev => ({ ...prev, password: '' }))
+            const data = await settingsApi.updateSmtpSettings(form)
+            setStatus(data)
+            setGate(null)
+            setForm(current => ({ ...current, password: '' }))
+            setShowPassword(false)
             setMessage({ type: 'success', text: t('settings.smtp.saveSuccess') })
-        } catch {
-            setMessage({ type: 'error', text: t('settings.smtp.saveFailed') })
-        } finally {
-            setSaving(false)
-        }
+        } catch (error) {
+            const data = errorData(error)
+            setGate(securityGate(data.code))
+            const errors: Record<string, string> = {}
+            for (const key of Object.keys(form)) {
+                const value = data[key]
+                if (Array.isArray(value)) errors[key] = value.filter(item => typeof item === 'string').join(' ')
+                else if (typeof value === 'string') errors[key] = value
+            }
+            setFields(errors)
+            setMessage({ type: 'error', text: t(Object.keys(errors).length ? 'settings.smtp.fieldsInvalid' : 'settings.smtp.saveFailed') })
+        } finally { busy.current = false; setSaving(false) }
     }
-
-    const setSecurity = (sec: Security) => {
-        setFormData(prev => ({
-            ...prev,
-            use_tls: sec === 'tls',
-            use_ssl: sec === 'ssl',
-            // Suggest a default port when the user hasn't customised it
-            port: sec === 'ssl' && (prev.port === 587 || !prev.port) ? 465
-                : sec === 'tls' && (prev.port === 465 || !prev.port) ? 587
-                : prev.port,
-        }))
-    }
-
-    const currentSecurity = securityFromForm(formData)
-
-    if (loading) {
-        return (
-            <div className="w-full min-w-0">
-                <div className="animate-pulse space-y-6">
-                    <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                    <div className="h-4 w-96 bg-slate-200 dark:bg-slate-800 rounded-lg" />
-                    <div className="h-96 bg-slate-200 dark:bg-slate-800 rounded-2xl" />
-                </div>
-            </div>
-        )
-    }
-
-    return (
-        <div className="w-full min-w-0 space-y-6">
-            <PageHeader
-                icon={<Settings size={22} />}
-                title={t('settings.title')}
-                subtitle={t('settings.subtitle')}
-            />
-
-            {/* Toast-like message */}
-            {message && (
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium ${message.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                    : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-                    }`}>
-                    {message.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
-                    {message.text}
-                </div>
-            )}
-
-            {/* Status banner */}
-            <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border ${smtpStatus.is_configured
-                ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'
-                : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
-                }`}>
-                {smtpStatus.is_configured
-                    ? <CheckCircle size={20} className="text-emerald-500 dark:text-emerald-400 shrink-0" />
-                    : <AlertTriangle size={20} className="text-amber-500 dark:text-amber-400 shrink-0" />}
-                <div className="flex-1">
-                    <p className={`text-sm font-medium ${smtpStatus.is_configured ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                        {smtpStatus.is_configured ? t('settings.smtp.configured') : t('settings.smtp.notConfigured')}
-                    </p>
-                    {smtpStatus.updated_at && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            {new Date(smtpStatus.updated_at).toLocaleString()}
-                        </p>
-                    )}
-                </div>
-                {smtpStatus.is_configured && (
-                    <Button variant="secondary" icon={<Send size={14} />} onClick={() => setIsTestOpen(true)}>
-                        {t('settings.smtp.testConnection')}
-                    </Button>
-                )}
-            </div>
-
-            {/* SMTP form */}
-            <form onSubmit={handleSave}>
-                <Card className="overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                        <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                            <Mail size={18} className="text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-base font-semibold text-slate-900 dark:text-white">{t('settings.smtp.title')}</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t('settings.smtp.description')}</p>
-                        </div>
-                    </div>
-
-                    <div className="p-5 space-y-6">
-                        <FormSection title={t('settings.smtp.sectionSender', 'Gönderen')}>
-                            <FormField label={t('settings.smtp.fromEmail')} required>
-                                <div className="relative">
-                                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                    <input
-                                        type="email"
-                                        value={formData.from_email}
-                                        onChange={(e) => setFormData({ ...formData, from_email: e.target.value })}
-                                        className={`${formControlClass} pl-9`}
-                                        placeholder={t('settings.smtp.fromEmailPlaceholder')}
-                                        required
-                                    />
-                                </div>
-                            </FormField>
-                        </FormSection>
-
-                        <FormSection title={t('settings.smtp.sectionServer', 'Sunucu')}>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="md:col-span-2">
-                                    <FormField label={t('settings.smtp.host')} required>
-                                        <div className="relative">
-                                            <Server size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                            <input
-                                                type="text"
-                                                value={formData.host}
-                                                onChange={(e) => setFormData({ ...formData, host: e.target.value })}
-                                                className={`${formControlClass} pl-9`}
-                                                placeholder={t('settings.smtp.hostPlaceholder')}
-                                                required
-                                            />
-                                        </div>
-                                    </FormField>
-                                </div>
-                                <FormField label={t('settings.smtp.port')} required>
-                                    <input
-                                        type="number"
-                                        value={formData.port}
-                                        onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 0 })}
-                                        className={formControlClass}
-                                        placeholder={t('settings.smtp.portPlaceholder')}
-                                        required
-                                        min={1}
-                                        max={65535}
-                                    />
-                                </FormField>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormField label={t('settings.smtp.username')}>
-                                    <input
-                                        type="text"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        className={formControlClass}
-                                        placeholder={t('settings.smtp.usernamePlaceholder')}
-                                        autoComplete="off"
-                                    />
-                                </FormField>
-                                <FormField
-                                    label={t('settings.smtp.password')}
-                                    help={smtpStatus.password_set ? t('settings.smtp.passwordHint') : undefined}
-                                >
-                                    <div className="relative">
-                                        <input
-                                            type={showPassword ? 'text' : 'password'}
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className={`${formControlClass} pr-10`}
-                                            placeholder={smtpStatus.password_set ? t('settings.smtp.passwordHint') : t('settings.smtp.passwordPlaceholder')}
-                                            autoComplete="new-password"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(v => !v)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded"
-                                            tabIndex={-1}
-                                            aria-label={showPassword ? t('settings.smtp.hidePassword', 'Hide password') : t('settings.smtp.showPassword', 'Show password')}
-                                        >
-                                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
-                                    </div>
-                                </FormField>
-                            </div>
-
-                            <FormField
-                                label={t('settings.smtp.security', 'Güvenlik')}
-                                help={t('settings.smtp.securityHelp', 'STARTTLS (587) veya SSL (465) tavsiye edilir.')}
-                            >
-                                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 w-full sm:w-auto">
-                                    {([
-                                        { id: 'tls' as const, label: t('settings.smtp.useTls'), port: '587' },
-                                        { id: 'ssl' as const, label: t('settings.smtp.useSsl'), port: '465' },
-                                        { id: 'none' as const, label: t('settings.smtp.secNone', 'Yok') },
-                                    ]).map(opt => {
-                                        const active = currentSecurity === opt.id
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={opt.id}
-                                                onClick={() => setSecurity(opt.id)}
-                                                className={`flex-1 sm:flex-none px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${active
-                                                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                                                    }`}
-                                            >
-                                                {opt.label}
-                                                {opt.port && <span className="ml-1.5 text-xs opacity-60">({opt.port})</span>}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </FormField>
-                        </FormSection>
-                    </div>
-
-                    <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-end">
-                        <Button type="submit" loading={saving} icon={null}>
-                            {saving ? t('settings.smtp.saving') : t('common.save')}
-                        </Button>
-                    </div>
-                </Card>
+    const transport = form.use_tls ? 'tls' : form.use_ssl ? 'ssl' : 'none'
+    const input = (key: 'host' | 'username' | 'from_email', type = 'text') => <FormField label={t(`settings.smtp.${key === 'from_email' ? 'fromEmail' : key}`)} error={fields[key]} help={key === 'username' ? t('settings.smtp.usernameHelp') : undefined} required={key !== 'username'}>
+        <input type={type} className={formControlClass} value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })} disabled={saving} required={key !== 'username'} autoComplete="off" />
+    </FormField>
+    return <div className="w-full min-w-0 max-w-4xl space-y-5">
+        <PageHeader icon={<Settings size={22} />} title={t('settings.title')} subtitle={t('settings.subtitle')} />
+        <Result message={message} />
+        {loading ? <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{t('settings.smtp.loading')}</p> : !status ? <Button onClick={load}>{t('mfa.retry')}</Button> : <>
+            <Card className="p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-base font-semibold text-slate-900 dark:text-white">{t(status.delivery_mode === 'preview' ? 'settings.smtp.previewTitle' : status.is_configured ? 'settings.smtp.configured' : 'settings.smtp.notConfigured')}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">{t(status.delivery_mode === 'preview' ? 'settings.smtp.previewDescription' : 'settings.smtp.deliveryDescription')}</p></div><Button variant="secondary" icon={<Send size={16} />} onClick={() => setTestOpen(true)} disabled={saving || !status.is_configured}>{t('settings.smtp.testConnection')}</Button></div></Card>
+            <SecurityGate gate={gate} />
+            <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('settings.smtp.mfaOptional')} <Link to="/account/authenticators" className="font-medium text-blue-700 underline dark:text-blue-300">{t('settings.smtp.securitySettings')}</Link></p>
+            <form onSubmit={save}>
+                <Card><div className="flex items-center gap-3 border-b border-slate-200 p-5 dark:border-slate-700"><Mail size={20} className="text-blue-700 dark:text-blue-300" aria-hidden /><div><h2 className="font-semibold text-slate-900 dark:text-white">{t('settings.smtp.title')}</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('settings.smtp.description')}</p></div></div>
+                <div className="space-y-6 p-5">
+                    <FormSection title={t('settings.smtp.sectionSender')}>{input('from_email', 'email')}</FormSection>
+                    <FormSection title={t('settings.smtp.sectionServer')}>
+                        <div className="grid gap-4 sm:grid-cols-[1fr_140px]">{input('host')}<FormField label={t('settings.smtp.port')} required error={fields.port}><input className={formControlClass} type="number" min={1} max={65535} required disabled={saving} value={form.port || ''} onChange={event => setForm({ ...form, port: Number(event.target.value) })} /></FormField></div>
+                        <div className="grid gap-4 sm:grid-cols-2">{input('username')}<div className="relative"><FormField htmlFor="smtp-password" label={t('settings.smtp.password')} help={status.password_set ? t('settings.smtp.passwordHint') : undefined} error={fields.password}><input id="smtp-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={event => setForm({ ...form, password: event.target.value })} className={`${formControlClass} pr-11`} autoComplete="new-password" disabled={saving} aria-describedby="smtp-password-desc" aria-invalid={Boolean(fields.password)} /></FormField><button type="button" onClick={() => setShowPassword(!showPassword)} disabled={saving} className="absolute right-0 top-7 h-10 px-3 text-slate-500 focus-visible:outline-2 focus-visible:outline-blue-600" aria-label={t(showPassword ? 'settings.smtp.hidePassword' : 'settings.smtp.showPassword')} aria-pressed={showPassword}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
+                        <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('settings.smtp.appPasswordHelp')}</p>
+                        <div><p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">{t('settings.smtp.security')}</p><div role="group" aria-label={t('settings.smtp.security')} className="flex flex-wrap gap-2">{(['tls', 'ssl'] as const).map(value => <Button key={value} variant={transport === value ? 'primary' : 'secondary'} aria-pressed={transport === value} disabled={saving} onClick={() => setForm(current => ({ ...current, use_tls: value === 'tls', use_ssl: value === 'ssl', port: [465, 587].includes(current.port) ? value === 'tls' ? 587 : 465 : current.port }))}>{value === 'tls' ? 'STARTTLS (587)' : 'SSL/TLS (465)'}</Button>)}</div><p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('settings.smtp.securityHelp')}</p>{transport === 'none' && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">{t('settings.smtp.secureRequired')}</p>}{fields.use_tls && <p role="alert" className="text-sm text-red-700">{fields.use_tls}</p>}{fields.use_ssl && <p role="alert" className="text-sm text-red-700">{fields.use_ssl}</p>}</div>
+                    </FormSection>
+                </div><div className="flex justify-end border-t border-slate-200 p-4 dark:border-slate-700"><Button type="submit" loading={saving} disabled={transport === 'none'}>{t(saving ? 'settings.smtp.saving' : 'common.save')}</Button></div></Card>
             </form>
-
-            {/* Test email dialog */}
-            <TestConnectionDialog
-                isOpen={isTestOpen}
-                onClose={() => setIsTestOpen(false)}
-                onResult={setMessage}
-            />
-        </div>
-    )
+            <TestConnectionDialog isOpen={testOpen} onClose={() => setTestOpen(false)} onResult={setMessage} />
+        </>}
+    </div>
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TestConnectionDialog({
-    isOpen,
-    onClose,
-    onResult,
-}: {
-    isOpen: boolean
-    onClose: () => void
-    onResult: (m: { type: 'success' | 'error'; text: string }) => void
-}) {
+function TestConnectionDialog({ isOpen, onClose, onResult }: { isOpen: boolean; onClose: () => void; onResult: (message: Message) => void }) {
     const { t } = useTranslation()
-    const [testEmail, setTestEmail] = useState('')
+    const [email, setEmail] = useState('')
     const [testing, setTesting] = useState(false)
-
-    useEffect(() => {
-        if (!isOpen) { setTestEmail(''); setTesting(false) }
-    }, [isOpen])
-
-    const handleTest = async () => {
-        if (!testEmail.trim()) return
+    const [message, setMessage] = useState<Message | null>(null)
+    const [fieldError, setFieldError] = useState<string | undefined>()
+    const [gate, setGate] = useState<Gate>(null)
+    const busy = useRef(false)
+    useEffect(() => { if (isOpen) { setMessage(null); setFieldError(undefined); setGate(null) } }, [isOpen])
+    const test = async (event: React.FormEvent) => {
+        event.preventDefault()
+        if (busy.current || !email.trim()) return
+        busy.current = true
+        setTesting(true)
+        setMessage(null)
+        setFieldError(undefined)
+        setGate(null)
         try {
-            setTesting(true)
-            await settingsApi.testSmtpConnection(testEmail)
-            onResult({ type: 'success', text: t('settings.smtp.testSuccess') })
-            onClose()
-        } catch {
-            onResult({ type: 'error', text: t('settings.smtp.testFailed') })
-        } finally {
-            setTesting(false)
-        }
+            const data = await settingsApi.testSmtpConnection(email.trim())
+            const result: Message = { type: 'success', text: t(data.delivery_mode === 'preview' ? 'settings.smtp.testPreviewSuccess' : 'settings.smtp.testSuccess') }
+            setMessage(result)
+            onResult(result)
+        } catch (error) {
+            const data = errorData(error)
+            setGate(securityGate(data.code))
+            if (Array.isArray(data.email)) setFieldError(data.email.join(' '))
+            setMessage({ type: 'error', text: t('settings.smtp.testFailed') })
+        } finally { busy.current = false; setTesting(false) }
     }
-
-    const formId = 'smtp-test-form'
-
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={t('settings.smtp.testConnection')}
-            size="md"
-            footer={
-                <FormFooter
-                    asSubmit
-                    formId={formId}
-                    icon={<Send size={16} />}
-                    primaryLabel={t('settings.smtp.testConnection')}
-                    loading={testing}
-                    disabled={!testEmail.trim()}
-                    onCancel={onClose}
-                />
-            }
-        >
-            <form id={formId} onSubmit={(e) => { e.preventDefault(); handleTest() }} className="space-y-5">
-                <FormField
-                    label={t('settings.smtp.testEmail')}
-                    help={testing ? t('settings.smtp.testing') : undefined}
-                    required
-                >
-                    <input
-                        type="email"
-                        value={testEmail}
-                        onChange={(e) => setTestEmail(e.target.value)}
-                        className={formControlClass}
-                        placeholder={t('settings.smtp.testEmailPlaceholder')}
-                        required
-                        autoFocus
-                    />
-                </FormField>
-            </form>
-        </Modal>
-    )
+    return <Modal isOpen={isOpen} onClose={onClose} closeDisabled={testing} title={t('settings.smtp.testConnection')} size="md" footer={<FormFooter asSubmit formId="smtp-test-form" primaryLabel={t('settings.smtp.testConnection')} icon={<Send size={16} />} loading={testing} disabled={!email.trim()} onCancel={onClose} />}>
+        <form id="smtp-test-form" onSubmit={test} className="space-y-4"><Result message={message} /><SecurityGate gate={gate} /><FormField label={t('settings.smtp.testEmail')} help={t(testing ? 'settings.smtp.testing' : 'settings.smtp.testHelp')} error={fieldError} required><input type="email" className={formControlClass} value={email} onChange={event => setEmail(event.target.value)} disabled={testing} required autoFocus /></FormField></form>
+    </Modal>
 }

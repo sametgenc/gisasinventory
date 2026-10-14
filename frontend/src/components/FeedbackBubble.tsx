@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bug, Sparkles, MessageSquarePlus, Paperclip, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bug, ClipboardList, MessageSquarePlus, Paperclip, X, CheckCircle2, Loader2 } from 'lucide-react';
 
 import { useAuth } from '../auth/context';
 import api from '../api/client';
@@ -112,11 +112,12 @@ export const FeedbackBubble: React.FC = () => {
     if (!user?.is_superuser) return null;
 
     return (
-        <div className="fixed bottom-5 right-5 z-50">
+        <div className="fixed bottom-4 right-4 z-50 print:hidden">
             {isOpen && (
                 <div
                     ref={popoverRef}
-                    className="mb-3 w-[360px] max-w-[calc(100vw-2.5rem)] rounded-2xl bg-white dark:bg-slate-900 shadow-2xl shadow-slate-900/20 dark:shadow-black/40 border border-slate-200 dark:border-slate-800 overflow-hidden animate-dropdown"
+                    id="platform-feedback"
+                    className="mb-2 max-h-[75vh] w-[360px] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
                 >
                     <div className="flex items-start justify-between gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                         <div>
@@ -139,9 +140,7 @@ export const FeedbackBubble: React.FC = () => {
 
                     {justSubmitted ? (
                         <div className="px-4 py-8 flex flex-col items-center text-center">
-                            <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-3">
-                                <CheckCircle2 size={24} className="text-emerald-600 dark:text-emerald-400" />
-                            </div>
+                            <CheckCircle2 size={22} className="mb-3 text-emerald-600 dark:text-emerald-400" />
                             <p className="text-sm text-slate-700 dark:text-slate-200">
                                 {t('feedback.success')}
                             </p>
@@ -152,8 +151,9 @@ export const FeedbackBubble: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setType('bug')}
-                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${type === 'bug'
-                                        ? 'border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                                    aria-pressed={type === 'bug'}
+                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'bug'
+                                        ? 'border-blue-600 bg-blue-50 dark:border-blue-400 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
                                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                                         }`}
                                 >
@@ -163,40 +163,43 @@ export const FeedbackBubble: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => setType('feature')}
-                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${type === 'feature'
-                                        ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                                    aria-pressed={type === 'feature'}
+                                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-sm font-medium transition-colors ${type === 'feature'
+                                        ? 'border-blue-600 bg-blue-50 dark:border-blue-400 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
                                         : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                                         }`}
                                 >
-                                    <Sparkles size={14} />
+                                    <ClipboardList size={14} />
                                     {t('feedback.typeFeature')}
                                 </button>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                <label htmlFor="feedback-subject" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                                     {t('feedback.subjectLabel')}
                                 </label>
                                 <input
+                                    id="feedback-subject"
                                     type="text"
                                     value={subject}
                                     onChange={(e) => setSubject(e.target.value)}
                                     placeholder={t('feedback.subjectPlaceholder')}
-                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                                     maxLength={255}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                                <label htmlFor="feedback-description" className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                                     {t('feedback.descriptionLabel')}
                                 </label>
                                 <textarea
+                                    id="feedback-description"
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder={t('feedback.descriptionPlaceholder')}
                                     rows={4}
-                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                    className="w-full px-3 py-2 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent resize-none"
                                 />
                             </div>
 
@@ -208,7 +211,7 @@ export const FeedbackBubble: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                                        className="text-xs font-medium text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1"
                                     >
                                         <Paperclip size={12} />
                                         {t('feedback.attachFiles')}
@@ -222,7 +225,7 @@ export const FeedbackBubble: React.FC = () => {
                                     className="hidden"
                                 />
                                 {files.length === 0 ? (
-                                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
                                         {t('feedback.attachmentsHint')}
                                     </p>
                                 ) : (
@@ -264,7 +267,7 @@ export const FeedbackBubble: React.FC = () => {
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-md transition-colors"
                                 >
                                     {isSubmitting && <Loader2 size={14} className="animate-spin" />}
                                     {t('feedback.submit')}
@@ -278,8 +281,10 @@ export const FeedbackBubble: React.FC = () => {
             <button
                 type="button"
                 onClick={isOpen ? () => setIsOpen(false) : handleOpen}
-                className="group flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 transition-all"
+                className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-600 shadow-sm transition-colors hover:border-slate-400 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-white"
                 aria-label={t('feedback.bubbleTitle')}
+                aria-expanded={isOpen}
+                aria-controls="platform-feedback"
                 title={t('feedback.bubbleTitle')}
             >
                 <MessageSquarePlus size={18} />

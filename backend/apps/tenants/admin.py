@@ -12,7 +12,7 @@ class TenantAdmin(admin.ModelAdmin):
     
     fieldsets = (
         (None, {
-            "fields": ("name", "slug", "name_i18n", "is_active")
+            "fields": ("name", "slug", "description", "address", "phone", "email", "is_active")
         }),
         ("Timestamps", {
             "fields": ("created_at", "updated_at"),

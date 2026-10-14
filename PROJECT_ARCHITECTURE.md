@@ -279,7 +279,11 @@ mkcert -cert-file ./traefik/certs/local-cert.pem \
 | [Implementation Tasks](./IMPLEMENTATION_TASKS.md) | Phase-by-phase task breakdown |
 
 ### Current Phase
-**Phase 1: Multi-Tenancy Foundation** - Not started
+**Implemented:** tenant/user management, global equipment types, tenant-owned equipment, Excel import/export, authentication, notifications, type-based inventory browsing and owner-controlled shared listings.
+
+`Asset.is_shared` defaults to false. Managers publish through a scoped sharing action; regular CRUD and Excel imports cannot change publication. A separate paginated shared serializer exposes only owner/type/catalog/category/public note/publication date. Private equipment codes and dynamic data remain tenant-scoped. Ownership changes revoke publication; inactive owners and excluded types are hidden. See [central inventory product analysis](docs/ORTAK_ENVANTER_URUN_ANALIZI.md).
+
+**Not implemented:** cross-tenant sharing requests/reservations, schema versioning and full audit history. See [SSRP GAP analysis](docs/GISBIR_SSRP_GAP_ANALIZI.md) and [verification guide](docs/VERIFICATION.md).
 
 ### Quick Stats
 - **Estimated Total**: 20-29 days

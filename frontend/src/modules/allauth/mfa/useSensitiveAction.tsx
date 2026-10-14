@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useAuth } from '@/auth/context';
 import { useNavigate, useLocation } from '@tanstack/react-router';
+import type { AuthResponse } from '../types';
 
 export const useSensitiveAction = () => {
     const { needsReauthentication } = useAuth();
@@ -18,5 +19,17 @@ export const useSensitiveAction = () => {
         }
     }, [needsReauthentication, navigate, location.pathname]);
 
-    return { execute };
+    const handleResponse = useCallback(async (response: AuthResponse): Promise<boolean> => {
+        const flows = response.data?.flows ?? response.meta?.flows ?? [];
+        if (response.status === 401 && flows.some(flow => flow.id === 'reauthenticate' || flow.id === 'mfa_reauthenticate')) {
+            await navigate({
+                to: '/auth/reauthenticate',
+                search: { next: location.pathname },
+            });
+            return false;
+        }
+        return true;
+    }, [navigate, location.pathname]);
+
+    return { execute, handleResponse };
 };

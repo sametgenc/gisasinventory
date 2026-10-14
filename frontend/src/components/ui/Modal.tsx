@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ModalProps {
     isOpen: boolean;
@@ -15,6 +16,8 @@ interface ModalProps {
      * content.
      */
     footer?: React.ReactNode;
+    /** Prevent dismissal while a write or download is still in progress. */
+    closeDisabled?: boolean;
 }
 
 const sizeClasses: Record<string, string> = {
@@ -24,6 +27,9 @@ const sizeClasses: Record<string, string> = {
     xl: 'max-w-4xl',
 };
 
+const openDialogs: HTMLElement[] = [];
+let originalBodyOverflow = '';
+
 export const Modal: React.FC<ModalProps> = ({
     isOpen,
     onClose,
@@ -31,46 +37,89 @@ export const Modal: React.FC<ModalProps> = ({
     children,
     size = 'lg',
     footer,
+    closeDisabled = false,
 }) => {
+    const { t } = useTranslation();
     const modalRef = useRef<HTMLDivElement>(null);
+    const titleId = useId();
+    const closeRef = useRef({ onClose, closeDisabled });
+
+    useEffect(() => { closeRef.current = { onClose, closeDisabled }; }, [onClose, closeDisabled]);
 
     useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
+        if (!isOpen || !modalRef.current) return;
+        const dialog = modalRef.current;
+        const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        if (openDialogs.length === 0) originalBodyOverflow = document.body.style.overflow;
+        openDialogs.push(dialog);
+        document.body.style.overflow = 'hidden';
+        const isTopDialog = () => openDialogs.at(-1) === dialog;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!isTopDialog()) return;
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                if (!closeRef.current.closeDisabled) closeRef.current.onClose();
+            }
+            if (event.key !== 'Tab') return;
+            const controls = Array.from(dialog.querySelectorAll<HTMLElement>(
+                'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+            )).filter(control => control.getClientRects().length > 0 && control.tabIndex >= 0);
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (!first || !last) {
+                event.preventDefault(); dialog.focus(); return;
+            }
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+                event.preventDefault(); last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+                event.preventDefault(); first.focus();
+            }
         };
-        if (isOpen) {
-            document.addEventListener('keydown', handleEscape);
-            document.body.style.overflow = 'hidden';
-            setTimeout(() => modalRef.current?.focus(), 50);
-        }
+        const containFocus = (event: FocusEvent) => {
+            if (isTopDialog() && event.target instanceof Node && !dialog.contains(event.target)) dialog.focus();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('focusin', containFocus);
+        const frame = requestAnimationFrame(() => { if (isTopDialog() && !dialog.contains(document.activeElement)) dialog.focus(); });
         return () => {
-            document.removeEventListener('keydown', handleEscape);
-            document.body.style.overflow = 'unset';
+            cancelAnimationFrame(frame);
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('focusin', containFocus);
+            const wasTopDialog = isTopDialog();
+            const index = openDialogs.indexOf(dialog);
+            if (index >= 0) openDialogs.splice(index, 1);
+            if (!openDialogs.length) document.body.style.overflow = originalBodyOverflow;
+            if (wasTopDialog && previousFocus?.isConnected) previousFocus.focus();
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
     const overlay = (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 z-50 overflow-y-auto print:hidden">
             <div
-                className="fixed inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={onClose}
+                className="fixed inset-0 bg-slate-950/50"
+                onClick={() => { if (!closeDisabled) onClose(); }}
             />
-            <div className="relative min-h-full flex items-center justify-center p-4">
+            <div className="relative min-h-full flex items-center justify-center p-3 sm:p-6" onClick={event => { if (event.target === event.currentTarget && !closeDisabled) onClose(); }}>
                 <div
                     ref={modalRef}
-                    className={`relative bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden animate-dropdown flex flex-col`}
+                    className={`relative bg-white dark:bg-slate-900 rounded-md border border-slate-300 dark:border-slate-600 w-full ${sizeClasses[size]} max-h-[90dvh] overflow-hidden animate-dropdown flex flex-col focus:outline-none`}
                     role="dialog"
                     aria-modal="true"
+                    aria-labelledby={titleId}
+                    aria-busy={closeDisabled || undefined}
                     tabIndex={-1}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
-                        <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
+                    <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                        <h2 id={titleId} className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
                         <button
+                            type="button"
                             onClick={onClose}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            aria-label={t('common.close')}
+                            disabled={closeDisabled}
+                            className="shrink-0 p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <X size={18} />
                         </button>
@@ -83,7 +132,7 @@ export const Modal: React.FC<ModalProps> = ({
 
                     {/* Optional fixed footer */}
                     {footer && (
-                        <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                        <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
                             {footer}
                         </div>
                     )}

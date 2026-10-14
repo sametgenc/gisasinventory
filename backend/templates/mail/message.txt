@@ -1,0 +1,17 @@
+{% autoescape off %}GİSAŞ
+{{ mail_title }}
+
+{{ mail_greeting }}
+
+{{ mail_message }}
+{% if mail_code %}
+{{ mail_code }}
+{{ mail_expiry }}
+{% endif %}{% if mail_event_time %}
+{{ mail_event_time }}
+{% endif %}{% if mail_action_url %}
+{{ mail_action_label }}: {{ mail_action_url }}
+{% endif %}{% if mail_security_hint %}
+{{ mail_security_hint }}
+{% endif %}
+GİSAŞ · {{ mail_footer }}{% endautoescape %}

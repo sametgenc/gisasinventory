@@ -1,7 +1,9 @@
 import api from '@/api/client';
-import type { NotificationData, UnreadCountResponse, PaginatedResponse } from './types';
+import type { NotificationData, NotificationPreferences, UnreadCountResponse, PaginatedResponse } from './types';
 
 export const NOTIFICATION_API = {
+    getPreferences: async () => (await api.get<NotificationPreferences>('/api/notifications/preferences/')).data,
+    updatePreferences: async (data: Partial<NotificationPreferences>) => (await api.patch<NotificationPreferences>('/api/notifications/preferences/', data)).data,
     getUnreadCount: async () => {
         const res = await api.get<UnreadCountResponse>('/api/notifications/unread_count/');
         return res.data;
@@ -13,10 +15,10 @@ export const NOTIFICATION_API = {
         return Array.isArray(data) ? data : data.results;
     },
 
-    list: async (params?: any) => {
+    list: async (params?: { limit?: number; offset?: number }) => {
         const res = await api.get<PaginatedResponse<NotificationData> | NotificationData[]>('/api/notifications/', { params });
         const data = res.data;
-        return Array.isArray(data) ? data : data.results;
+        return Array.isArray(data) ? { results: data, count: data.length, next: null, previous: null } : data;
     },
 
     markAsRead: async (id: number) => {

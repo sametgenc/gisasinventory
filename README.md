@@ -1,8 +1,20 @@
 # GisasInventory
 
-Multi-tenant asset management platform for shipyard and dockyard operations.
+Central shipyard inventory with shared equipment definitions and owner-controlled equipment listings. Each shipyard keeps its private inventory; only explicitly published equipment appears to other shipyards.
 
 **Tech Stack:** Django 5 + React 19 + PostgreSQL + Redis + Celery + Traefik
+
+See the [SSRP capability and GAP analysis](docs/GISBIR_SSRP_GAP_ANALIZI.md) and [local verification guide](docs/VERIFICATION.md) for current support and regression checks.
+
+The [central inventory product analysis](docs/ORTAK_ENVANTER_URUN_ANALIZI.md) explains the listing MVP, current permissions, inventory standardization, Excel gaps and the next priorities. Shared listings are separate from availability, requests and reservations.
+
+## Demo and user guide
+
+Run `bash scripts/start-demo.sh` to open a local demo at `http://127.0.0.1:5190` with its own SQLite database, fictional shipyards, equipment, users, and Excel practice files. See [demo setup and accounts](docs/TEST_ORTAMI.md).
+
+The app includes a guide at `/help`, available after sign-in. Read the [user handbook](docs/KULLANIM_REHBERI.md), open the [offline illustrated guide](docs/kullanim-rehberi.html), or review the [UI findings and remaining gaps](docs/UI_GAP_ANALIZI.md). The inventory starts with equipment type groups; `/shared-equipment` shows owner-published equipment. Run `npm run test:demo` in `frontend` while the demo is running for real sign-in, import and cross-shipyard publication checks.
+
+For an existing production installation, follow [the production update guide](docs/CANLI_GUNCELLEME.md). It covers backups, migrations, worker/beat startup and live SMTP configuration while preserving the current database and encryption keys.
 
 ---
 

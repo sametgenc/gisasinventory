@@ -2,6 +2,7 @@ Django>=5.0
 psycopg2-binary>=2.9
 django-cors-headers
 django-allauth[headless,mfa]
+cryptography>=45.0.6
 fido2
 requests
 redis
@@ -9,3 +10,8 @@ uvicorn[standard]
 openpyxl
 whitenoise>=6.7.0
 gunicorn>=22.0.0
+
+# Kept for legacy pip installations; Docker uses pyproject.toml + uv.lock.
+celery>=5.4.0
+django-celery-beat>=2.7.0
+djangorestframework>=3.14.0

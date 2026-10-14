@@ -34,7 +34,16 @@ export interface RawImportResult {
     errors: { row: number; errors: string[] }[];
 }
 
-export interface AssetType {
+export interface CatalogMetadata {
+    catalog_code?: string | null;
+    category_code?: string;
+    sharing_class?: '' | 'A' | 'B' | 'C';
+    exclusion_reason?: string;
+}
+
+export interface AssetType extends CatalogMetadata {
+    tracking_mode?: 'individual' | 'stock';
+    sharing_excluded?: boolean;
     id: string;
     name: string;
     description: string;
@@ -44,7 +53,8 @@ export interface AssetType {
     created_by: number | null;
 }
 
-export interface AssetTypeCreateInput {
+export interface AssetTypeCreateInput extends CatalogMetadata {
+    tracking_mode?: 'individual' | 'stock';
     name: string;
     description?: string;
     schema: SchemaField[];
@@ -62,6 +72,36 @@ export interface Asset {
     created_by: number | null;
     assigned_to: number | null;
     assigned_to_username: string | null;
+    is_shared?: boolean;
+    is_listed_for_sharing?: boolean;
+    sharing_note?: string;
+    shared_at?: string | null;
+}
+
+/** Explicitly published information; private equipment data is never included. */
+export interface SharedEquipment {
+    id: string;
+    tenant: number;
+    tenant_name: string;
+    asset_type_name: string;
+    category_code: string;
+    catalog_code: string | null;
+    sharing_note: string;
+    shared_at: string | null;
+}
+
+export interface SharedEquipmentFilters {
+    search?: string;
+    category_code?: string;
+    tenant?: number;
+    page?: number;
+}
+
+export interface SharedEquipmentPage {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: SharedEquipment[];
 }
 
 export interface AssetCreateInput {

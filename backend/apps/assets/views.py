@@ -1,17 +1,34 @@
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from .models import AssetType, Asset
-from .serializers import AssetTypeSerializer, AssetSerializer
+from .serializers import AssetTypeSerializer, AssetSerializer, AssetSharingSerializer, SharedAssetSerializer
+from .validation import import_field_value
+from apps.tenants.permissions import IsTenantMember
+from django.core.exceptions import ValidationError as DjangoValidationError
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
 import json
+import re
+from django.db.models.deletion import ProtectedError
+from django.db import transaction
+from .catalog_import import CatalogImportMixin
+from apps.notifications.services import notify_import_result, notify_sharing_changed
 
 
-class AssetTypeViewSet(viewsets.ModelViewSet):
+def equipment_sheet_title(name):
+    """Keep an equipment name valid for Excel and reserve import metadata names."""
+    title = re.sub(r'[\\*?:/\[\]]', ' ', name).strip().strip("'").strip()
+    title = title[:31].strip().strip("'").strip()
+    return title if title and title.casefold() != '_mapping' else 'Ekipmanlar'
+
+
+class AssetTypeViewSet(CatalogImportMixin, viewsets.ModelViewSet):
     """
     ViewSet for managing Asset Types (Schemas).
     AssetTypes are global - any authenticated user can view them.
@@ -50,7 +67,10 @@ class AssetTypeViewSet(viewsets.ModelViewSet):
                 {"detail": "Only platform administrators can delete asset types."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        return super().destroy(request, *args, **kwargs)
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response({'detail': 'Bu tipe bağlı ekipmanlar var. Önce ekipmanları başka bir tipe taşıyın.'}, status=409)
 
     @action(detail=True, methods=['get'])
     def export_template(self, request, pk=None):
@@ -64,7 +84,7 @@ class AssetTypeViewSet(viewsets.ModelViewSet):
         # Create workbook
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = asset_type.name[:31]  # Excel limit
+        ws.title = equipment_sheet_title(asset_type.name)
         
         # Header styles
         header_font = Font(bold=True, color="FFFFFF", size=12)
@@ -118,6 +138,7 @@ class AssetTypeViewSet(viewsets.ModelViewSet):
         # Write headers (Row 1)
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.data_type = 's'
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_alignment
@@ -149,6 +170,8 @@ class AssetTypeViewSet(viewsets.ModelViewSet):
                 'phone': '+90 555 123 45 67'
             }
             cell = ws.cell(row=3, column=col_idx, value=examples.get(field_type, ''))
+            if isinstance(cell.value, str):
+                cell.data_type = 's'
             cell.fill = example_fill
             cell.alignment = Alignment(horizontal="center")
         
@@ -167,14 +190,25 @@ class AssetTypeViewSet(viewsets.ModelViewSet):
         buffer.seek(0)
         
         # Create response
-        filename = f"{asset_type.name.replace(' ', '_')}_sablonu.xlsx"
+        filename = f"{ws.title.replace(' ', '_')}_sablonu.xlsx"
         response = HttpResponse(
             buffer.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Disposition'] = content_disposition_header(True, filename)
         
         return response
+
+
+class IsActiveAssetUser(permissions.BasePermission):
+    """Inactive accounts cannot use sharing, including forced authentication."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_active
+
+
+class SharedAssetPagination(PageNumberPagination):
+    page_size = 24
 
 
 class AssetViewSet(viewsets.ModelViewSet):
@@ -183,7 +217,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     Assets are tenant-specific - users only see their tenant's assets.
     """
     serializer_class = AssetSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsTenantMember]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['asset_type__name']
     ordering_fields = ['created_at', 'updated_at']
@@ -213,7 +247,54 @@ class AssetViewSet(viewsets.ModelViewSet):
         if assigned_to_id:
             queryset = queryset.filter(assigned_to_id=assigned_to_id)
             
-        return queryset.select_related('tenant', 'asset_type', 'assigned_to')
+        queryset = queryset.select_related('tenant', 'asset_type', 'assigned_to')
+        if self.action == 'sharing':
+            queryset = queryset.select_for_update(of=('self',))
+        return queryset
+
+    @action(detail=False, methods=['get'], permission_classes=[
+        permissions.IsAuthenticated, IsTenantMember, IsActiveAssetUser,
+    ], pagination_class=SharedAssetPagination,
+       search_fields=['asset_type__name', 'tenant__name', 'sharing_note'])
+    def shared(self, request):
+        """Discover owner-published items without crossing private inventory access."""
+        queryset = Asset.objects.filter(is_shared=True, tenant__is_active=True).exclude(
+            asset_type__category_code='K',
+        ).exclude(asset_type__sharing_class='C').exclude(
+            asset_type__exclusion_reason__regex=r'\S',
+        ).select_related('tenant', 'asset_type').order_by('-shared_at', 'id')
+        for parameter, field in [('tenant', 'tenant_id'), ('asset_type', 'asset_type_id'),
+                                 ('category_code', 'asset_type__category_code')]:
+            value = request.query_params.get(parameter)
+            if value:
+                try:
+                    queryset = queryset.filter(**{field: value})
+                except (DjangoValidationError, ValueError):
+                    return Response({'detail': 'Geçersiz liste filtresi.'}, status=status.HTTP_400_BAD_REQUEST)
+        queryset = filters.SearchFilter().filter_queryset(request, queryset, self)
+        page = self.paginate_queryset(queryset)
+        serializer = SharedAssetSerializer(page if page is not None else queryset, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'], permission_classes=[
+        permissions.IsAuthenticated, IsTenantMember, IsActiveAssetUser,
+    ])
+    def sharing(self, request, pk=None):
+        """Shipyard managers publish only their own assets; admins retain oversight."""
+        user = request.user
+        if not (user.is_superuser or user.is_platform_admin or user.is_tenant_admin):
+            return Response({'detail': 'Paylaşım kararını tersane yöneticisi verebilir.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        with transaction.atomic():
+            asset = self.get_object()
+            previous_state = asset.is_shared
+            serializer = AssetSharingSerializer(asset, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            notify_sharing_changed(asset, previous_state)
+            return Response(self.get_serializer(asset).data)
 
     @action(detail=False, methods=['post'])
     def bulk_import(self, request):
@@ -233,7 +314,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         
         try:
             asset_type = AssetType.objects.get(id=asset_type_id)
-        except AssetType.DoesNotExist:
+        except (AssetType.DoesNotExist, DjangoValidationError, ValueError):
             return Response({"detail": "Varlık tipi bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
         
         # Determine tenant
@@ -243,7 +324,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                 from apps.tenants.models import Tenant
                 try:
                     tenant = Tenant.objects.get(id=tenant_id)
-                except Tenant.DoesNotExist:
+                except (Tenant.DoesNotExist, DjangoValidationError, ValueError):
                     return Response({"detail": "Tersane bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
             else:
                 return Response({"detail": "Superuser için tersane seçimi gerekli."}, status=status.HTTP_400_BAD_REQUEST)
@@ -260,7 +341,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             schema = asset_type.schema or []
             label_to_key = {}
             field_types = {}
-            required_fields = []
+            unique_key_field = next((field['key'] for field in schema if field.get('is_unique_key')), None)
             
             for field in schema:
                 label = field.get('label', field.get('key', ''))
@@ -268,15 +349,12 @@ class AssetViewSet(viewsets.ModelViewSet):
                 label_to_key[label] = key
                 label_to_key[f"{label} *"] = key  # Handle required marker
                 field_types[key] = field.get('type', 'text')
-                if field.get('required'):
-                    required_fields.append(key)
             
             # Read headers from row 1
             headers = []
             for col_idx in range(1, ws.max_column + 1):
                 cell_value = ws.cell(row=1, column=col_idx).value
-                if cell_value:
-                    headers.append(str(cell_value).strip())
+                headers.append(str(cell_value).strip() if cell_value is not None else '')
             
             # Map headers to field keys
             header_keys = []
@@ -286,7 +364,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                 header_keys.append(key)
             
             # Process data rows (skip header and info rows, start from row 4)
-            results = {"success": 0, "errors": []}
+            results = {"created": 0, "updated": 0, "errors": []}
             
             for row_idx in range(4, ws.max_row + 1):
                 # Check if row is empty
@@ -304,50 +382,42 @@ class AssetViewSet(viewsets.ModelViewSet):
                     cell_value = ws.cell(row=row_idx, column=col_idx + 1).value
                     field_type = field_types.get(key, 'text')
                     
-                    # Convert value based on type
-                    if cell_value is not None:
-                        if field_type == 'checkbox':
-                            val_str = str(cell_value).lower().strip()
-                            custom_data[key] = val_str in ('evet', 'yes', 'true', '1', 'x', 'doğru')
-                        elif field_type == 'number':
-                            try:
-                                custom_data[key] = float(cell_value) if cell_value else None
-                            except (ValueError, TypeError):
-                                row_errors.append(f"'{headers[col_idx]}' sayı olmalı")
-                        elif field_type == 'date':
-                            if hasattr(cell_value, 'strftime'):
-                                custom_data[key] = cell_value.strftime('%Y-%m-%d')
-                            else:
-                                custom_data[key] = str(cell_value) if cell_value else None
-                        else:
-                            custom_data[key] = str(cell_value).strip() if cell_value else None
-                    else:
-                        custom_data[key] = None
-                
-                # Check required fields
-                for req_key in required_fields:
-                    if not custom_data.get(req_key):
-                        # Find label for this key
-                        label = next((f.get('label') for f in schema if f.get('key') == req_key), req_key)
-                        row_errors.append(f"'{label}' zorunlu alan")
-                
+                    try:
+                        custom_data[key] = import_field_value(
+                            cell_value, field_type,
+                            stock_quantity=asset_type.tracking_mode == AssetType.TrackingMode.STOCK and key == 'quantity',
+                        )
+                    except (ValueError, TypeError) as exc:
+                        row_errors.append(f"'{headers[col_idx]}': {exc}")
+
                 if row_errors:
                     results["errors"].append({"row": row_idx, "errors": row_errors})
                 else:
-                    # Create asset
                     try:
-                        Asset.objects.create(
-                            asset_type=asset_type,
-                            tenant=tenant,
-                            custom_data=custom_data
-                        )
-                        results["success"] += 1
+                        existing = None
+                        if unique_key_field and custom_data.get(unique_key_field) not in (None, ""):
+                            lookup = {f"custom_data__{unique_key_field}": custom_data[unique_key_field]}
+                            existing = Asset.objects.filter(tenant=tenant, asset_type=asset_type, **lookup).first()
+                        if existing:
+                            custom_data = {**existing.custom_data, **{key: value for key, value in custom_data.items() if value is not None}}
+                        serializer = self.get_serializer(existing, data={
+                            'asset_type': str(asset_type.pk), 'tenant': tenant.pk,
+                            'custom_data': custom_data,
+                        }, partial=existing is not None)
+                        serializer.is_valid(raise_exception=True)
+                        serializer.save()
+                        results["updated" if existing else "created"] += 1
                     except Exception as e:
                         results["errors"].append({"row": row_idx, "errors": [str(e)]})
             
+            wb.close()
+            total = results['created'] + results['updated']
+            notify_import_result(user, results)
             return Response({
-                "message": f"{results['success']} varlık başarıyla oluşturuldu.",
-                "success_count": results["success"],
+                "message": f"{total} satır işlendi: {results['created']} oluşturuldu, {results['updated']} güncellendi.",
+                "success_count": total,
+                "created_count": results['created'],
+                "updated_count": results['updated'],
                 "error_count": len(results["errors"]),
                 "errors": results["errors"][:20]  # Limit error details
             })
@@ -493,7 +563,7 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         try:
             asset_type = AssetType.objects.get(id=asset_type_id)
-        except AssetType.DoesNotExist:
+        except (AssetType.DoesNotExist, DjangoValidationError, ValueError):
             return Response({"detail": "Varlık tipi bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
 
         # Determine tenant
@@ -503,7 +573,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                 from apps.tenants.models import Tenant
                 try:
                     tenant = Tenant.objects.get(id=tenant_id)
-                except Tenant.DoesNotExist:
+                except (Tenant.DoesNotExist, DjangoValidationError, ValueError):
                     return Response({"detail": "Tersane bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
             else:
                 return Response({"detail": "Superuser için tersane seçimi gerekli."}, status=status.HTTP_400_BAD_REQUEST)
@@ -514,6 +584,17 @@ class AssetViewSet(viewsets.ModelViewSet):
 
         schema = asset_type.schema or []
         field_types = {f['key']: f.get('type', 'text') for f in schema}
+        if not isinstance(mapping, dict) or any(
+            not isinstance(header, str) or (key is not None and (not isinstance(key, str) or key not in field_types))
+            for header, key in mapping.items()
+        ):
+            return Response({"detail": "Mapping must match Excel headers to known schema fields."}, status=400)
+        mapped_keys = [key for key in mapping.values() if key is not None]
+        if not mapped_keys or len(mapped_keys) != len(set(mapped_keys)):
+            return Response({"detail": "Map each field at most once, and select at least one field."}, status=400)
+        if header_row < 1:
+            return Response({"detail": "Header row must be positive."}, status=400)
+
 
         # Find the unique key field (if any)
         unique_key_field = next((f['key'] for f in schema if f.get('is_unique_key')), None)
@@ -522,6 +603,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             wb = openpyxl.load_workbook(file, data_only=True, read_only=True)
             ws = wb.active
 
+            # Stream rows once; random cell access reparses a read-only workbook.
             # Read headers from the configured header row
             excel_headers = []
             for col_idx in range(1, ws.max_column + 1):
@@ -530,11 +612,16 @@ class AssetViewSet(viewsets.ModelViewSet):
 
             # Build ordered list of schema field keys per column (None = ignore)
             col_keys = [mapping.get(h) for h in excel_headers]
+            if any(excel_headers.count(header) != 1 for header, key in mapping.items() if key is not None):
+                wb.close()
+                return Response({"detail": "Each mapped Excel header must exist exactly once."}, status=400)
 
             results = {"created": 0, "updated": 0, "skipped": 0, "errors": []}
 
-            for row_idx in range(header_row + 1, ws.max_row + 1):
-                row_values = [ws.cell(row=row_idx, column=col).value for col in range(1, len(excel_headers) + 1)]
+            for row_idx, row_values in enumerate(
+                ws.iter_rows(min_row=header_row + 1, max_col=len(excel_headers), values_only=True),
+                start=header_row + 1,
+            ):
 
                 # Skip fully empty rows
                 if all(v is None or str(v).strip() == '' for v in row_values):
@@ -555,59 +642,32 @@ class AssetViewSet(viewsets.ModelViewSet):
                     cell_value = row_values[col_idx] if col_idx < len(row_values) else None
                     field_type = field_types.get(key, 'text')
 
-                    if cell_value is not None and str(cell_value).strip() != '':
-                        if field_type == 'checkbox':
-                            val_str = str(cell_value).lower().strip()
-                            custom_data[key] = val_str in ('evet', 'yes', 'true', '1', 'x', 'doğru')
-                        elif field_type == 'number':
-                            try:
-                                custom_data[key] = float(cell_value)
-                            except (ValueError, TypeError):
-                                row_errors.append(f"'{excel_headers[col_idx]}' sayı olmalı")
-                        elif field_type == 'date':
-                            if hasattr(cell_value, 'strftime'):
-                                custom_data[key] = cell_value.strftime('%Y-%m-%d')
-                            else:
-                                custom_data[key] = str(cell_value).strip()
-                        else:
-                            custom_data[key] = str(cell_value).strip()
-                    else:
-                        custom_data[key] = None
+                    try:
+                        custom_data[key] = import_field_value(
+                            cell_value, field_type,
+                            stock_quantity=asset_type.tracking_mode == AssetType.TrackingMode.STOCK and key == 'quantity',
+                        )
+                    except (ValueError, TypeError) as exc:
+                        row_errors.append(f"'{excel_headers[col_idx]}': {exc}")
 
                 if row_errors:
                     results["errors"].append({"row": row_idx, "errors": row_errors})
                     continue
 
                 try:
-                    if unique_key_field and custom_data.get(unique_key_field):
-                        unique_val = custom_data[unique_key_field]
-                        lookup = {f"custom_data__{unique_key_field}": unique_val}
-                        existing = Asset.objects.filter(
-                            tenant=tenant,
-                            asset_type=asset_type,
-                            **lookup
-                        ).first()
-                        if existing:
-                            merged = {**existing.custom_data, **{k: v for k, v in custom_data.items() if v is not None}}
-                            existing.custom_data = merged
-                            existing.save(update_fields=['custom_data', 'updated_at'])
-                            results["updated"] += 1
-                        else:
-                            Asset.objects.create(
-                                asset_type=asset_type,
-                                tenant=tenant,
-                                custom_data=custom_data,
-                                created_by=user,
-                            )
-                            results["created"] += 1
-                    else:
-                        Asset.objects.create(
-                            asset_type=asset_type,
-                            tenant=tenant,
-                            custom_data=custom_data,
-                            created_by=user,
-                        )
-                        results["created"] += 1
+                    existing = None
+                    if unique_key_field and custom_data.get(unique_key_field) not in (None, ""):
+                        lookup = {f"custom_data__{unique_key_field}": custom_data[unique_key_field]}
+                        existing = Asset.objects.filter(tenant=tenant, asset_type=asset_type, **lookup).first()
+                    if existing:
+                        custom_data = {**existing.custom_data, **{k: v for k, v in custom_data.items() if v is not None}}
+                    serializer = self.get_serializer(existing, data={
+                        'asset_type': str(asset_type.pk), 'tenant': tenant.pk,
+                        'custom_data': custom_data,
+                    }, partial=existing is not None)
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+                    results["updated" if existing else "created"] += 1
                 except Exception as e:
                     results["errors"].append({"row": row_idx, "errors": [str(e)]})
 
@@ -617,6 +677,8 @@ class AssetViewSet(viewsets.ModelViewSet):
             msg = f"{total} satır işlendi: {results['created']} oluşturuldu, {results['updated']} güncellendi."
             if results["skipped"]:
                 msg += f" {results['skipped']} satır atlandı."
+
+            notify_import_result(user, results)
 
             return Response({
                 "message": msg,
@@ -643,7 +705,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         
         try:
             asset_type = AssetType.objects.get(id=asset_type_id)
-        except AssetType.DoesNotExist:
+        except (AssetType.DoesNotExist, DjangoValidationError, ValueError):
             return Response({"detail": "Varlık tipi bulunamadı."}, status=status.HTTP_404_NOT_FOUND)
         
         # Get assets based on user permissions
@@ -658,7 +720,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         # Create workbook
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = asset_type.name[:31]
+        ws.title = equipment_sheet_title(asset_type.name)
         
         # Header styles
         header_font = Font(bold=True, color="FFFFFF", size=12)
@@ -673,6 +735,7 @@ class AssetViewSet(viewsets.ModelViewSet):
         # Write headers
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.data_type = 's'
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_alignment
@@ -680,9 +743,9 @@ class AssetViewSet(viewsets.ModelViewSet):
         
         # Write data
         for row_idx, asset in enumerate(queryset, 2):
-            ws.cell(row=row_idx, column=1, value=str(asset.id)[:8])
-            ws.cell(row=row_idx, column=2, value=asset.tenant.name if asset.tenant else '-')
-            ws.cell(row=row_idx, column=3, value=asset.created_at.strftime('%Y-%m-%d %H:%M'))
+            ws.cell(row=row_idx, column=1, value=str(asset.id)[:8]).data_type = 's'
+            ws.cell(row=row_idx, column=2, value=asset.tenant.name if asset.tenant else '-').data_type = 's'
+            ws.cell(row=row_idx, column=3, value=asset.created_at.strftime('%Y-%m-%d %H:%M')).data_type = 's'
             
             for col_idx, field in enumerate(schema, 4):
                 key = field.get('key', '')
@@ -691,7 +754,9 @@ class AssetViewSet(viewsets.ModelViewSet):
                 if field.get('type') == 'checkbox':
                     value = 'Evet' if value else 'Hayır'
                 
-                ws.cell(row=row_idx, column=col_idx, value=value)
+                cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                if isinstance(value, str):
+                    cell.data_type = 's'
         
         # Freeze header
         ws.freeze_panes = 'A2'
@@ -701,11 +766,11 @@ class AssetViewSet(viewsets.ModelViewSet):
         wb.save(buffer)
         buffer.seek(0)
         
-        filename = f"{asset_type.name.replace(' ', '_')}_listesi.xlsx"
+        filename = f"{ws.title.replace(' ', '_')}_listesi.xlsx"
         response = HttpResponse(
             buffer.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Disposition'] = content_disposition_header(True, filename)
         
         return response

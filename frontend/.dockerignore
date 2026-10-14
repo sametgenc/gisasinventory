@@ -6,4 +6,12 @@ Dockerfile
 .gitignore
 .pnpm-store
 .env
+.env.*
+**/.env
+**/.env.*
+!**/.env.*.example
+test-results
+playwright-report
+demo-test-results
+demo-artifacts
 dist

@@ -7,6 +7,8 @@ interface OtpInputProps {
     autoFocus?: boolean
     disabled?: boolean
     onComplete?: (value: string) => void
+    label?: string
+    getCellLabel?: (position: number) => string
 }
 
 const sanitize = (s: string) => s.replace(/[^0-9a-zA-Z]/g, '').toUpperCase()
@@ -18,6 +20,8 @@ export function OtpInput({
     autoFocus = true,
     disabled = false,
     onComplete,
+    label = 'One-time code',
+    getCellLabel = position => `Character ${position}`,
 }: OtpInputProps) {
     const inputsRef = useRef<Array<HTMLInputElement | null>>([])
     const cells = Array.from({ length }, (_, i) => value[i] ?? '')
@@ -94,13 +98,13 @@ export function OtpInput({
     }
 
     return (
-        <div className="flex justify-center gap-2" role="group" aria-label="One-time code">
+        <div className="flex w-full justify-center gap-1.5 sm:gap-2" role="group" aria-label={label}>
             {cells.map((char, index) => (
                 <input
                     key={index}
                     ref={(el) => { inputsRef.current[index] = el }}
                     type="text"
-                    inputMode="numeric"
+                    inputMode="text"
                     autoComplete="one-time-code"
                     pattern="[0-9a-zA-Z]*"
                     maxLength={1}
@@ -110,8 +114,8 @@ export function OtpInput({
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={(e) => handlePaste(index, e)}
                     onFocus={(e) => e.currentTarget.select()}
-                    aria-label={`Digit ${index + 1}`}
-                    className="w-11 h-12 sm:w-12 sm:h-13 text-center text-xl font-semibold font-mono rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all disabled:opacity-50"
+                    aria-label={getCellLabel(index + 1)}
+                    className="h-12 min-w-0 max-w-12 flex-1 rounded-md border border-slate-300 bg-white text-center font-mono text-xl font-semibold text-slate-900 outline-none transition-colors focus:border-blue-600 focus:ring-2 focus:ring-blue-500/25 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-blue-400"
                 />
             ))}
         </div>

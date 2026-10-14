@@ -49,10 +49,10 @@ function RoleBadge({ role, label }: { role: string; label: string }) {
 function UserAvatar({ user, tone = 'primary' }: { user: TenantUser; tone?: 'primary' | 'muted' }) {
     const cls = tone === 'muted'
         ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-        : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
     return (
         <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${cls}`}>
+            <div className={`w-9 h-9 rounded-md flex items-center justify-center font-medium text-xs shrink-0 ${cls}`}>
                 {user.username.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">

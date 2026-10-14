@@ -159,7 +159,7 @@ function TenantsPage() {
             sortAccessor: (tn) => tn.name,
             cell: (tn) => (
                 <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shrink-0">
+                    <div className="w-9 h-9 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-600 shrink-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                         <Ship size={18} />
                     </div>
                     <div className="min-w-0">
@@ -219,7 +219,7 @@ function TenantsPage() {
                     <Link
                         to="/platform/tenants/$slug"
                         params={{ slug: tn.slug }}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                        className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                         title={t('tenants.detailBtn')}
                     >
                         <Eye size={15} />
@@ -227,7 +227,7 @@ function TenantsPage() {
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleEdit(tn) }}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                        className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
                         title={t('tenants.editBtn')}
                     >
                         <Pencil size={15} />

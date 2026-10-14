@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ALLAUTH_API } from '../modules/allauth/data';
 import type { User, LoginData, SignupData, AuthResponse, ConfigResponse, Flow } from '../modules/allauth/types';
 import {
@@ -33,6 +34,8 @@ export interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const queryClient = useQueryClient();
+    const cachedUserId = React.useRef<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [config, setConfig] = useState<ConfigResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -54,7 +57,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPendingFlow(null);
         }
         if (res.status === 200 && res.data?.user) {
+            if (cachedUserId.current !== res.data.user.id) {
+                queryClient.clear();
+                cachedUserId.current = res.data.user.id;
+            }
             setUser(res.data.user);
+        } else if (res.meta?.is_authenticated === false) {
+            queryClient.clear();
+            cachedUserId.current = null;
+            setUser(null);
+            setLastAuthAt(null);
         }
     };
 
@@ -136,6 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const logout = async () => {
         await ALLAUTH_API.logout();
+        queryClient.clear();
+        cachedUserId.current = null;
         setUser(null);
         setLastAuthAt(null);
     };
