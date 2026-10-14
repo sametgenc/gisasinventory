@@ -92,6 +92,7 @@ export interface RawImportResult {
     created_count: number;
     updated_count: number;
     skipped_count: number;
+    sharing_paused_count?: number;
     error_count: number;
     errors: { row: number; errors: string[] }[];
 }
@@ -122,7 +123,26 @@ export interface AssetTypeCreateInput extends CatalogMetadata {
     schema: SchemaField[];
 }
 
-export interface Asset {
+export type SharingAvailability = 'by_arrangement' | 'available' | 'unavailable'
+
+/** Owner-entered publication fields, independent of private inventory values. */
+export interface SharingDetails {
+    sharing_title?: string;
+    sharing_quantity?: number | null;
+    sharing_capacity?: string;
+    sharing_note?: string;
+    sharing_availability?: SharingAvailability;
+    sharing_availability_note?: string;
+    sharing_contact_name?: string;
+    sharing_contact_email?: string;
+    sharing_contact_phone?: string;
+}
+
+export interface AssetSharingInput extends SharingDetails {
+    is_shared: boolean;
+}
+
+export interface Asset extends SharingDetails {
     id: string;
     tenant: number;
     tenant_name: string;
@@ -136,12 +156,12 @@ export interface Asset {
     assigned_to_username: string | null;
     is_shared?: boolean;
     is_listed_for_sharing?: boolean;
-    sharing_note?: string;
+    sharing_needs_review?: boolean;
     shared_at?: string | null;
 }
 
 /** Explicitly published information; private equipment data is never included. */
-export interface SharedEquipment {
+export interface SharedEquipment extends SharingDetails {
     id: string;
     tenant: number;
     tenant_name: string;
@@ -150,6 +170,7 @@ export interface SharedEquipment {
     catalog_code: string | null;
     sharing_note: string;
     shared_at: string | null;
+    tracking_mode?: 'individual' | 'stock';
 }
 
 export interface SharedEquipmentFilters {

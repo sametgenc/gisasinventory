@@ -56,12 +56,16 @@ Tek tek ekipman türünü stok türüne çevirmek mevcut kayıtların anlamını
 
 1. İlgili modelde **Listeyi aç** seçin. Ekipmanı kodundan bulun; **İşlemler → Paylaşımı yönet** açın.
 2. **Bu ekipmanı diğer tersanelerin ortak listesinde göster** seçeneğini işaretleyin.
-3. **Ortak listede görünen açıklama** alanına paylaşılabilecek kapasite ve koşulları yazıp **Kaydet** seçin.
-4. **Ortak ekipmanlar** ekranından yayını kontrol edin. Geri çekmek için aynı seçeneği kaldırıp kaydedin.
+3. **Ortak listede görünen ad** yazın; karşı tersane malzemenin veya ekipmanın ne olduğunu anlayabilsin. Kapasiteyi ve kullanım/taşıma/teslim koşullarını yalnız paylaşmak istediğiniz bilgilerle doldurun.
+4. Paylaşım adedini ayrıca belirleyin. **Kurmaca örnek:** envanterde 500 platform parçası bulunabilir; yalnız 100 adedini paylaşıma açabilirsiniz. Toplam stok otomatik yayımlanmaz. Tek tek izlenen bir ekipman kaydı için adet 1 olur; aynı modelin 50 kaydı ayrı ekipmanlardır. Adet belirtilmiyorsa diğer tersane sizinle görüşür.
+5. Uygunluğu belirtin; gerekiyorsa tarih veya çalışma koşulunu not edin. İsteğe bağlı iletişim bölümüne diğer tersanelere açık olmasını istediğiniz kişi, e-posta veya telefon yazın. Hesabınızın ve tersanenizin kayıtlı iletişim bilgileri otomatik kopyalanmaz.
+6. Karşı tersanenin göreceği önizlemeyi kontrol edip **Kaydet** seçin. **Ortak ekipmanlar → Detayları gör** ile yayınınızı kontrol edin. Geri çekmek için görünürlük işaretini kaldırıp **Ortak listeden kaldır** seçin; kaydedilmiş bilgiler taslak olarak kalır.
 
-**Sonuç:** Tür, sahibi tersane ve paylaşım notu ortak listede görünür. İç ekipman kodu, özel teknik alanlar ve atanan kişi açılmaz. Ekipman kurum envanterinde kalır.
+**Sonuç:** Başlık, tür, sahibi tersane, belirttiğiniz paylaşım adedi, kapasite, uygunluk, koşullar ve açıkça girdiğiniz iletişim bilgileri ortak listede görünür. İç ekipman kodu, özel teknik alanlar, toplam stok ve atanan kişi açılmaz. Ekipman kurum envanterinde kalır.
 
-Bu işlem tersane yöneticisi veya yetkili platform hesabına aittir. Personel envanterini yönetebilir; yayın ayarını değiştiremez. Yayın, müsaitlik veya rezervasyon onayı değildir. K kategorisi, C ön sınıfı veya kapsam dışı nedeni olan türler yayınlanamaz. Sahibi tersane değişirse yayın ve not sıfırlanır.
+Bu işlem tersane yöneticisi veya yetkili platform hesabına aittir. Personel envanterini yönetebilir; yayın ayarını değiştiremez. Uygunluk tersanenin beyanıdır; talep veya rezervasyon onayı değildir. Kullanım, taşıma ve tarih için sahibiyle teyitleşin. K kategorisi, C ön sınıfı veya kapsam dışı nedeni olan türler yayınlanamaz.
+
+**Stok azalırsa:** normal düzenleme veya Excel aktarımında toplam stok, paylaşıma açılan adedin altına düşerse yayın durur; detaylar taslak olarak saklanır. Stok yeniden artsa da otomatik yayımlanmaz. Adedi düzeltip yeniden yayınlayın. Ekipmanın türü değiştirilince de yayın durur. Sahibi tersane değişirse bütün paylaşım bilgileri temizlenir; yeni sahibi karar verir.
 
 [Paylaşım penceresi ve örnek yayın](kullanim-rehberi.html#paylas)
 

@@ -44,7 +44,9 @@ docker compose -f docker-compose.prod.yml run --rm --no-deps -e MIGRATIONS=false
 
 Build, Python için `backend/pyproject.toml` + `uv.lock`, frontend için `pnpm-lock.yaml` kullanır. Backend image'ı web, worker ve beat tarafından ortak kullanılır; tüm servisleri aynı sürümle yeniden oluşturun.
 
-Bu geliştirmelerin migration'ları: `assets.0003`, `assets.0004`, `assets.0005`, `settings.0002`, `user.0005`, `notifications.0002`, `notifications.0003`, `notifications.0004`. `migrate` bağımlılıkları ve kurulu Allauth/Celery migration'larını da sırayla uygular. Paylaşım eklenince mevcut ekipmanlar özel kalır; mevcut türler tek tek ekipman takibini korur; 2FA zorunlu hale gelmez.
+Bu geliştirmelerin migration'ları: `assets.0003`, `assets.0004`, `assets.0005`, `assets.0006_asset_sharing_details`, `settings.0002`, `user.0005`, `notifications.0002`, `notifications.0003`, `notifications.0004`. `migrate` bağımlılıkları ve kurulu Allauth/Celery migration'larını da sırayla uygular. İlk paylaşım migration'ında mevcut ekipmanlar özel kalır; `assets.0006` mevcut yayın kararını/notunu/tarihini değiştirmeden boş detay alanları ekler. Özel envanter veya tersane iletişimi otomatik yayımlanmaz. Mevcut türlerin takip biçimi korunur; 2FA zorunlu hale gelmez. Yeni uygulama API'lerini açmadan önce migration tamamlanmalıdır.
+
+Migration aynı anda tek süreçte çalıştırılır. Web başlangıcı `MIGRATIONS=true` ile otomatik migration yapar; bu işlem sürerken ayrıca `exec web python manage.py migrate` başlatmayın. Aşağıdaki bakım adımları web/worker/beat'i durdurup tek geçici konteynerde migration'ı tamamlar, ardından uygulamayı açar. `notifications.0003` mevcut bildirimlere satır satır kimlik yazar; büyük eski tabloda uzun sürebilir ve tamamlanana kadar ilerleme satırı göstermeyebilir. Süre uzarsa işlemi tekrar başlatmak yerine veritabanı kilitlerini ve çalışan süreci kontrol edin.
 
 Planda tarihsel `assets.0002_restructure_asset_types` veya `tenants.0002_remove_tenant_name_i18n_tenant_address_and_more` görünürse burada durup eski şemayı ayrıca değerlendirin. Bu dosyalar türün tersane alanını/eski tersane çeviri alanını kaldırır; tür adını global tekil yapar. Aynı adlı eski türler migration'ı engelleyebilir. Bunlar yalnız yeni alan ekleyen migration'lar olarak kabul edilmemelidir.
 
@@ -87,6 +89,15 @@ Tarayıcıda kendi alan adınızdan giriş, özel envanter, türler, stok görü
 Canlı SMTP sağlayıcısı ve gerçek kimlik bilgileri bu çalışmada belirlenmedi. Platform yöneticisiyle **Hesap → Ayarlar** ekranında sağlayıcının sunucu, port, gönderen, kullanıcı/parola ve TLS/SSL bilgilerini girin; kayıtlı ayar ortam değerlerinin önüne geçer. TLS ve SSL birlikte açılmaz. Sağlayıcının istediği uygulama parolası ve SPF/DKIM/DMARC ayarlarını tamamlayın. **Test e-postası** işlemini canlıda kontrolünüzdeki adrese uygulayıp gelen kutusu/spam teslimini ayrıca doğrulayın. Yerel demo dışarıya e-posta göndermez. Ayrıntı: [BILDIRIM_EPOSTA_2FA.md](BILDIRIM_EPOSTA_2FA.md).
 
 ## 5. Sorun çıkarsa
+
+Eşzamanlı migration sonrası `column "event_id" ... already exists` hatası ilk sürecin tamamlanıp diğerinin eski planla tekrar sütun eklemeye çalışması olabilir. Önce çalışan işlemi doğrulayın; aşağıdaki salt okunur kontrolleri kullanın:
+
+```bash
+docker compose -f docker-compose.prod.yml exec web python manage.py showmigrations notifications
+docker compose -f docker-compose.prod.yml exec web python manage.py migrate --plan
+```
+
+`[X] 0003_notification_email_outbox`, `[X] 0004_notification_security_recipient` ve `No planned migration operations` birlikte görünüyorsa bu migration'lar kaydedilmiş ve bekleyen işlem kalmamıştır. İlgili migration işaretli değilse şema ile kayıt geçmişi ayrıca incelenmelidir; yalnız sütun mevcut diye `--fake` kullanmayın veya sütunu silmeyin.
 
 Migration uygulanmadan önce durduysanız önceki commit'e dönüp o sürümün image'larını yeniden oluşturabilirsiniz; mevcut veritabanı ve anahtarlar korunur. Migration sonrasında önceki kodun yeni şema ve şifreli SMTP/MFA kayıtlarıyla uyumlu olduğunu doğrulamadan sürüm geri almayın. Özellikle eski kod yeni şifreli sırları okuyamayabilir. Yalnız uyumluluğu doğrulanmış sürüme dönüş için:
 

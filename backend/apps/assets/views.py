@@ -255,7 +255,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[
         permissions.IsAuthenticated, IsTenantMember, IsActiveAssetUser,
     ], pagination_class=SharedAssetPagination,
-       search_fields=['asset_type__name', 'tenant__name', 'sharing_note'])
+       search_fields=['asset_type__name', 'tenant__name', 'sharing_title', 'sharing_capacity', 'sharing_note'])
     def shared(self, request):
         """Discover owner-published items without crossing private inventory access."""
         queryset = Asset.objects.filter(is_shared=True, tenant__is_active=True).exclude(
@@ -292,7 +292,7 @@ class AssetViewSet(viewsets.ModelViewSet):
             previous_state = asset.is_shared
             serializer = AssetSharingSerializer(asset, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            asset = serializer.save()
             notify_sharing_changed(asset, previous_state)
             return Response(self.get_serializer(asset).data)
 
@@ -376,7 +376,8 @@ class AssetViewSet(viewsets.ModelViewSet):
                 }, status=400)
             unique_key_field = next((field['key'] for field in asset_type.schema or []
                                      if field.get('is_unique_key')), None)
-            results = {'created': 0, 'updated': 0, 'skipped': plan.skipped_count, 'errors': []}
+            results = {'created': 0, 'updated': 0, 'skipped': plan.skipped_count,
+                       'sharing_paused': 0, 'errors': []}
             for row_number, _ in plan.rows:
                 if row_number in plan.row_errors:
                     results['errors'].append({'row': row_number, 'errors': plan.row_errors[row_number]})
@@ -388,13 +389,15 @@ class AssetViewSet(viewsets.ModelViewSet):
                         lookup = {f'custom_data__{unique_key_field}': custom_data[unique_key_field]}
                         existing = Asset.objects.filter(tenant=tenant, asset_type=asset_type, **lookup).first()
                     if existing:
-                        custom_data = {**existing.custom_data,
-                                       **{key: value for key, value in custom_data.items() if value is not None}}
+                        # The serializer merges these mapped values with the locked current row.
+                        custom_data = {key: value for key, value in custom_data.items() if value is not None}
                     serializer = self.get_serializer(existing, data={
                         'asset_type': str(asset_type.pk), 'tenant': tenant.pk, 'custom_data': custom_data,
                     }, partial=existing is not None)
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
+                    if getattr(serializer, 'sharing_paused', False):
+                        results['sharing_paused'] += 1
                     results['updated' if existing else 'created'] += 1
                 except Exception as exc:
                     results['errors'].append({'row': row_number, 'errors': [str(exc)]})
@@ -402,10 +405,13 @@ class AssetViewSet(viewsets.ModelViewSet):
             message = f"{total} satır işlendi: {results['created']} oluşturuldu, {results['updated']} güncellendi."
             if results['skipped']:
                 message += f" {results['skipped']} satır atlandı."
+            if results['sharing_paused']:
+                message += f" {results['sharing_paused']} paylaşım stok değiştiği için yayından kaldırıldı; paylaşım adedini kontrol edin."
             notify_import_result(user, results)
             response = {
                 'message': message, 'created_count': results['created'], 'updated_count': results['updated'],
                 'skipped_count': results['skipped'], 'error_count': len(results['errors']),
+                'sharing_paused_count': results['sharing_paused'],
                 'errors': results['errors'][:20],
             }
             if template_mode:

@@ -4,7 +4,8 @@ import { Building2, Package, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
 import { categoryCodes, useSharedEquipment, type SharedEquipment } from '@/modules/assets'
-import { Button, EmptyState, FormField, PageHeader, Pagination, formControlClass } from '@/components/ui'
+import { Button, EmptyState, FormField, Modal, PageHeader, Pagination, formControlClass } from '@/components/ui'
+import { SharedEquipmentSummary } from '@/components/assets/SharedEquipmentSummary'
 
 export const Route = createFileRoute('/_secured/shared-equipment')({
     component: SharedEquipmentPage,
@@ -19,6 +20,7 @@ function SharedEquipmentPage() {
     const [search, setSearch] = useState('')
     const [category, setCategory] = useState('')
     const [page, setPage] = useState(1)
+    const [selection, setSelection] = useState<{ id: string; dataUpdatedAt: number } | null>(null)
     const canBrowse = !!user && (!!user.is_superuser || user.role === 'platform_admin' || !!user.tenant_slug)
     const query = useSharedEquipment({
         search: search || undefined,
@@ -26,14 +28,19 @@ function SharedEquipmentPage() {
         page,
     }, canBrowse)
     const hasFilters = !!search || !!category
+    // Read the current public response; never retain withdrawn details in modal state.
+    const selectedEquipment = canBrowse && !query.isError && !query.isPending && !query.isFetching && selection?.dataUpdatedAt === query.dataUpdatedAt
+        ? query.data?.results.find(equipment => equipment.id === selection?.id) : undefined
 
     function submitSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
+        setSelection(null)
         setSearch(draftSearch.trim())
         setPage(1)
     }
 
     function clearFilters() {
+        setSelection(null)
         setDraftSearch('')
         setSearch('')
         setCategory('')
@@ -61,7 +68,7 @@ function SharedEquipmentPage() {
                         <div className="min-w-0 sm:w-64">
                             <FormField label={t('sharedEquipment.category')} htmlFor="shared-equipment-category">
                                 <select id="shared-equipment-category" className={formControlClass} value={category}
-                                    onChange={event => { setCategory(event.target.value); setPage(1) }}>
+                                    onChange={event => { setSelection(null); setCategory(event.target.value); setPage(1) }}>
                                     <option value="">{t('sharedEquipment.allCategories')}</option>
                                     {categoryCodes.map(code => <option key={code} value={code}>{t(`catalog.categories.${code}`)}</option>)}
                                 </select>
@@ -96,10 +103,10 @@ function SharedEquipmentPage() {
                                 ) : (
                                     <>
                                         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                            {query.data.results.map(equipment => <EquipmentCard key={equipment.id} equipment={equipment} />)}
+                                            {query.data.results.map(equipment => <EquipmentCard key={equipment.id} equipment={equipment} onDetails={() => setSelection({ id: equipment.id, dataUpdatedAt: query.dataUpdatedAt })} />)}
                                         </div>
                                         <Pagination className="mt-5 rounded-md border border-slate-200 dark:border-slate-700"
-                                            page={page} pageSize={PAGE_SIZE} totalItems={query.data.count} onPageChange={setPage}
+                                            page={page} pageSize={PAGE_SIZE} totalItems={query.data.count} onPageChange={nextPage => { setSelection(null); setPage(nextPage) }}
                                             itemLabel={t('pagination.equipment')} disabled={query.isFetching} />
                                     </>
                                 )}
@@ -108,39 +115,21 @@ function SharedEquipmentPage() {
                     </section>
                 </>
             )}
+            {selectedEquipment && <Modal isOpen onClose={() => setSelection(null)} title={t('sharingDetails.detailsTitle')} size="md" footer={<div className="flex justify-end px-5 py-4"><Button variant="secondary" onClick={() => setSelection(null)}>{t('common.close')}</Button></div>}>
+                <SharedEquipmentSummary equipment={selectedEquipment} detailed />
+                <p className="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('inventory.publicationIsNotAvailability')}</p>
+            </Modal>}
         </div>
     )
 }
 
-function EquipmentCard({ equipment }: { equipment: SharedEquipment }) {
-    const { t, i18n } = useTranslation()
-    const publishedAt = equipment.shared_at ? new Date(equipment.shared_at) : null
-
-    return (
-        <article className="flex min-w-0 flex-col rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-4 flex items-start gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                <Building2 size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-slate-400" />
-                <span className="[overflow-wrap:anywhere]">{equipment.tenant_name}</span>
-            </div>
-            <h2 className="text-lg font-semibold leading-7 text-slate-900 dark:text-slate-100 [overflow-wrap:anywhere]">{equipment.asset_type_name}</h2>
-            {(equipment.category_code || equipment.catalog_code) && (
-                <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400 [overflow-wrap:anywhere]">
-                    {equipment.category_code && t(`catalog.categories.${equipment.category_code}`)}
-                    {equipment.category_code && equipment.catalog_code && ' · '}
-                    {equipment.catalog_code}
-                </p>
-            )}
-            <p className="mt-4 flex-1 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-300 [overflow-wrap:anywhere]">
-                {equipment.sharing_note || t('sharedEquipment.noNote')}
-            </p>
-            <div className="mt-5 border-t border-slate-100 pt-3 dark:border-slate-800">
-                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{t('sharedEquipment.published')}</p>
-                {publishedAt && !Number.isNaN(publishedAt.getTime()) && (
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {t('sharedEquipment.publishedAt')}: <time dateTime={equipment.shared_at ?? undefined}>{publishedAt.toLocaleDateString(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US')}</time>
-                    </p>
-                )}
-            </div>
-        </article>
-    )
+function EquipmentCard({ equipment, onDetails }: { equipment: SharedEquipment; onDetails: () => void }) {
+    const { t } = useTranslation()
+    return <article className="flex min-w-0 flex-col rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex-1"><SharedEquipmentSummary equipment={equipment} /></div>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+            <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{t('sharedEquipment.published')}</p>
+            <Button size="sm" variant="secondary" onClick={onDetails} aria-label={t('sharingDetails.openDetails', { name: equipment.sharing_title?.trim() || equipment.asset_type_name })}>{t('sharingDetails.details')}</Button>
+        </div>
+    </article>
 }

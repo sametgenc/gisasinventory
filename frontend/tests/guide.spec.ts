@@ -125,7 +125,7 @@ test('print includes every task and answer while hiding an open screenshot dialo
 
 test('guide blocks unauthorized action links and safely handles invalid deep links', async ({ page }) => {
     await session(page, 'tenant_user')
-    await page.goto('/help?task=publish&step=3')
+    await page.goto('/help?task=publish&step=5')
     await expect(page.getByText('An authorized administrator performs this task.')).toBeVisible()
     await expect(page.locator('.guide-interactive a[href="/assets"]')).toHaveCount(0)
     await page.goto('/help?task=unexpected&step=-999')

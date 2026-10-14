@@ -1,8 +1,10 @@
 from django.db import models
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from apps.tenants.models import Tenant
 import uuid
 from .catalog_constants import CATEGORIES
+from .validation import MAX_STOCK_QUANTITY, stock_quantity_value
 
 
 class AssetType(models.Model):
@@ -91,7 +93,46 @@ class Asset(models.Model):
     # Sharing is an explicit owner decision, independent of inventory import.
     is_shared = models.BooleanField(default=False)
     sharing_note = models.CharField(max_length=1000, blank=True, default='')
+    sharing_title = models.CharField(max_length=160, blank=True, default='')
+    sharing_quantity = models.BigIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(MAX_STOCK_QUANTITY)],
+    )
+    sharing_capacity = models.CharField(max_length=160, blank=True, default='')
+
+    class SharingAvailability(models.TextChoices):
+        BY_ARRANGEMENT = 'by_arrangement', 'Görüşülerek belirlenir'
+        AVAILABLE = 'available', 'Uygun'
+        UNAVAILABLE = 'unavailable', 'Şu an uygun değil'
+
+    sharing_availability = models.CharField(
+        max_length=14, choices=SharingAvailability.choices, default=SharingAvailability.BY_ARRANGEMENT,
+    )
+    sharing_availability_note = models.CharField(max_length=255, blank=True, default='')
+    sharing_contact_name = models.CharField(max_length=120, blank=True, default='')
+    sharing_contact_email = models.EmailField(blank=True, default='')
+    sharing_contact_phone = models.CharField(max_length=40, blank=True, default='')
     shared_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def sharing_quantity_is_valid(self) -> bool:
+        """An offer is separate from private stock; legacy offers need no quantity."""
+        if self.sharing_availability not in self.SharingAvailability.values:
+            return False
+        quantity = self.sharing_quantity
+        if quantity is None:
+            return self.sharing_availability != self.SharingAvailability.AVAILABLE
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or not 1 <= quantity <= MAX_STOCK_QUANTITY:
+            return False
+        if self.asset_type.tracking_mode == AssetType.TrackingMode.INDIVIDUAL:
+            return quantity == 1
+        try:
+            return quantity <= stock_quantity_value(self.custom_data.get('quantity'))
+        except (AttributeError, ValueError):
+            return False
+
+    @property
+    def sharing_needs_review(self) -> bool:
+        return not self.sharing_quantity_is_valid
 
     @property
     def is_listed_for_sharing(self):

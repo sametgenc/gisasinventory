@@ -4,8 +4,44 @@ from django.utils import timezone
 from django.db import transaction
 from .models import AssetType, Asset
 from apps.tenants.models import Tenant
-from .validation import default_stock_schema, validate_custom_data, validate_stock_schema
+from .validation import (
+    MAX_STOCK_QUANTITY, default_stock_schema, stock_quantity_value,
+    validate_custom_data, validate_stock_schema,
+)
 import re
+
+
+SHARING_DETAIL_FIELDS = [
+    'sharing_title', 'sharing_quantity', 'sharing_capacity', 'sharing_note',
+    'sharing_availability', 'sharing_availability_note',
+    'sharing_contact_name', 'sharing_contact_email', 'sharing_contact_phone',
+]
+
+
+class SingleLineCharField(serializers.CharField):
+    """Reject raw control characters before DRF trims surrounding whitespace."""
+
+    def run_validation(self, data: object = serializers.empty) -> str:
+        if isinstance(data, str) and any(ord(char) < 32 or ord(char) == 127 for char in data):
+            raise serializers.ValidationError('Bu alanda satır sonu veya kontrol karakteri kullanmayın.')
+        return super().run_validation(data)
+
+
+class SingleLineEmailField(SingleLineCharField, serializers.EmailField):
+    """Retain email syntax validation together with the raw single-line check."""
+
+
+class OfferQuantityField(serializers.IntegerField):
+    def to_internal_value(self, data: object) -> int:
+        try:
+            value = stock_quantity_value(data)
+            if value < 1:
+                raise ValueError
+            return value
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                f'Paylaşım adedi 1 ile {MAX_STOCK_QUANTITY} arasında tam sayı olmalıdır.',
+            ) from exc
 
 
 class AssetTypeSerializer(serializers.ModelSerializer):
@@ -118,6 +154,7 @@ class AssetSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
     assigned_to_username = serializers.CharField(source='assigned_to.username', read_only=True, allow_null=True)
     is_listed_for_sharing = serializers.BooleanField(read_only=True)
+    sharing_needs_review = serializers.BooleanField(read_only=True)
     
     # Allow tenant to be writable for superusers, auto-assign for regular users
     tenant = serializers.PrimaryKeyRelatedField(
@@ -132,11 +169,12 @@ class AssetSerializer(serializers.ModelSerializer):
             'id', 'tenant', 'tenant_name', 'asset_type', 'asset_type_name',
             'custom_data', 'created_at', 'updated_at', 
             'created_by', 'assigned_to', 'assigned_to_username',
-            'is_shared', 'sharing_note', 'shared_at', 'is_listed_for_sharing',
+            'is_shared', 'shared_at', 'is_listed_for_sharing', 'sharing_needs_review',
+            *SHARING_DETAIL_FIELDS,
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at', 'created_by', 'tenant_name',
-            'is_shared', 'sharing_note', 'shared_at',
+            'is_shared', 'shared_at', *SHARING_DETAIL_FIELDS,
         ]
 
     def validate(self, data):
@@ -168,6 +206,9 @@ class AssetSerializer(serializers.ModelSerializer):
 
         asset_type = data.get('asset_type') or (self.instance.asset_type if self.instance else None)
         custom_data = data.get('custom_data', self.instance.custom_data if self.instance else {})
+        if (self.instance and self.partial and 'custom_data' in data and isinstance(custom_data, dict)
+                and asset_type.pk == self.instance.asset_type_id):
+            custom_data = {**self.instance.custom_data, **custom_data}
         if asset_type:
             normalized = validate_custom_data(asset_type.schema or [], custom_data, asset_type.tracking_mode)
             if 'custom_data' in data:
@@ -193,6 +234,7 @@ class AssetSerializer(serializers.ModelSerializer):
             raise NotFound('Ekipman türü silinmiş. Tür listesini yenileyin.') from exc
 
     def update(self, instance, validated_data):
+        self.sharing_paused = False
         with transaction.atomic():
             try:
                 current = Asset.objects.select_for_update().get(pk=instance.pk)
@@ -205,20 +247,52 @@ class AssetSerializer(serializers.ModelSerializer):
             validated_data['asset_type'] = self._lock_asset_type(
                 validated_data.get('asset_type', current.asset_type),
             )
+            if self.partial and 'custom_data' in validated_data and 'custom_data' in self.initial_data:
+                # Re-merge the caller's patch with the row locked above, not a stale snapshot.
+                validated_data['custom_data'] = self.initial_data['custom_data']
             validated_data = self.validate(validated_data)
             tenant = validated_data.get('tenant', current.tenant)
             if tenant.pk != current.tenant_id:
                 # Consent belongs to the owner; a new owner must explicitly opt in.
-                validated_data.update(is_shared=False, sharing_note='', shared_at=None)
+                validated_data.update(
+                    is_shared=False, shared_at=None, sharing_quantity=None,
+                    sharing_availability=Asset.SharingAvailability.BY_ARRANGEMENT,
+                    **{field: '' for field in SHARING_DETAIL_FIELDS
+                       if field not in ('sharing_quantity', 'sharing_availability')},
+                )
+            elif current.is_shared:
+                candidate = Asset(
+                    asset_type=validated_data['asset_type'],
+                    custom_data=validated_data.get('custom_data', current.custom_data),
+                    sharing_quantity=current.sharing_quantity,
+                    sharing_availability=current.sharing_availability,
+                )
+                if validated_data['asset_type'].pk != current.asset_type_id or candidate.sharing_needs_review:
+                    validated_data.update(is_shared=False, shared_at=None)
+                    self.sharing_paused = True
             return super().update(current, validated_data)
 
 
 class AssetSharingSerializer(serializers.ModelSerializer):
     """Only the dedicated owner action can publish inventory."""
 
+    sharing_title = SingleLineCharField(max_length=160, allow_blank=True, required=False)
+    sharing_capacity = SingleLineCharField(max_length=160, allow_blank=True, required=False)
+    sharing_quantity = OfferQuantityField(allow_null=True, required=False)
+    sharing_availability_note = SingleLineCharField(max_length=255, allow_blank=True, required=False)
+    sharing_contact_name = SingleLineCharField(max_length=120, allow_blank=True, required=False)
+    sharing_contact_email = SingleLineEmailField(max_length=254, allow_blank=True, required=False)
+    sharing_contact_phone = SingleLineCharField(max_length=40, allow_blank=True, required=False)
+
     class Meta:
         model = Asset
-        fields = ['is_shared', 'sharing_note']
+        fields = ['is_shared', *SHARING_DETAIL_FIELDS]
+
+    def validate_sharing_contact_phone(self, value: str) -> str:
+        if value and (not re.fullmatch(r'\+?[0-9 ().-]+', value)
+                      or not 6 <= len(re.findall(r'[0-9]', value)) <= 15):
+            raise serializers.ValidationError('Telefon için 6–15 rakam, başta +, boşluk, parantez, nokta veya tire kullanın.')
+        return value
 
     def validate(self, data):
         unknown = set(self.initial_data) - set(self.fields)
@@ -230,15 +304,42 @@ class AssetSharingSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'is_shared': 'Pasif tersane ekipmanı ortak listede yayınlanamaz.'})
             if self.instance.asset_type.sharing_excluded:
                 raise serializers.ValidationError({'is_shared': 'Bu ekipman türü ortak kullanım kapsamı dışında.'})
+        if publishing or any(key in data for key in ('sharing_quantity', 'sharing_availability')):
+            quantity = data.get('sharing_quantity', self.instance.sharing_quantity)
+            availability = data.get('sharing_availability', self.instance.sharing_availability)
+            candidate = Asset(
+                asset_type=self.instance.asset_type, custom_data=self.instance.custom_data,
+                sharing_quantity=quantity, sharing_availability=availability,
+            )
+            if not candidate.sharing_quantity_is_valid:
+                if quantity is None:
+                    message = 'Uygun durumunda paylaşıma açılan adedi belirtin.'
+                elif self.instance.asset_type.tracking_mode == AssetType.TrackingMode.INDIVIDUAL:
+                    message = 'Tek tek takip edilen ekipman için paylaşım adedi yalnızca 1 olabilir.'
+                else:
+                    message = 'Paylaşım adedi mevcut stok adedini aşamaz; stok kaydını kontrol edin.'
+                raise serializers.ValidationError({'sharing_quantity': message})
         return data
 
     def update(self, instance, validated_data):
-        publishing = validated_data.get('is_shared', instance.is_shared)
-        if publishing and not instance.is_shared:
-            validated_data['shared_at'] = timezone.now()
-        elif not publishing:
-            validated_data['shared_at'] = None
-        return super().update(instance, validated_data)
+        with transaction.atomic():
+            try:
+                current = Asset.objects.select_for_update(of=('self',)).select_related(
+                    'tenant', 'asset_type',
+                ).get(pk=instance.pk)
+            except Asset.DoesNotExist as exc:
+                raise NotFound('Ekipman silinmiş. Listeyi yenileyin.') from exc
+            if current.tenant_id != instance.tenant_id:
+                raise serializers.ValidationError({'tenant': 'Ekipmanın sahibi değişti. Listeyi yenileyip tekrar deneyin.'})
+            current.asset_type = AssetSerializer._lock_asset_type(current.asset_type)
+            self.instance = current
+            validated_data = self.validate(validated_data)
+            publishing = validated_data.get('is_shared', current.is_shared)
+            if publishing and not current.is_shared:
+                validated_data['shared_at'] = timezone.now()
+            elif not publishing:
+                validated_data['shared_at'] = None
+            return super().update(current, validated_data)
 
 
 class SharedAssetSerializer(serializers.ModelSerializer):
@@ -248,11 +349,22 @@ class SharedAssetSerializer(serializers.ModelSerializer):
     asset_type_name = serializers.CharField(source='asset_type.name', read_only=True)
     category_code = serializers.CharField(source='asset_type.category_code', read_only=True)
     catalog_code = serializers.CharField(source='asset_type.catalog_code', read_only=True, allow_null=True)
+    tracking_mode = serializers.CharField(source='asset_type.tracking_mode', read_only=True)
+    sharing_quantity = serializers.SerializerMethodField()
+    sharing_availability = serializers.SerializerMethodField()
+
+    def get_sharing_quantity(self, asset: Asset) -> int | None:
+        return asset.sharing_quantity if asset.sharing_quantity_is_valid else None
+
+    def get_sharing_availability(self, asset: Asset) -> str:
+        if not asset.sharing_quantity_is_valid:
+            return Asset.SharingAvailability.BY_ARRANGEMENT
+        return asset.sharing_availability
 
     class Meta:
         model = Asset
         fields = [
             'id', 'tenant', 'tenant_name', 'asset_type_name', 'category_code',
-            'catalog_code', 'sharing_note', 'shared_at',
+            'catalog_code', 'tracking_mode', 'shared_at', *SHARING_DETAIL_FIELDS,
         ]
         read_only_fields = fields

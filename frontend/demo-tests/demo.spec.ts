@@ -189,7 +189,7 @@ test('owner publishes via UI, another shipyard reads only public fields, then ow
         await page.getByRole('button', { name: `Actions: ${code}`, exact: true }).click()
         await page.getByRole('button', { name: `Manage sharing: ${code}`, exact: true }).click()
         await dialog.getByRole('checkbox').uncheck()
-        await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+        await dialog.getByRole('button', { name: 'Remove from shared list', exact: true }).click()
         await expect(dialog).not.toBeVisible()
         await other.reload()
         await other.getByRole('searchbox', { name: 'Search equipment or shipyard' }).fill(publicNote)

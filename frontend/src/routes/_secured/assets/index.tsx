@@ -474,6 +474,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
             created_count: rawResult.created_count ?? 0,
             updated_count: rawResult.updated_count ?? 0,
             skipped_count: rawResult.skipped_count ?? 0,
+            sharing_paused_count: rawResult.sharing_paused_count ?? 0,
             error_count: rawResult.error_count ?? 0,
             errors: rawResult.errors ?? [],
             message: rawResult.message ?? '',
@@ -482,6 +483,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
             created_count: templateResult.created_count ?? templateResult.success_count ?? 0,
             updated_count: templateResult.updated_count ?? 0,
             skipped_count: templateResult.skipped_count ?? 0,
+            sharing_paused_count: templateResult.sharing_paused_count ?? 0,
             error_count: templateResult.error_count ?? 0,
             errors: templateResult.errors ?? [],
             message: templateResult.message ?? '',
@@ -902,6 +904,8 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                 </div>
                             </div>
                         </div>
+
+                        {summary.sharing_paused_count > 0 && <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">{t('sharingDetails.importPaused', { count: summary.sharing_paused_count })}</p>}
 
                         {(summary.errors ?? []).length > 0 && (
                             <div className="max-h-40 overflow-y-auto border border-red-100 dark:border-red-900 rounded-lg divide-y divide-red-100 dark:divide-red-900">

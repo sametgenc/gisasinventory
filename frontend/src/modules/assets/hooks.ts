@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { assetsApi } from './data';
-import type { AssetTypeCreateInput, AssetCreateInput, SharedEquipmentFilters } from './types';
+import type { AssetTypeCreateInput, AssetCreateInput, AssetSharingInput, SharedEquipmentFilters } from './types';
 
 // Query keys
 export const assetKeys = {
@@ -29,7 +29,7 @@ export function useSharedEquipment(filters: SharedEquipmentFilters = {}, enabled
 export function useSetAssetSharing() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, ...data }: { id: string; is_shared: boolean; sharing_note: string }) => assetsApi.setSharing(id, data),
+        mutationFn: ({ id, ...data }: AssetSharingInput & { id: string }) => assetsApi.setSharing(id, data),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: assetKeys.all }),
     });
 }

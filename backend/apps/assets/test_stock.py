@@ -294,6 +294,9 @@ class StockTrackingTests(APITestCase):
         rows = response.data['results']
         self.assertEqual(len(rows), 1)
         self.assertEqual(set(rows[0]), {'id', 'tenant', 'tenant_name', 'asset_type_name', 'category_code',
-                                       'catalog_code', 'sharing_note', 'shared_at'})
+                                       'catalog_code', 'sharing_note', 'shared_at', 'tracking_mode', 'sharing_title',
+                                      'sharing_quantity', 'sharing_capacity', 'sharing_availability',
+                                      'sharing_availability_note', 'sharing_contact_name',
+                                      'sharing_contact_email', 'sharing_contact_phone'})
         self.assertNotIn('custom_data', rows[0])
         self.assertNotIn('MAT-50', json.dumps(rows))

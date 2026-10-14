@@ -84,7 +84,7 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
                 const modelName = [group?.brand, group?.model].filter(Boolean).join(' ')
                 const secondaryName = stock ? [code, showType ? asset.asset_type_name : ''].filter(Boolean).join(' · ')
                     : showType ? group?.name || asset.asset_type_name : showModel ? modelName : ''
-                const stateLabel = t(asset.is_listed_for_sharing ? 'inventory.published' : asset.is_shared ? 'inventory.blockedPublication' : 'inventory.private')
+                const stateLabel = t(asset.is_listed_for_sharing ? 'inventory.published' : asset.sharing_needs_review ? 'sharingDetails.pausedLabel' : asset.is_shared ? 'inventory.blockedPublication' : 'inventory.private')
                 return <article key={asset.id} className="flex min-w-0 flex-col gap-3 border-b border-slate-200 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-5 sm:px-5 dark:border-slate-700" aria-label={`${asset.asset_type_name} · ${code}`}>
                     <div className="min-w-0 flex-1">
                         <h3><button type="button" onClick={() => onDetail(asset)} className="inline-flex max-w-full items-center gap-2 rounded-sm text-left text-base font-semibold text-blue-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-200"><span className="min-w-0 [overflow-wrap:anywhere]">{stock?.materialName || code}</span><Eye size={15} aria-hidden="true" className="shrink-0 text-slate-400" /></button></h3>
