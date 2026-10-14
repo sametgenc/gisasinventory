@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Pagination } from '@/components/ui'
 import type { Asset, AssetType } from '@/modules/assets'
 import { getInventoryModelGroups, type InventoryModelGroup } from '@/modules/assets/inventory-groups'
 
@@ -13,6 +15,10 @@ export function InventoryTypeOverview({ assets, assetTypes, onSelect, filtered =
     const { t, i18n } = useTranslation()
     const groups = getInventoryModelGroups(assets, assetTypes)
         .sort((a, b) => a.name.localeCompare(b.name, i18n.language))
+    const [page, setPage] = useState(1)
+    const [pageSize, setPageSize] = useState(24)
+    const effectivePage = Math.min(page, Math.max(1, Math.ceil(groups.length / pageSize)))
+    if (page !== effectivePage) setPage(effectivePage)
     const hasStock = groups.some(group => group.trackingMode === 'stock')
     const numberFormat = new Intl.NumberFormat(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US')
 
@@ -23,7 +29,7 @@ export function InventoryTypeOverview({ assets, assetTypes, onSelect, filtered =
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t(hasStock ? 'inventory.byTypeStockHelp' : 'inventory.byTypeHelp')}</p>
             </div>
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                {groups.map(group => {
+                {groups.slice((effectivePage - 1) * pageSize, effectivePage * pageSize).map(group => {
                     const stock = group.trackingMode === 'stock'
                     const modelName = group.model ? [group.brand, group.model].filter(Boolean).join(' ')
                         : [group.brand, t('inventory.modelMissing')].filter(Boolean).join(' · ')
@@ -41,6 +47,7 @@ export function InventoryTypeOverview({ assets, assetTypes, onSelect, filtered =
                     )
                 })}
             </div>
+            {groups.length > 12 && <div className="mt-4"><Pagination page={effectivePage} totalItems={groups.length} pageSize={pageSize} pageSizeOptions={[12, 24, 48]} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1) }} itemLabel={t(hasStock ? 'pagination.inventoryEntries' : 'pagination.models')} /></div>}
         </section>
     )
 }

@@ -10,6 +10,8 @@ Adım adım ekranlarla anlatım: **[Resimli kullanım rehberini aç](kullanim-re
 2. Açılan listede her satır bir ekipmandır. Ekipmanı açarak bütün bilgilerini görün; düzenleme veya paylaşım için o satırdaki **İşlemler** menüsünü kullanın.
 3. Başka model için **Özete dön**; tüm kayıtlar için **Tek tek ekipmanlar** seçin.
 
+Uzun listelerde alttaki sayfa numaraları veya **Önceki / Sonraki** düğmeleriyle ilerleyin. **Sayfa başına** gösterilen satır sayısını değiştirir; modelin toplam adedini değiştirmez. Arama veya filtre değişince ilk sayfa açılır.
+
 **Sonuç:** Önce modelin adedini, sonra o modeldeki ekipmanları tek tek görürsünüz. Adet, mevcut kayıtların sayısıdır; tek bir kayda 50 yazarak 50 ekipman oluşturulmaz. Modeli boş kayıtlar **Model belirtilmemiş** altında görünür. Diğer tersanelerin seçilmiş yayınları **Ortak ekipmanlar** ekranındadır. Platform hesabında kurum kayıtları **Birleşik envanter** altında, sahiplikleri korunarak toplanır.
 
 [Ekran ve ayrıntılı adımlar](kullanim-rehberi.html#envanter)

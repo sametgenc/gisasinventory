@@ -173,7 +173,15 @@
         "first": "First",
         "previous": "Previous",
         "next": "Next",
-        "last": "Last"
+        "last": "Last",
+        "navigation": "Pagination",
+        "goToPage": "Go to page {{page}}",
+        "records": "Records",
+        "models": "Models",
+        "inventoryEntries": "Inventory entries",
+        "types": "Equipment types",
+        "notifications": "Notifications",
+        "equipment": "Equipment"
     },
     "nav": {
         "appName": "Gisas Platform",

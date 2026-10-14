@@ -86,7 +86,7 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
                 audience: 'Tersane kullanıcıları', audienceRole: 'all', route: '/assets', action: 'Envanterimi aç',
                 steps: [
                     { id: 'type', title: 'Modeli ve adedi bulun', body: 'Envanterim ekranında aynı marka ve model birlikte gösterilir. Örneğin bir modelde 50 adet varsa o grupta 50 ayrı ekipman kaydı vardır. Listeyi aç düğmesine basın.', screenshot: 'inventory-types.png', imageAlt: 'Envanterim ekranında marka ve model grupları ile ekipman adetleri' },
-                    { id: 'equipment', title: 'Listede ekipmanınızı bulun', body: 'Açılan listede her satır bir ekipmandır. Ekipman koduna bakarak aradığınız kaydı bulun; arama alanına marka, model veya kod yazabilirsiniz.', screenshot: 'inventory-equipment.png', imageAlt: 'Seçili modeldeki ekipmanların tek tek gösterildiği liste' },
+                    { id: 'equipment', title: 'Listede ekipmanınızı bulun', body: 'Açılan listede her satır bir ekipmandır. Arama alanına marka, model veya kod yazabilirsiniz. Uzun listelerde alttaki sayfa numaraları ya da Önceki / Sonraki düğmeleriyle ilerleyin. Sayfa başına alanı gösterilen satır sayısını değiştirir; modelin toplam adedi aynı kalır.', screenshot: 'inventory-equipment.png', imageAlt: 'Seçili modeldeki ekipmanların tek tek gösterildiği liste' },
                     { id: 'details', title: 'Bilgileri açın; gerektiğinde işlem yapın', body: 'Ekipmanı açarak bütün bilgilerini görün. Düzenlemek veya paylaşımı değiştirmek için o satırın İşlemler menüsünü açın. Başka model için Özete dön, bütün kayıtlar için Tek tek ekipmanlar kullanın.' },
                 ],
                 expectedResult: 'Önce modelin toplam adedini, sonra her ekipmanın kodunu ve bilgilerini görürsünüz.',
@@ -188,7 +188,7 @@ export const guideContent: Record<'tr' | 'en', GuideContent> = {
                 audience: 'Shipyard users', audienceRole: 'all', route: '/assets', action: 'Open my inventory',
                 steps: [
                     { id: 'type', title: 'Find the model and quantity', body: 'My inventory groups equipment with the same brand and model. A model showing 50 items has 50 separate equipment records. Select Open list.', screenshot: 'inventory-types.png', imageAlt: 'Brand and model groups with equipment counts on My inventory' },
-                    { id: 'equipment', title: 'Find your equipment in the list', body: 'Each row in the list is one item. Use the equipment code to identify it; search by brand, model or code when needed.', screenshot: 'inventory-equipment.png', imageAlt: 'Individual equipment records in the selected model group' },
+                    { id: 'equipment', title: 'Find your equipment in the list', body: 'Each row in the list is one item. Search by brand, model or equipment code. For long lists, use the page numbers or Previous / Next below the list. Per page changes the number of visible rows; the model’s total quantity stays the same.', screenshot: 'inventory-equipment.png', imageAlt: 'Individual equipment records in the selected model group' },
                     { id: 'details', title: 'View details and open actions when needed', body: 'Open an item to see all its details. To edit or manage sharing, open that row’s Actions menu. Use Back to summary for another model, or Individual equipment to see all records.' },
                 ],
                 expectedResult: 'You see the model’s total quantity first, then each item’s code and details.',

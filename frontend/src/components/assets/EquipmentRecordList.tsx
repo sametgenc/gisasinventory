@@ -65,8 +65,9 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
     const { t, i18n } = useTranslation()
     const numberFormat = new Intl.NumberFormat(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US')
     const [page, setPage] = useState(1)
-    const pageSize = 24
+    const [pageSize, setPageSize] = useState(24)
     const effectivePage = Math.min(page, Math.max(1, Math.ceil(assets.length / pageSize)))
+    if (page !== effectivePage) setPage(effectivePage)
     const typeMap = new Map(assetTypes.map(type => [type.id, type]))
     const groupMap = new Map(getInventoryModelGroups(assets, assetTypes).map(group => [group.key, group]))
 
@@ -97,6 +98,6 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
                 </article>
             })}
         </div>
-        {assets.length > pageSize && <div className="mt-4"><Pagination page={effectivePage} totalItems={assets.length} pageSize={pageSize} onPageChange={setPage} /></div>}
+        {assets.length > 12 && <div className="mt-4"><Pagination page={effectivePage} totalItems={assets.length} pageSize={pageSize} pageSizeOptions={[12, 24, 48]} onPageChange={setPage} onPageSizeChange={size => { setPageSize(size); setPage(1) }} /></div>}
     </>
 }

@@ -25,8 +25,8 @@ export const Route = createFileRoute('/_secured/notifications')({
 
 function NotificationsPage() {
     const [page, setPage] = useState(1)
-    const pageSize = 25
-    const { data, isLoading: loading, error } = useNotificationsQuery({ limit: pageSize, offset: (page - 1) * pageSize })
+    const [pageSize, setPageSize] = useState(25)
+    const { data, isLoading: loading, isFetching, error } = useNotificationsQuery({ limit: pageSize, offset: (page - 1) * pageSize })
     const notifications = data?.results ?? []
     const { markAsRead, markAllAsRead, clearAll, deleteNotification } = useNotificationMutations()
     const { t, i18n } = useTranslation()
@@ -41,6 +41,10 @@ function NotificationsPage() {
     const handleClearAll = () => { clearAll.mutate(undefined, { onSuccess: () => setPage(1) }) }
     const handleMarkAllAsRead = () => { markAllAsRead.mutate() }
     const requestError = error || markAsRead.error || deleteNotification.error || clearAll.error || markAllAsRead.error
+    const lastPage = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize))
+    const paginationDisabled = isFetching || markAsRead.isPending || markAllAsRead.isPending || clearAll.isPending || deleteNotification.isPending
+
+    if (!loading && data && page > lastPage) setPage(lastPage)
 
     return (
         <div className="w-full min-w-0 space-y-6">
@@ -169,7 +173,9 @@ function NotificationsPage() {
                         description={t('notifications.emptyMessage')}
                     />
                 )}
-                <Pagination page={page} pageSize={pageSize} totalItems={data?.count ?? 0} onPageChange={setPage} />
+                <Pagination page={page} pageSize={pageSize} totalItems={data?.count ?? 0} onPageChange={setPage}
+                    pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={setPageSize}
+                    itemLabel={t('pagination.notifications')} disabled={paginationDisabled} />
             </Card>
         </div>
     )

@@ -99,7 +99,8 @@ function SharedEquipmentPage() {
                                             {query.data.results.map(equipment => <EquipmentCard key={equipment.id} equipment={equipment} />)}
                                         </div>
                                         <Pagination className="mt-5 rounded-md border border-slate-200 dark:border-slate-700"
-                                            page={page} pageSize={PAGE_SIZE} totalItems={query.data.count} onPageChange={setPage} />
+                                            page={page} pageSize={PAGE_SIZE} totalItems={query.data.count} onPageChange={setPage}
+                                            itemLabel={t('pagination.equipment')} disabled={query.isFetching} />
                                     </>
                                 )}
                             </>

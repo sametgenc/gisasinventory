@@ -81,14 +81,14 @@ export function DataTable<Row>({
 }: DataTableProps<Row>) {
     const [sort, setSort] = useState(initialSort)
     const [pageSize, setPageSize] = useState(initialPageSize)
-    const [page, setPage] = useState(1)
-
-    // Reset to page 1 whenever filters/sort/data drastically change.
-    const dataKey = data.length
+    const dataKey = JSON.stringify(data.map((row, index) => getRowId(row, index)))
     const sortKey = `${sort?.key ?? ''}-${sort?.direction ?? ''}`
-    React.useEffect(() => {
-        setPage(1)
-    }, [dataKey, sortKey])
+    const [pagination, setPagination] = useState({ page: 1, dataKey, sortKey })
+    const resetPage = pagination.dataKey !== dataKey || pagination.sortKey !== sortKey
+    if (resetPage) setPagination({ page: 1, dataKey, sortKey })
+    const requestedPage = resetPage ? 1 : pagination.page
+    const page = Math.min(requestedPage, Math.max(1, Math.ceil(data.length / pageSize)))
+    const setPage = (next: number) => setPagination({ page: next, dataKey, sortKey })
 
     const sortedData = useMemo(() => {
         if (!sort) return data

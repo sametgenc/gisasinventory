@@ -34,7 +34,7 @@ export const Route = createFileRoute('/_secured/assets/types')({
 function AssetTypesPage() {
     const { user } = useAuth()
     const { t, i18n } = useTranslation()
-    const { data: assetTypes = [], isLoading, isError, refetch } = useAssetTypes()
+    const { data: assetTypes = [], isLoading, isFetching, isError, refetch } = useAssetTypes()
     const createMutation = useCreateAssetType()
     const updateMutation = useUpdateAssetType()
     const deleteMutation = useDeleteAssetType()
@@ -46,6 +46,7 @@ function AssetTypesPage() {
     const [category, setCategory] = useState('')
     const [grade, setGrade] = useState('')
     const [page, setPage] = useState(1)
+    const [pageSize, setPageSize] = useState(24)
     const [deleteError, setDeleteError] = useState('')
     const filteredTypes = assetTypes.filter(item => {
         const matchesSearch = `${item.name} ${item.catalog_code || ''} ${item.description || ''}`.toLocaleLowerCase(i18n.language).includes(search.trim().toLocaleLowerCase(i18n.language))
@@ -59,12 +60,12 @@ function AssetTypesPage() {
             (bCategory < 0 ? categoryCodes.length : bCategory)
         return categoryOrder || a.name.localeCompare(b.name, i18n.language)
     })
-    const pageSize = 24
     const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredTypes.length / pageSize)))
     const visibleTypes = filteredTypes.slice((currentPage - 1) * pageSize, currentPage * pageSize)
     const typeGroups = [...categoryCodes, ''].map(code => ({
         code,
         types: visibleTypes.filter(item => (item.category_code || '') === code),
+        total: filteredTypes.filter(item => (item.category_code || '') === code).length,
     })).filter(group => group.types.length > 0)
 
     const [formOpen, setFormOpen] = useState(false)
@@ -74,6 +75,8 @@ function AssetTypesPage() {
     const [saveError, setSaveError] = useState<string | null>(null)
     const hasFilters = !!(search.trim() || category || grade)
     const clearFilters = () => { setSearch(''); setCategory(''); setGrade(''); setPage(1) }
+
+    if (!isLoading && !isError && page !== currentPage) setPage(currentPage)
 
     const openCreate = () => {
         setEditingType(null)
@@ -175,7 +178,7 @@ function AssetTypesPage() {
                         <section key={group.code || 'uncategorized'} aria-labelledby={`type-category-${group.code || 'uncategorized'}`}>
                             <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                                 <h2 id={`type-category-${group.code || 'uncategorized'}`} className="text-sm font-semibold text-slate-800 dark:text-slate-100">{group.code ? t(`catalog.categories.${group.code}`) : t('catalog.uncategorized')}</h2>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">{t('catalog.categoryTypeCount', { count: group.types.length })}</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">{t('catalog.categoryTypeCount', { count: group.total })}</span>
                             </div>
                             <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {group.types.map(item => (
@@ -202,7 +205,9 @@ function AssetTypesPage() {
                             </ul>
                         </section>
                     ))}
-                    {filteredTypes.length > pageSize && <Pagination page={currentPage} pageSize={pageSize} totalItems={filteredTypes.length} onPageChange={setPage} className="col-span-full rounded-lg" />}
+                    {filteredTypes.length > 12 && <Pagination page={currentPage} pageSize={pageSize} totalItems={filteredTypes.length}
+                        pageSizeOptions={[12, 24, 48]} onPageSizeChange={setPageSize} onPageChange={setPage}
+                        itemLabel={t('pagination.types')} disabled={isFetching} className="col-span-full rounded-lg" />}
                 </div>
             ))}
 
