@@ -14,6 +14,7 @@ import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as SecuredRouteRouteImport } from './routes/_secured/route'
 import { Route as SecuredAssetsRouteRouteImport } from './routes/_secured/assets/route'
 import { Route as SecuredDashboardRouteImport } from './routes/_secured/dashboard'
+import { Route as SecuredDevelopmentRequestsRouteImport } from './routes/_secured/development-requests'
 import { Route as SecuredHelpRouteImport } from './routes/_secured/help'
 import { Route as SecuredNotificationsRouteImport } from './routes/_secured/notifications'
 import { Route as SecuredPlatformRouteRouteImport } from './routes/_secured/platform/route'
@@ -73,6 +74,12 @@ const SecuredDashboardRoute = SecuredDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => SecuredRouteRoute,
 } as any)
+const SecuredDevelopmentRequestsRoute =
+  SecuredDevelopmentRequestsRouteImport.update({
+    id: '/development-requests',
+    path: '/development-requests',
+    getParentRoute: () => SecuredRouteRoute,
+  } as any)
 const SecuredHelpRoute = SecuredHelpRouteImport.update({
   id: '/help',
   path: '/help',
@@ -264,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
+  '/development-requests': typeof SecuredDevelopmentRequestsRoute
   '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
   '/shared-equipment': typeof SecuredSharedEquipmentRoute
@@ -303,6 +311,7 @@ export interface FileRoutesByTo {
   '/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/dashboard': typeof SecuredDashboardRoute
+  '/development-requests': typeof SecuredDevelopmentRequestsRoute
   '/help': typeof SecuredHelpRoute
   '/notifications': typeof SecuredNotificationsRoute
   '/shared-equipment': typeof SecuredSharedEquipmentRoute
@@ -345,6 +354,7 @@ export interface FileRoutesById {
   '/_secured/platform': typeof SecuredPlatformRouteRouteWithChildren
   '/_secured/tenant': typeof SecuredTenantRouteRouteWithChildren
   '/_secured/dashboard': typeof SecuredDashboardRoute
+  '/_secured/development-requests': typeof SecuredDevelopmentRequestsRoute
   '/_secured/help': typeof SecuredHelpRoute
   '/_secured/notifications': typeof SecuredNotificationsRoute
   '/_secured/shared-equipment': typeof SecuredSharedEquipmentRoute
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/platform'
     | '/tenant'
     | '/dashboard'
+    | '/development-requests'
     | '/help'
     | '/notifications'
     | '/shared-equipment'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/platform'
     | '/tenant'
     | '/dashboard'
+    | '/development-requests'
     | '/help'
     | '/notifications'
     | '/shared-equipment'
@@ -467,6 +479,7 @@ export interface FileRouteTypes {
     | '/_secured/platform'
     | '/_secured/tenant'
     | '/_secured/dashboard'
+    | '/_secured/development-requests'
     | '/_secured/help'
     | '/_secured/notifications'
     | '/_secured/shared-equipment'
@@ -543,6 +556,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof SecuredDashboardRouteImport
+      parentRoute: typeof SecuredRouteRoute
+    }
+    '/_secured/development-requests': {
+      id: '/_secured/development-requests'
+      path: '/development-requests'
+      fullPath: '/development-requests'
+      preLoaderRoute: typeof SecuredDevelopmentRequestsRouteImport
       parentRoute: typeof SecuredRouteRoute
     }
     '/_secured/help': {
@@ -897,6 +917,7 @@ interface SecuredRouteRouteChildren {
   SecuredPlatformRouteRoute: typeof SecuredPlatformRouteRouteWithChildren
   SecuredTenantRouteRoute: typeof SecuredTenantRouteRouteWithChildren
   SecuredDashboardRoute: typeof SecuredDashboardRoute
+  SecuredDevelopmentRequestsRoute: typeof SecuredDevelopmentRequestsRoute
   SecuredHelpRoute: typeof SecuredHelpRoute
   SecuredNotificationsRoute: typeof SecuredNotificationsRoute
   SecuredSharedEquipmentRoute: typeof SecuredSharedEquipmentRoute
@@ -912,6 +933,7 @@ const SecuredRouteRouteChildren: SecuredRouteRouteChildren = {
   SecuredPlatformRouteRoute: SecuredPlatformRouteRouteWithChildren,
   SecuredTenantRouteRoute: SecuredTenantRouteRouteWithChildren,
   SecuredDashboardRoute: SecuredDashboardRoute,
+  SecuredDevelopmentRequestsRoute: SecuredDevelopmentRequestsRoute,
   SecuredHelpRoute: SecuredHelpRoute,
   SecuredNotificationsRoute: SecuredNotificationsRoute,
   SecuredSharedEquipmentRoute: SecuredSharedEquipmentRoute,

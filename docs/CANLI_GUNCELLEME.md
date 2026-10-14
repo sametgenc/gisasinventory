@@ -60,6 +60,8 @@ Migration aynı anda tek süreçte çalıştırılır. Web başlangıcı `MIGRAT
 
 Planda tarihsel `assets.0002_restructure_asset_types` veya `tenants.0002_remove_tenant_name_i18n_tenant_address_and_more` görünürse burada durup eski şemayı ayrıca değerlendirin. Bu dosyalar türün tersane alanını/eski tersane çeviri alanını kaldırır; tür adını global tekil yapar. Aynı adlı eski türler migration'ı engelleyebilir. Bunlar yalnız yeni alan ekleyen migration'lar olarak kabul edilmemelidir.
 
+Çözüm önerileri ve geliştirme talepleri için **`platform_feedback.0002_platformfeedbackevent_alter_platformfeedback_options_and_more`** de uygulanır. Mevcut talepler ve dosyalar korunur; çözüm/fayda, durum geçmişi, öncelik, sorumlu ve tersane kapsamı eklenir. Eski kayıtların tarihsel tersanesi tahmin edilmez: kapsamı bilinmeyen eski kayıtlar yalnız platform yöneticilerine görünür. Yeni talepler gönderen kişinin mevcut tersanesiyle saklanır. Talep geçmişi bulunan tersanenin silinmesi yerine pasifleştirilmesi gerekir. Migration demo talebi oluşturmaz; mevcut kayıtları silmez.
+
 ## 3. Kısa bakım aralığında veri yedeği ve güncelleme
 
 Kullanıcılara bakım aralığını bildirin. PostgreSQL ve Redis çalışır kalırken uygulama ve arka plan işleri durdurulur; böylece veritabanı/medya yedeği sırasında yeni uygulama yazımı olmaz.

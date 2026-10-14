@@ -117,6 +117,22 @@ Tarih geçmiş olsa bile teslim edilmiş ekipman, iade kaydedilene kadar ayrılm
 
 Taşıma, operatör, muayene ve saha uygunluğunu ayrıca teyit edin. Uygulama belge geçerliliğini veya mühendislik uygunluğunu kendiliğinden doğrulamaz.
 
+## 7. Çözüm önerisi veya geliştirme talebi gönder
+
+1. Giriş yaptıktan sonra hesap menüsünden **Çözüm önerileri ve geliştirme talepleri** açın. Sağ alttaki **Yeni talep** düğmesi de aynı formu açar.
+2. **Sorun bildirimi**, **Geliştirme talebi** veya **Çözüm önerisi** seçin. Konuyu kısa yazın; **İhtiyaç veya yaşanan sorun** alanında yaşadığınız ihtiyacı ve hangi ekranda oluştuğunu anlatın.
+3. İsterseniz **Çözüm ve fayda ekle (isteğe bağlı)** bölümünü açın. **Çözüm öneriniz** ve **Beklenen fayda** ayrı alanlardır; öneri bulmadan da talep gönderebilirsiniz.
+4. Gerekirse dosya ekleyin: en fazla 5 dosya, dosya başına 5 MB, toplam 15 MB. Resim, PDF, metin/CSV, Excel ve Word dosyaları desteklenir.
+5. **Talebi gönder** sonrasında **Talebi takip et** seçin. **Taleplerim** listesinden durumunu, yanıtları ve geçmişini görün; **Yanıtınız → Yanıtı gönder** ile bilgi ekleyin.
+
+Talepleriniz yalnız size ve platform yöneticilerine görünür. Aynı tersanedeki diğer kullanıcılar veya başka tersaneler talebinizi ve eklerini okuyamaz. Sistem ekranın güvenli yolunu kaydeder; adresin sorgu parametreleri ve bağlantı parçası kaydedilmez.
+
+Platform yöneticisi **Gelen tüm talepler** içinde arama ve filtrelerle kayıtları bulur. **Talebi aç → Değerlendirme** bölümünde durum, öncelik ve platform sorumlusu seçilir; açıklama veya yanıt eklenebilir. Kullanıcı bu yönetim alanlarını değiştiremez. Liste 24 kayıtlık sayfalara ayrılır.
+
+Durumlar: **Yeni**, **Değerlendiriliyor**, **Planlandı**, **Üzerinde çalışılıyor**, **Tamamlandı**, **Uygulanmayacak**. Durum ve sorumlu değişiklikleri geçmişte tutulur. Yeni talep ve kullanıcı yanıtı ilgili platform yöneticilerine; değerlendirme ve yönetici yanıtı talep sahibine bildirilir. Bildirim e-postası talebin açıklamasını veya eklerini içermez; ayrıntı için giriş yapılır. Yerel testte e-posta dışarıya gönderilmez.
+
+Art arda çok sayıda işlemde gönderim sınırı uyarısı görünür. Bir süre bekleyip yeniden deneyin; formda yazdıklarınız ve seçilen dosyalar korunur. Talepleri okumaya devam edebilirsiniz.
+
 ## Takıldığınızda
 
 **Güncelleme gerekli:** Eksik bilgili kaydı açıp işaretlenen zorunlu alanları tamamlayın. Bildirim geldiğinde her kaydı ayrı ayrı yeniden oluşturmayın.

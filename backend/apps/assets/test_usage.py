@@ -63,6 +63,8 @@ class SharedUsageTests(APITestCase):
         return self.client.post(f"/api/assets/usage-requests/{usage.pk}/{action}/", values, format="json")
 
     def test_request_has_public_snapshot_and_never_accepts_owner_or_price(self):
+        self.asset_type.catalog_code = 'CAT-SAMPLE-50'
+        self.asset_type.save(update_fields=['catalog_code'])
         response = self.request_usage(quantity=10)
         self.assertEqual(response.status_code, 201, response.data)
         usage = SharedUsageRequest.objects.get(pk=response.data["id"])
@@ -70,8 +72,15 @@ class SharedUsageTests(APITestCase):
         self.assertEqual(usage.requester_tenant, self.requester)
         self.assertEqual(usage.requested_by, self.member)
         self.assertEqual(usage.listing_snapshot["title"], "Shared scaffold clamps")
+        self.assertEqual(usage.listing_snapshot['catalog_code'], 'CAT-SAMPLE-50')
+        self.assertEqual(set(usage.listing_snapshot), {
+            'title', 'asset_type_name', 'catalog_code', 'category_code', 'sharing_capacity',
+            'sharing_note', 'sharing_availability_note', 'sharing_contact_name',
+            'sharing_contact_email', 'sharing_contact_phone',
+        })
+        self.assertNotIn(50, usage.listing_snapshot.values())
         snapshot = json.dumps(usage.listing_snapshot)
-        for private in ("PRIVATE-INVENTORY-SECRET", "PRIVATE-REQUEST-PURPOSE", "custom_data", "pieces", "50"):
+        for private in ("PRIVATE-INVENTORY-SECRET", "PRIVATE-REQUEST-PURPOSE", "custom_data", "pieces"):
             self.assertNotIn(private, snapshot)
         for forbidden in ("owner_tenant", "requester_tenant", "status", "approved_by", "listing_snapshot", "price"):
             with self.subTest(field=forbidden):

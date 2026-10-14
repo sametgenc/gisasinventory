@@ -1,6 +1,16 @@
 # Yerel doğrulama
 
-Güncelleme: 14 Ekim 2026. Kullanıcı testi için [izole demo ortamı](TEST_ORTAMI.md); adım adım iş akışları için [kullanım rehberi](KULLANIM_REHBERI.md).
+Güncelleme: 15 Ekim 2026. Kullanıcı testi için [izole demo ortamı](TEST_ORTAMI.md); adım adım iş akışları için [kullanım rehberi](KULLANIM_REHBERI.md).
+
+## Çözüm önerileri ve geliştirme talepleri
+
+- Mevcut geri bildirim kayıtları korunarak özel talep ekranı eklendi. İhtiyaç, isteğe bağlı çözüm/fayda, dosyalar, yanıtlar ve değerlendirme geçmişi aynı kayıtta tutulur. Kullanıcı yalnız kendi mevcut tersane kapsamındaki taleplerini görür; aynı tersane yöneticisi dahil başka kişiler okuyamaz. Aktif, tersanesiz gerçek platform yöneticisi durum, öncelik ve sorumlu yönetir. Eski kapsamı bilinmeyen kayıtlar global yöneticide kalır; geçmiş üyelik tahmin edilmez.
+- Yeni talep, yanıt ve değerlendirme mevcut bildirim/e-posta kuyruğunu kullanır. Bildirim gövdesi özel açıklama, çözüm, fayda veya ek adlarını taşımaz. Rolü kaldırılan platform yöneticisinin eski yönetici bildirimleri görünmez ve gönderilmez. Dosyalar yalnız yetkili indirme adresinden, attachment/no-store/nosniff ile sunulur. Bozuk Office arşivi, geçersiz kimlik, aşırı uzun filtre ve dosya sınırları için regresyon vardır.
+- Atomik ortak cache sayaçları kullanıcıda 6/dakika + 30/saat, global yöneticide 60/dakika + 300/saat yazma bütçesi uygular. Oluşturma, yanıt ve değerlendirme aynı hesap bütçesini paylaşır; okuma sınırlandırılmaz. Sabit zaman pencerelerinin sınırında en fazla iki kat kısa süreli gönderim mümkündür; saatlik bütçe toplamı sınırlar. Cache kesintisi yazmadan önce 503, sınır aşımı 429/Retry-After verir. Bağımsız güvenlik denemesinde 12 yüklemenin 6'sı kabul, 6'sı reddedildi; yalnız 6 dosya/kayıt/olay/bildirim oluştu. Arayüz Türkçe/İngilizce açıklama verir ve taslağı korur.
+- Yalnız bu değişikliklerle hazırlanan izole adayda tam backend **473 test** geçti: SQLite'ta 3 PostgreSQL'e özel, PostgreSQL'de 15 SQLite demo hazırlamasına özel atlama. Yeni throttle için 7 gerçek API testi ve bağımsız güvenlik kontrolü geçti. Eski ortak kullanım gizlilik testindeki rastgele katalog kodu/“50” çakışması, kesin kamuya açık alan kontrolüyle giderildi; PostgreSQL'de son test ayrıca geçti. Django sistem ve migration tutarlılığı temiz.
+- Tam normal Chromium paketi **182/182** geçti. Son yerelleştirilmiş 429 mesajı değişikliğinden sonra yeni ekranın **15/15** hedefli testi ayrıca geçti. Son TypeScript, üretim derlemesi ve değişen frontend dosyalarının hedefli ESLint kontrolü başarılı. Tüm depodaki önceden mevcut **48 lint hatası/3 uyarı** sürer; TypeScript reviewer'ın genel lint kapısı bu nedenle resmi tam lint onayı vermez. Bağımsız kapsam incelemesi tamamlandı; ana JavaScript paketi yaklaşık **1.106 kB**, mevcut boyut uyarısı sürer.
+- Gerçek demo yolculuğu personelin çözüm önerisi/dosya oluşturmasını, aynı/başka tersane hesabının erişememesini, platform değerlendirmesini, yanıtları ve bildirim bağlantısını doğruladı. Senaryo yalnız kendi kurmaca talebini temizler; önceki kayıtları korur. Ayrı iki kurmaca kullanıcı denemesi mevcut yerel demoda bırakıldı. SQLite yedeği alınıp yalnız `platform_feedback.0002` uygulandı; kaynak envanter, demo DB ve yeni ekran görüntüleri Git kapsamına alınmadı.
+- Genel kod, Python ve güvenlik incelemelerindeki bulgular giderildi. Canlı dağıtım ve gerçek SMTP teslimi yapılmadı. Canlıda tek migration süreci ve mevcut yedekleme akışı kullanılır: [CANLI_GUNCELLEME.md](CANLI_GUNCELLEME.md).
 
 ## Dinamik envanter ve bedelsiz ortak kullanım
 

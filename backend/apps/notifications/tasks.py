@@ -44,6 +44,10 @@ def recipient_for(notification: Notification) -> tuple[str | None, str]:
     if not user.is_active or (user.tenant_id and not user.tenant.is_active):
         return None, "recipient_inactive"
     content = notification.content if isinstance(notification.content, dict) else {}
+    if content.get('audience_global_admin') is True:
+        from apps.tenants.permissions import is_global_admin
+        if not is_global_admin(user):
+            return None, 'recipient_role_changed'
     if content.get('audience_tenant_id') and str(user.tenant_id) != str(content['audience_tenant_id']):
         return None, 'tenant_membership_changed'
     if content.get('audience_role') and user.role != content['audience_role']:

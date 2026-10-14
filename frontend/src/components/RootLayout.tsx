@@ -1,6 +1,6 @@
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuth } from '../auth/context';
-import { LogOut, LogIn, LayoutDashboard, Settings, User, Shield, Key, Smartphone, Package, Layers, Building2, Menu, X, ChevronDown, Users, BookOpen, Share2 } from 'lucide-react';
+import { LogOut, LogIn, LayoutDashboard, Settings, User, Shield, Key, Smartphone, Package, Layers, Building2, Menu, X, ChevronDown, Users, BookOpen, Share2, MessageSquarePlus } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationBell } from './NotificationBell';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -13,6 +13,7 @@ import { helpCopy } from '@/modules/help-copy';
 import { isDemoMode } from '@/modules/demo';
 import { getApiErrorMessage } from '@/api/errors';
 import { canUseSharedUsage, usageCopy } from '@/modules/assets/usage';
+import { canUseDevelopmentRequests } from '@/modules/platform-feedback';
 
 function NavItem({
     to,
@@ -187,6 +188,7 @@ export const RootLayout: React.FC = () => {
                                                     <User size={16} className="text-slate-400" />
                                                     {t('nav.emailSettings', 'Email Settings')}
                                                 </Link>
+                                                {canUseDevelopmentRequests(user) && <Link to="/development-requests" search={{ request: undefined }} onClick={closeUserMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><MessageSquarePlus size={16} className="shrink-0 text-slate-400" />{t('feedback.pageTitle')}</Link>}
                                                 {canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} onClick={closeUserMenu} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><Share2 size={16} className="text-slate-400" />{usage.title}</Link>}
                                                 <Link
                                                     to="/account/password"
@@ -294,6 +296,7 @@ export const RootLayout: React.FC = () => {
                                         {t('nav.assetTypes')}
                                     </Link>
                                     <Link to="/help" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"><BookOpen size={18} />{guide.nav}</Link>
+                                    {canUseDevelopmentRequests(user) && <Link to="/development-requests" search={{ request: undefined }} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><MessageSquarePlus size={18} className="shrink-0" />{t('feedback.pageTitle')}</Link>}
                                     {canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Share2 size={18} />{usage.title}</Link>}
                                     {isPlatformAdmin && (
                                         <div className="border-t border-slate-200 dark:border-slate-800 pt-2 mt-1 space-y-1">

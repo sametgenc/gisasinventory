@@ -17,6 +17,7 @@ def visible_notifications(user):
     business_scope &= (Q(content__audience_tenant_id__isnull=True) | Q(content__audience_tenant_id=None)
                        | Q(content__audience_tenant_id=str(user.tenant_id)))
     if not is_global_admin(user):
+        business_scope &= ~Q(content__audience_global_admin=True) | Q(content__audience_global_admin__isnull=True)
         if user.tenant_id is not None and not user.tenant.is_active:
             return queryset.filter(is_security=True)
         business_scope &= Q(tenant_id=user.tenant_id)

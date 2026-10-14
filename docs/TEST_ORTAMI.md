@@ -99,6 +99,19 @@ Komut yalnız ayrı SQLite demo veritabanında çalışır; üretim ayarını ve
 5. Platform hesabıyla bir türde isteğe bağlı alan açın. Sonra zorunlu yaparak **Kaydetmeden önce kontrol** sayılarını ve ilgili yöneticiye toplu bildirimi inceleyin. Alan etiketi değişirken eski değer korunmalı.
 6. Üç sayfalı şablonda kurmaca katalog kodu, isteğe bağlı alanlar ve aynı kodla bağlanan envanter satırları hazırlayın. Önizleme sırasında hedef tersaneyi kontrol edin. Bir hatalı satırla hiçbir kaydın değişmediğini, düzelttikten sonra bütün dosyanın birlikte uygulandığını doğrulayın.
 
+### Çözüm önerileri ve geliştirme talepleri denemesi
+
+[Talep ekranını açın](http://127.0.0.1:5190/development-requests). Ortak kullanım taleplerinden ayrı, uygulama iyileştirmeleri için kullanılır.
+
+Mevcut yerel demoda personel hesabına ait iki kurmaca kayıt hazırdır: **Excel aktarımında adet özeti · Örnek talep** planlandı; **Ortak ekipmanlarda tarih filtresi · Örnek talep** yeni durumundadır. Bu kayıtlar yalnız yerel test verisidir; canlı migration ile oluşturulmaz.
+
+1. `personel@demo.gisas.test` ile **Yeni talep** açın. Kurmaca bir ihtiyaç, isteğe bağlı çözüm/fayda ve örnek metin dosyası gönderin.
+2. `yonetici@demo.gisas.test` ve `diger@demo.gisas.test` ile aynı talep bağlantısını deneyin. Talep ve dosya görünmemeli; tersane yöneticisi başkalarının uygulama taleplerini yönetmez.
+3. `admin@demo.gisas.test` ile **Gelen tüm talepler** içinde kaydı açın. Durumu **Planlandı** yapın, sorumlu seçin ve yanıt ekleyin.
+4. Talebi gönderen hesapla tekrar açın. Yeni durum, değerlendirme geçmişi ve yanıt görünmeli; bildirim bağlantısı aynı talebe gitmeli. Kullanıcı öncelik, sorumlu veya durumu değiştirememeli.
+
+Demo hesaplarının parolası **GisasDemo!2026**. Gerçek yerel E2E senaryosu yalnız kendi kurmaca talebini oluşturup temizler; önceki talepleri ve envanteri silmez. Bildirimler yerel veritabanında kalır; dış SMTP kullanılmaz.
+
 ## Nerede saklanır?
 
 ### İsteğe bağlı stok kabulü

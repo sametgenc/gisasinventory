@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from io import BytesIO
 import openpyxl
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -55,6 +56,17 @@ class TenantViewSet(viewsets.ModelViewSet):
         if self.action in ["my_users", "update_user_role", "update_user"]:
             return [IsTenantAdmin()]
         return super().get_permissions()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            with transaction.atomic():
+                self.perform_destroy(instance)
+        except ProtectedError:
+            return Response({
+                'detail': 'Bu tersaneye bağlı korunması gereken kayıtlar var. Geçmişi korumak için tersaneyi pasifleştirin.',
+            }, status=status.HTTP_409_CONFLICT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"])
     def current(self, request):
