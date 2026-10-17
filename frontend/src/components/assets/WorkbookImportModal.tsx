@@ -1,27 +1,39 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Download, FileSpreadsheet } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { workbookApi, type WorkbookDecisions, type WorkbookPreview, type WorkbookSummary } from '@/modules/assets/workbook'
 import { extractApiError } from '@/utils/errors'
 import { Button, FormField, FormFooter, Modal, Pagination, formControlClass } from '@/components/ui'
+import { importCopy } from '@/modules/assets/p2-import-copy'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 interface Props {
     isOpen: boolean; onClose: () => void; isGlobalAdmin: boolean
     tenants?: { id: number; name: string; is_active?: boolean }[]
     onImported?: () => void | Promise<unknown>
     onSingleTypeImport?: () => void
+    initialFile?: File | null
+    initialTenant?: number
 }
 
 export function WorkbookImportModal(props: Props) {
     return props.isOpen ? <WorkbookImportContent {...props} /> : null
 }
 
-function WorkbookImportContent({ isOpen, onClose, isGlobalAdmin, tenants = [], onImported, onSingleTypeImport }: Props) {
-    const { t } = useTranslation()
+function WorkbookImportContent({ isOpen, onClose, isGlobalAdmin, tenants = [], onImported, onSingleTypeImport, initialFile, initialTenant }: Props) {
+    const { t, i18n } = useTranslation()
+    const importText = importCopy(i18n.language)
     const queryClient = useQueryClient()
-    const [file, setFile] = useState<File | null>(null)
-    const [tenant, setTenant] = useState<number | undefined>()
+    const [file, setFile] = useState<File | null>(initialFile ?? null)
+    const fileInput = useRef<HTMLInputElement>(null)
+    useEffect(() => {
+        if (!initialFile || !fileInput.current) return
+        const selection = new DataTransfer()
+        selection.items.add(initialFile)
+        fileInput.current.files = selection.files
+    }, [initialFile])
+    const [tenant, setTenant] = useState<number | undefined>(initialTenant)
     const [decisions, setDecisions] = useState<WorkbookDecisions>({ classifications: {} })
     const [preview, setPreview] = useState<WorkbookPreview | null>(null)
     const [stale, setStale] = useState(false)
@@ -29,6 +41,7 @@ function WorkbookImportContent({ isOpen, onClose, isGlobalAdmin, tenants = [], o
     const [busy, setBusy] = useState<'preview' | 'commit' | 'template' | null>(null)
     const [error, setError] = useState('')
     const [page, setPage] = useState(1)
+    const { requestClose, requestAction, confirmation } = useDraftGuard({ dirty: !result && (!!file || tenant !== undefined), busy: !!busy, onClose })
     const ready = !stale && !!preview?.can_commit && !!preview.preview_token
 
     const changeSource = () => { setPreview(null); setResult(null); setDecisions({ classifications: {} }); setError(''); setPage(1); setStale(false) }
@@ -60,17 +73,20 @@ function WorkbookImportContent({ isOpen, onClose, isGlobalAdmin, tenants = [], o
         finally { setBusy(null) }
     }
     const summary = result ?? preview?.summary
-    return <Modal isOpen={isOpen} onClose={onClose} closeDisabled={!!busy} title={t('workbook.title')} size="xl" footer={result
-        ? <Button onClick={onClose}>{t('common.close')}</Button>
-        : <FormFooter onCancel={onClose} onPrimary={ready ? commit : review} loading={busy === 'preview' || busy === 'commit'} disabled={!file || !!busy} cancelDisabled={!!busy} primaryLabel={t(ready ? 'workbook.apply' : 'workbook.review')} icon={<FileSpreadsheet size={16} />} />}>
+    return <Modal isOpen={isOpen} onClose={requestClose} closeDisabled={!!busy} title={t('workbook.title')} size="xl" footer={result
+        ? <Button onClick={requestClose}>{t('common.close')}</Button>
+        : <FormFooter onCancel={requestClose} onPrimary={ready ? commit : review} loading={busy === 'preview' || busy === 'commit'} disabled={!file || !!busy} cancelDisabled={!!busy} primaryLabel={t(ready ? 'workbook.apply' : 'workbook.review')} icon={<FileSpreadsheet size={16} />} />}>
+        {confirmation}
+        <p className="mb-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{importText.atomic}</p>
+        {file && initialFile && !result && <p className="mb-3 break-words text-sm text-slate-700 dark:text-slate-200">{importText.transferred}: <span className="font-medium">{file.name}</span></p>}
         {error && <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">{error}</div>}
         {result ? <div role="status" className="mb-5 flex items-start gap-3 rounded-md border border-green-200 bg-green-50 p-4 text-green-900 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200"><CheckCircle2 size={22} /><div><p className="font-semibold">{t('workbook.success')}</p><p className="mt-1 text-sm">{t('workbook.private')}</p></div></div> : <fieldset disabled={!!busy} className="min-w-0 space-y-5">
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('workbook.description')}</p>
             <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800/40 sm:grid-cols-3">{['types', 'fields', 'inventory'].map(key => <div key={key}><p className="font-semibold text-slate-900 dark:text-white">{t(`workbook.sheets.${key}`)}</p><p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{t(`workbook.sheetHelp.${key}`)}</p></div>)}</div>
-            <div className="flex flex-wrap items-center gap-3"><Button variant="secondary" size="sm" onClick={download} icon={<Download size={15} />}>{t('workbook.template')}</Button>{onSingleTypeImport && <Button size="sm" variant="ghost" onClick={onSingleTypeImport}>{t('workbook.singleType')}</Button>}</div>
+            <div className="flex flex-wrap items-center gap-3"><Button variant="secondary" size="sm" onClick={download} icon={<Download size={15} />}>{t('workbook.template')}</Button>{onSingleTypeImport && <Button size="sm" variant="ghost" onClick={() => requestAction(onSingleTypeImport)}>{t('workbook.singleType')}</Button>}</div>
             {isGlobalAdmin && <FormField label={t('workbook.target')} help={t('workbook.targetHelp')}><select className={formControlClass} value={tenant ?? ''} onChange={event => { setTenant(event.target.value ? Number(event.target.value) : undefined); changeSource() }}><option value="">{t('workbook.typesOnly')}</option>{tenants.filter(item => item.is_active !== false).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></FormField>}
             {!isGlobalAdmin && <p className="text-xs text-slate-500 dark:text-slate-400">{t('workbook.ownTenant')}</p>}
-            <FormField label={t('workbook.file')} help={t('workbook.fileHelp')}><input type="file" accept=".xlsx" className={formControlClass} onChange={event => { const selected = event.target.files?.[0] ?? null; changeSource(); setFile(selected); if (selected && selected.size > 5 * 1024 * 1024) { setFile(null); setError(t('workbook.sizeError')) } }} /></FormField>
+            <FormField label={t('workbook.file')} help={t('workbook.fileHelp')}><input ref={fileInput} type="file" accept=".xlsx" className={formControlClass} onChange={event => { const selected = event.target.files?.[0] ?? null; changeSource(); setFile(selected); if (selected && selected.size > 5 * 1024 * 1024) { setFile(null); setError(t('workbook.sizeError')) } }} /></FormField>
         </fieldset>}
         {summary && <dl className="my-5 grid grid-cols-2 gap-4 border-y border-slate-200 py-4 dark:border-slate-700 sm:grid-cols-4">{(['types_created', 'types_updated', 'assets_created', 'assets_updated'] as const).map(key => <div key={key}><dt className="text-xs text-slate-500 dark:text-slate-400">{t(`workbook.summary.${key}`)}</dt><dd className="mt-1 text-xl font-semibold tabular-nums text-slate-900 dark:text-white">{summary[key]}</dd></div>)}</dl>}
         {preview && !result && <div className="space-y-4">

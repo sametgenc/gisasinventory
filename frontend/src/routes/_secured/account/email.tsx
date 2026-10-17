@@ -1,3 +1,4 @@
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, Mail, Plus, ShieldCheck, Star, Trash2, CheckCircle } from 'lucide-react'
@@ -67,11 +68,8 @@ function EmailManagement() {
         }
     }
 
-    const pickMessage = (res?: AllauthResponse, err?: AxiosLikeError, fallback = '') =>
-        res?.errors?.[0]?.message
-        || err?.response?.data?.errors?.[0]?.message
-        || err?.message
-        || fallback
+    const pickMessage = (res?: AllauthResponse, err?: AxiosLikeError, fallbackKey = 'account.email.addFailed') =>
+        t(accountErrorKey(res ?? err, fallbackKey))
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -89,12 +87,12 @@ function EmailManagement() {
             } else if (res.status === 429) {
                 setError(t('account.email.tooManyRequests'))
             } else {
-                setError(pickMessage(res as AllauthResponse, undefined, t('account.email.addFailed')))
+                setError(pickMessage(res as AllauthResponse, undefined, 'account.email.addFailed'))
             }
         } catch (err: unknown) {
             const e = err as AxiosLikeError
             if (e.response?.status === 429) setError(t('account.email.tooManyRequests'))
-            else setError(pickMessage(undefined, e, t('account.email.addFailed')))
+            else setError(pickMessage(undefined, e, 'account.email.addFailed'))
         } finally {
             setLoading(false)
         }
@@ -117,7 +115,7 @@ function EmailManagement() {
         } catch (err: unknown) {
             const e = err as AxiosLikeError
             if (e.response?.status === 429) setError(t('account.email.tooManyRequests'))
-            else setError(pickMessage(undefined, e, t('account.email.removeFailed')))
+            else setError(pickMessage(undefined, e, 'account.email.removeFailed'))
         } finally {
             setLoading(false)
         }
@@ -135,12 +133,12 @@ function EmailManagement() {
             } else if (res.status === 429) {
                 setError(t('account.email.tooManyRequests'))
             } else {
-                setError(pickMessage(res as AllauthResponse, undefined, t('account.email.primaryFailed')))
+                setError(pickMessage(res as AllauthResponse, undefined, 'account.email.primaryFailed'))
             }
         } catch (err: unknown) {
             const e = err as AxiosLikeError
             if (e.response?.status === 429) setError(t('account.email.tooManyRequests'))
-            else setError(pickMessage(undefined, e, t('account.email.primaryFailed')))
+            else setError(pickMessage(undefined, e, 'account.email.primaryFailed'))
         }
     }
 
@@ -159,7 +157,7 @@ function EmailManagement() {
             } else {
                 setVerificationStatus({
                     email,
-                    message: pickMessage(res as AllauthResponse, undefined, t('account.email.sendCodeFailed')),
+                    message: pickMessage(res as AllauthResponse, undefined, 'account.email.sendCodeFailed'),
                     type: 'error',
                 })
             }
@@ -172,7 +170,7 @@ function EmailManagement() {
             } else {
                 setVerificationStatus({
                     email,
-                    message: pickMessage(undefined, e, t('account.email.sendCodeFailed')),
+                    message: pickMessage(undefined, e, 'account.email.sendCodeFailed'),
                     type: 'error',
                 })
             }
@@ -197,7 +195,7 @@ function EmailManagement() {
             } else {
                 setVerificationStatus({
                     email,
-                    message: pickMessage(res as AllauthResponse, undefined, t('account.email.verifyCodeFailed')),
+                    message: pickMessage(res as AllauthResponse, undefined, 'account.email.verifyCodeFailed'),
                     type: 'error',
                 })
             }
@@ -210,7 +208,7 @@ function EmailManagement() {
             } else {
                 setVerificationStatus({
                     email,
-                    message: pickMessage(undefined, e, t('account.email.verifyCodeFailed')),
+                    message: pickMessage(undefined, e, 'account.email.verifyCodeFailed'),
                     type: 'error',
                 })
             }
@@ -311,7 +309,7 @@ function EmailManagement() {
                                     </button>
 
                                     {verificationStatus && verificationStatus.email === email.email && (
-                                        <p className={`mt-2 text-xs font-medium ${verificationStatus.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} flex items-center gap-1.5`}>
+                                        <p role={verificationStatus.type === 'error' ? 'alert' : 'status'} className={`mt-2 text-xs font-medium ${verificationStatus.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} flex items-center gap-1.5`}>
                                             {verificationStatus.type === 'success' ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
                                             {verificationStatus.message}
                                         </p>
@@ -329,13 +327,13 @@ function EmailManagement() {
             </div>
 
             {successMessage && (
-                <div className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm border border-green-100 dark:border-green-900/30 flex items-center gap-3">
+                <div role="status" className="mb-6 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg text-sm border border-green-100 dark:border-green-900/30 flex items-center gap-3">
                     <CheckCircle size={20} />
                     <span className="font-medium">{successMessage}</span>
                 </div>
             )}
             {error && (
-                <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-900/30 flex items-center gap-3">
+                <div role="alert" className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-100 dark:border-red-900/30 flex items-center gap-3">
                     <AlertCircle size={20} />
                     <span className="font-medium">{error}</span>
                 </div>

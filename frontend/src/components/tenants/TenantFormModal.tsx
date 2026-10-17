@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 import type { Tenant, TenantUpdateInput } from '@/modules/tenants'
 import {
     Modal,
@@ -9,50 +10,33 @@ import {
 } from '@/components/ui'
 import { useTranslation } from 'react-i18next'
 
-export function TenantFormModal({
-    isOpen,
-    onClose,
-    tenant,
-    onSave,
-    isLoading,
-    saveError = null,
-}: {
+interface TenantFormModalProps {
     isOpen: boolean
     onClose: () => void
     tenant: Tenant | null
     onSave: (data: TenantUpdateInput) => void
     isLoading: boolean
     saveError?: string | null
-}) {
+}
+
+export function TenantFormModal(props: TenantFormModalProps) {
+    if (!props.isOpen) return null
+    return <TenantFormContent key={props.tenant?.id ?? 'new'} {...props} />
+}
+
+function TenantFormContent({ isOpen, onClose, tenant, onSave, isLoading, saveError = null }: TenantFormModalProps) {
     const { t } = useTranslation()
-    const [formData, setFormData] = useState<TenantUpdateInput>({
-        name: '',
-        description: '',
-        address: '',
-        phone: '',
-        email: '',
-    })
-
-    useEffect(() => {
-        if (!isOpen) return
-        if (tenant) {
-            setFormData({
-                name: tenant.name || '',
-                description: tenant.description || '',
-                address: tenant.address || '',
-                phone: tenant.phone || '',
-                email: tenant.email || '',
-            })
-        } else {
-            setFormData({ name: '', description: '', address: '', phone: '', email: '' })
-        }
-    }, [tenant, isOpen])
-
+    const [initialData] = useState<TenantUpdateInput>(() => ({
+        name: tenant?.name || '', description: tenant?.description || '',
+        address: tenant?.address || '', phone: tenant?.phone || '', email: tenant?.email || '',
+    }))
+    const [formData, setFormData] = useState(initialData)
     const canSubmit = !!formData.name?.trim()
+    const { requestClose, confirmation } = useDraftGuard({ dirty: JSON.stringify(formData) !== JSON.stringify(initialData), busy: isLoading, active: isOpen, onClose })
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!canSubmit) return
+        if (!canSubmit || isLoading) return
         onSave(formData)
     }
 
@@ -61,7 +45,8 @@ export function TenantFormModal({
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={requestClose}
+            closeDisabled={isLoading}
             title={tenant ? t('tenants.editTenant') : t('tenants.addNew')}
             footer={
                 <FormFooter
@@ -69,12 +54,14 @@ export function TenantFormModal({
                     formId={formId}
                     loading={isLoading}
                     disabled={!canSubmit}
-                    onCancel={onClose}
+                    onCancel={requestClose}
                     primaryLabel={tenant ? t('tenants.update') : t('common.create')}
                 />
             }
         >
+            {confirmation}
             <form id={formId} onSubmit={handleSubmit} className="space-y-5">
+                <fieldset disabled={isLoading} className="min-w-0 space-y-5">
                 {saveError && (
                     <div
                         className="p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm"
@@ -138,6 +125,7 @@ export function TenantFormModal({
                         </FormField>
                     </div>
                 </FormSection>
+                </fieldset>
             </form>
         </Modal>
     )

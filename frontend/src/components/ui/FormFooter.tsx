@@ -41,6 +41,7 @@ export interface FormFooterProps {
      *   scroll container. Only use this for non-modal pages.
      */
     placement?: 'modal' | 'sticky';
+    density?: 'comfortable' | 'compact';
     className?: string;
 }
 
@@ -63,6 +64,7 @@ export const FormFooter: React.FC<FormFooterProps> = ({
     icon,
     leading,
     placement = 'modal',
+    density = 'comfortable',
     className = '',
 }) => {
     const { t } = useTranslation();
@@ -76,11 +78,11 @@ export const FormFooter: React.FC<FormFooterProps> = ({
     // border/background); in `sticky` mode we overlay the scrollable content.
     const wrapperClass = placement === 'sticky'
         ? 'sticky bottom-0 -mx-5 -mb-5 px-5 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2'
-        : 'px-5 py-4 flex flex-wrap items-center gap-2';
+        : `${density === 'compact' ? 'px-4 py-3' : 'px-5 py-4'} flex flex-wrap items-center gap-2`;
 
     return (
         <div className={`${wrapperClass} ${className}`}>
-            <div className="flex-1 min-w-0 text-sm text-slate-500 dark:text-slate-400">{leading}</div>
+            <div className={`flex-1 min-w-0 ${density === 'compact' ? 'text-xs' : 'text-sm'} text-slate-500 dark:text-slate-400`}>{leading}</div>
             {onCancel && (
                 <Button
                     variant="secondary"

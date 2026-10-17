@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 import { useTranslation } from 'react-i18next'
 import {
     ChevronDown,
@@ -36,6 +37,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { assetsApi } from '@/modules/assets/data'
 import { extractApiError } from '@/utils/errors'
 import { schemaRoleKey } from '@/modules/assets/schema'
+import { getCatalogCopy } from '@/modules/assets/catalog-copy'
 
 import { CatalogMetadataFields } from './CatalogMetadataFields'
 import type { CatalogMetadata, AssetType, AssetTypeCreateInput, SchemaField } from '@/modules/assets'
@@ -125,13 +127,17 @@ function AssetTypeFormModalContent({
     isLoading,
     error,
 }: AssetTypeFormModalProps) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
+    const copy = getCatalogCopy(i18n.language)
     const [formData, setFormData] = useState<EditableForm>(() => initialForm(assetType))
     const [expandedUid, setExpandedUid] = useState<string | null>(null)
     const [localError, setLocalError] = useState<string | null>(null)
     const [impact, setImpact] = useState<{ signature: string; affected_asset_count: number; affected_tenant_count: number } | null>(null)
     const [checkingImpact, setCheckingImpact] = useState(false)
     const busy = isLoading || checkingImpact
+    const draft = JSON.stringify(formData)
+    const [initialDraft] = useState(draft)
+    const { requestClose, confirmation } = useDraftGuard({ dirty: draft !== initialDraft, busy, onClose })
 
     const toPayload = (form: EditableForm): AssetTypeCreateInput => ({
         tracking_mode: form.tracking_mode,
@@ -253,16 +259,18 @@ function AssetTypeFormModalContent({
 
     return (
         <Modal
+            density="compact"
             isOpen={isOpen}
             closeDisabled={busy}
-            onClose={onClose}
+            onClose={requestClose}
             size="xl"
             title={assetType ? t('assetTypes.editType') : t('assetTypes.createType')}
             footer={
                 <FormFooter
+                    density="compact"
                     loading={busy}
                     onPrimary={handleSave}
-                    onCancel={onClose}
+                    onCancel={requestClose}
                     primaryLabel={assetType ? impact?.signature === JSON.stringify(toPayload(formData).schema) ? t('dynamicSchema.applyChanges') : t('common.save') : t('common.create')}
                     icon={null}
                     leading={
@@ -273,21 +281,22 @@ function AssetTypeFormModalContent({
                 />
             }
         >
-            <fieldset disabled={busy} className="min-w-0 space-y-6">
-                <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('dynamicSchema.intro')}</p>
+            {confirmation}
+            <fieldset disabled={busy} className="min-w-0 space-y-4">
+                <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">{copy.formScope}</p>
                 {displayError && (
                     <div role="alert" className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
                         {displayError}
                     </div>
                 )}
 
-                <FormSection title={t('assetTypes.builder.basicInfo')} layout="grid">
+                <FormSection density="compact" title={copy.definitionStep} layout="grid">
                     <FormField label={t('assetTypes.typeName')} required>
                         <input
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             className={formControlClass}
-                            placeholder={t('assetTypes.typeNamePlaceholder')}
+                            placeholder={copy.typeExample}
                             autoFocus={!assetType}
                         />
                     </FormField>
@@ -301,10 +310,12 @@ function AssetTypeFormModalContent({
                     </FormField>
                 </FormSection>
 
+                <CatalogMetadataFields value={formData} onChange={updates => setFormData(previous => ({ ...previous, ...updates }))} />
+
                 <fieldset className="min-w-0">
-                    <legend className="text-sm font-semibold text-slate-900 dark:text-white">{t('assetTypes.trackingTitle')}</legend>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {(['individual', 'stock'] as const).map(mode => <label key={mode} className={cn('flex items-start gap-3 rounded-md border p-4', assetType ? 'cursor-default' : 'cursor-pointer', formData.tracking_mode === mode ? 'border-blue-600 bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/20' : 'border-slate-200 dark:border-slate-700')}>
+                    <legend className="text-sm font-medium text-slate-700 dark:text-slate-300">{copy.trackingStep}</legend>
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                        {(['individual', 'stock'] as const).map(mode => <label key={mode} className={cn('flex items-start gap-2 rounded-md border p-3', assetType ? 'cursor-default' : 'cursor-pointer', formData.tracking_mode === mode ? 'border-blue-600 bg-blue-50/50 dark:border-blue-400 dark:bg-blue-950/20' : 'border-slate-200 dark:border-slate-700')}>
                             <input type="radio" name="tracking-mode" value={mode} checked={formData.tracking_mode === mode} disabled={!!assetType} onChange={() => changeTrackingMode(mode)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
                             <span className="min-w-0"><span className="block text-sm font-medium text-slate-900 dark:text-white">{t(`assetTypes.tracking.${mode}`)}</span><span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-300">{t(`assetTypes.trackingHelp.${mode}`)}</span></span>
                         </label>)}
@@ -313,14 +324,12 @@ function AssetTypeFormModalContent({
                     {assetType && <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('assetTypes.trackingChangeHelp')}</p>}
                 </fieldset>
 
-                <CatalogMetadataFields value={formData} onChange={updates => setFormData(previous => ({ ...previous, ...updates }))} />
-
                 <FormSection
-                    title={t('assetTypes.builder.fields')}
-                    description={t('assetTypes.builder.fieldsHelp')}
+                    density="compact"
+                    title={copy.fieldsStep}
+                    description={copy.fieldsStepHelp}
                     actions={<AddFieldPicker onPick={addField} />}
                 >
-                    <p className="mb-3 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('dynamicSchema.optionalHelp')}</p>
                     {formData.schema.length === 0 ? (
                         <EmptyState
                             icon={<Type size={32} />}
@@ -359,7 +368,7 @@ function AssetTypeFormModalContent({
                         </div>
                     )}
                 </FormSection>
-                {impact?.signature === JSON.stringify(toPayload(formData).schema) && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                {impact?.signature === JSON.stringify(toPayload(formData).schema) && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                     <p className="font-semibold">{t('dynamicSchema.impactTitle')}</p>
                     <p>{t('dynamicSchema.impact', { count: impact.affected_asset_count, tenants: impact.affected_tenant_count })}</p>
                     <p className="mt-1 text-xs">{t('dynamicSchema.impactHelp')}</p>
@@ -462,7 +471,8 @@ function FieldRow({
     rolesInUse: NonNullable<SchemaField['role']>[]
     effectiveRole: SchemaField['role']
 }) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
+    const copy = getCatalogCopy(i18n.language)
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: field._uid,
     })
@@ -511,6 +521,7 @@ function FieldRow({
                         {t(`assetTypes.fieldTypes.${field.type}`)}
                     </Badge>
                     {field.required && <span className="text-red-500 text-xs">*</span>}
+                    {!field.required && <span className="text-xs text-slate-500 dark:text-slate-400">{copy.optional}</span>}
                     {field.is_unique_key && (
                         <Badge variant="warning" size="sm" icon={<KeyRound size={10} />}>
                             {t('assetTypes.uniqueIndexField')}
@@ -529,15 +540,15 @@ function FieldRow({
                     type="button"
                     onClick={onToggle}
                     className="p-1 text-slate-400"
-                    aria-label="Toggle"
+                    aria-label={copy.expandField}
                 >
                     {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
             </div>
 
             {isExpanded && (
-                <div className="p-4 space-y-4 border-t border-slate-100 dark:border-slate-700">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-3 border-t border-slate-100 p-3 dark:border-slate-700">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <FormField
                             label={t('assetTypes.fieldName')}
                             required
@@ -638,7 +649,8 @@ function OptionsEditor({
     options: string[]
     onChange: (next: string[]) => void
 }) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
+    const copy = getCatalogCopy(i18n.language)
     const [draft, setDraft] = useState('')
 
     const add = () => {
@@ -683,7 +695,7 @@ function OptionsEditor({
                                 type="button"
                                 onClick={() => remove(opt)}
                                 className="text-slate-400 hover:text-red-500"
-                                aria-label="Remove"
+                                aria-label={copy.removeOption}
                             >
                                 <X size={11} />
                             </button>

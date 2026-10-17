@@ -2,6 +2,8 @@
 
 Güncelleme: 15 Ekim 2026. Kullanıcı testi için [izole demo ortamı](TEST_ORTAMI.md); adım adım iş akışları için [kullanım rehberi](KULLANIM_REHBERI.md).
 
+**Güncel durum:** P0–P3 birleşik test sonuçları, yetki kontrolleri ve yayın hazırlığı kararı [son doğrulama raporunda](P0_P3_SON_DOGRULAMA.md) tutulur. Aşağıdaki test sayıları, lint borçları ve inceleme sonuçları ilgili önceki çalışmanın tarihsel kaydıdır; bugünkü sonuç olarak okunmamalıdır. Son birleşik kontrolde genel frontend lint hatası ve uyarısı kalmamıştır. Yerel kabul, hedef sunucu ayarları veya gerçek CAPTCHA/SMTP/HTTPS ve yedekten geri yükleme kabulünün yerine geçmez.
+
 ## Çözüm önerileri ve geliştirme talepleri
 
 - Mevcut geri bildirim kayıtları korunarak özel talep ekranı eklendi. İhtiyaç, isteğe bağlı çözüm/fayda, dosyalar, yanıtlar ve değerlendirme geçmişi aynı kayıtta tutulur. Kullanıcı yalnız kendi mevcut tersane kapsamındaki taleplerini görür; aynı tersane yöneticisi dahil başka kişiler okuyamaz. Aktif, tersanesiz gerçek platform yöneticisi durum, öncelik ve sorumlu yönetir. Eski kapsamı bilinmeyen kayıtlar global yöneticide kalır; geçmiş üyelik tahmin edilmez.

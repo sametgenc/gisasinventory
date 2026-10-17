@@ -1,15 +1,16 @@
 import { useState, useMemo, useRef, useCallback, useEffect, useId } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
     Package, Plus, Search, ArrowLeft,
     Download, Upload, FileSpreadsheet, CheckCircle, AlertCircle,
-    X, KeyRound, RefreshCw, MoreHorizontal, Check, FileText,
+    X, KeyRound, RefreshCw, MoreHorizontal, Check, FileText, Layers3, List,
 } from 'lucide-react'
 import { exportReport } from '@/utils/report'
-import { useAssetTypes, useAssets, useCreateAsset, useUpdateAsset, useDeleteAsset } from '@/modules/assets'
+import { useAssetTypes, useAssets, useUpdateAsset, useDeleteAsset } from '@/modules/assets'
 import { assetsApi, type BulkImportResult } from '@/modules/assets/data'
 import { useTenants } from '@/modules/tenants'
 import { useAuth } from '@/auth/context'
+import { isGlobalAdministrator } from '@/auth/permissions'
 import type { AssetType, SchemaField, Asset, ColumnMapping, ImportPreview, RawImportResult } from '@/modules/assets'
 import {
     Modal,
@@ -25,18 +26,30 @@ import {
     formControlClass,
 } from '@/components/ui'
 import { AssetFormModal, type AssetFormPayload } from '@/components/assets/AssetFormModal'
+import { InventoryWorkspaceIntro } from '@/components/assets/InventoryWorkspaceIntro'
+import { InventoryBatchModal } from '@/components/assets/InventoryBatchModal'
+import { InventoryExportModal, type ExportScope } from '@/components/assets/InventoryExportModal'
+import { exportCopy } from '@/modules/assets/export-copy'
+import { inventoryCopy } from '@/modules/assets/inventory-copy'
+import { categoryCodes } from '@/modules/assets/catalog'
+import { useQueryClient } from '@tanstack/react-query'
+import { assetKeys } from '@/modules/assets/hooks'
 import { InventoryTypeOverview } from '@/components/assets/InventoryTypeOverview'
 import { EquipmentRecordList } from '@/components/assets/EquipmentRecordList'
 import { getEquipmentModelKey, getInventoryModelGroups, getInventoryTotals, getStockRecord, isStockType, normalizeInventoryText, type InventoryModelGroup } from '@/modules/assets/inventory-groups'
 import { AssetSharingModal } from '@/components/assets/AssetSharingModal'
 import { WorkbookImportModal } from '@/components/assets/WorkbookImportModal'
+import { ImportTemplates } from '@/components/assets/ImportTemplates'
+import { importCopy, suggestsCombinedWorkbook } from '@/modules/assets/p2-import-copy'
 import { schemaRoleKey } from '@/modules/assets/schema'
 import { useTranslation } from 'react-i18next'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export const Route = createFileRoute('/_secured/assets/')({
-    validateSearch: (search: Record<string, unknown>): { asset_type?: string; needs_update?: boolean } => ({
+    validateSearch: (search: Record<string, unknown>): { asset_type?: string; needs_update?: boolean; add?: boolean } => ({
         asset_type: typeof search.asset_type === 'string' ? search.asset_type : undefined,
         needs_update: search.needs_update === true || search.needs_update === 'true' ? true : undefined,
+        add: search.add === true || search.add === 'true' ? true : undefined,
     }),
     component: AssetsPage,
 })
@@ -54,17 +67,6 @@ function equipmentIdentifier(asset: Asset, assetType?: AssetType): string {
     return (typeof value === 'string' && value.trim() !== '') || typeof value === 'number'
         ? String(value)
         : asset.id
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
 }
 
 function extractApiError(err: unknown, fallback: string): string {
@@ -108,7 +110,7 @@ function AssetDetailModal({ asset, assetTypes, isOpen, onClose, onEdit, onSharin
     const locale = i18n.language === 'tr' ? 'tr-TR' : 'en-US'
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={stock ? stock.materialName || assetType?.name || t('inventory.stockInformation') : t('assets.detailTitle', { type: assetType?.name || t('assets.title') })} footer={stock ? <div className="flex flex-wrap justify-end gap-2 px-5 py-4"><Button variant="secondary" onClick={() => { onClose(); onEdit(asset) }}>{t('common.edit')}</Button>{onSharing && <Button onClick={() => { onClose(); onSharing(asset) }}>{t('inventory.sharingAction')}</Button>}</div> : undefined}>
+        <Modal isOpen={isOpen} onClose={onClose} title={stock ? stock.materialName || assetType?.name || t('inventory.stockInformation') : t('assets.detailTitle', { type: assetType?.name || t('assets.title') })} footer={<div className="flex flex-wrap justify-end gap-2 px-5 py-4"><Button variant="secondary" onClick={() => { onClose(); onEdit(asset) }}>{t('common.edit')}</Button>{onSharing && <Button onClick={() => { onClose(); onSharing(asset) }}>{t('inventory.sharingAction')}</Button>}</div>}>
             <div className="space-y-1">
                 {stock && <p className="pb-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{t('inventory.stockQuantityHelp')}</p>}
                 {asset.inventory_code && <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-3 dark:border-slate-800"><span className="text-sm text-slate-500">{t('dynamicSchema.inventoryCode')}</span><span className="max-w-[65%] text-right text-sm font-medium text-slate-900 dark:text-white [overflow-wrap:anywhere]">{asset.inventory_code}</span></div>}
@@ -153,128 +155,32 @@ function AssetDetailModal({ asset, assetTypes, isOpen, onClose, onEdit, onSharin
 // Export dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ExportDialog({ isOpen, onClose, assetTypes, tenants, isSuperuser }: {
-    isOpen: boolean
-    onClose: () => void
-    assetTypes: AssetType[]
-    tenants: Tenant[]
-    isSuperuser: boolean
-}) {
-    const { t } = useTranslation()
-    const [typeId, setTypeId] = useState('')
-    const [tenantId, setTenantId] = useState<number | null>(null)
-    const [downloading, setDownloading] = useState<'list' | 'template' | null>(null)
-    const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (!isOpen) { setTypeId(''); setTenantId(null); setError(null); setDownloading(null) }
-    }, [isOpen])
-
-    const selectedType = assetTypes.find(tp => tp.id === typeId)
-
-    const runDownload = async (kind: 'list' | 'template') => {
-        if (!typeId) return
-        setDownloading(kind)
-        setError(null)
-        try {
-            const blob = kind === 'list'
-                ? await assetsApi.exportAssets(typeId, tenantId || undefined)
-                : await assetsApi.downloadTemplate(typeId)
-            const typeName = selectedType?.name || 'assets'
-            const suffix = kind === 'list' ? 'export' : 'template'
-            downloadBlob(blob, `${typeName.replace(/\s/g, '_')}_${suffix}.xlsx`)
-            if (kind === 'list') onClose()
-        } catch (err) {
-            setError(extractApiError(err, kind === 'list' ? t('assets.exportFailed') : t('assets.templateFailed')))
-        } finally {
-            setDownloading(null)
-        }
-    }
-
-    return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            closeDisabled={downloading !== null}
-            title={t('assets.exportDialog.title')}
-            size="md"
-            footer={
-                <FormFooter
-                    primaryLabel={t('assets.exportDialog.downloadList')}
-                    icon={<Download size={16} />}
-                    loading={downloading === 'list'}
-                    cancelDisabled={downloading !== null}
-                    disabled={!typeId || downloading !== null}
-                    onPrimary={() => runDownload('list')}
-                    onCancel={onClose}
-                />
-            }
-        >
-            <div className="space-y-5">
-                <p className="text-sm text-slate-500 dark:text-slate-400">{t('assets.exportDialog.description')}</p>
-                {error && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
-                        {error}
-                    </div>
-                )}
-
-                <fieldset disabled={downloading !== null} className="min-w-0">
-                <FormSection layout="stack">
-                    <FormField label={t('assets.typeLabel')} required help={t('assets.exportDialog.selectTypeHelp')}>
-                        <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={formControlClass} required>
-                            <option value="">{t('assets.typePlaceholder')}</option>
-                            {assetTypes.map((type) => (
-                                <option key={type.id} value={type.id}>{type.name}</option>
-                            ))}
-                        </select>
-                    </FormField>
-                    {isSuperuser && (
-                        <FormField label={t('assets.shipyardLabel')} help={t('assets.allShipyards')}>
-                            <select value={tenantId || ''} onChange={(e) => setTenantId(e.target.value ? Number(e.target.value) : null)} className={formControlClass}>
-                                <option value="">{t('assets.allShipyards')}</option>
-                                {tenants.map((tenant) => (
-                                    <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
-                                ))}
-                            </select>
-                        </FormField>
-                    )}
-                </FormSection>
-                </fieldset>
-
-                <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{t('assets.exportDialog.downloadTemplateHint')}</p>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={!typeId || downloading !== null}
-                        onClick={() => runDownload('template')}
-                        loading={downloading === 'template'}
-                        icon={<Download size={14} />}
-                    >
-                        {t('assets.exportDialog.downloadTemplate')}
-                    </Button>
-                </div>
-            </div>
-        </Modal>
-    )
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Bulk import wizard — unified (template auto-detect + external)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type WizardStep = 1 | 2 | 3
 
-function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, onImported }: {
+interface BulkImportWizardProps {
     isOpen: boolean
     onClose: () => void
     assetTypes: AssetType[]
     tenants: Tenant[]
     isSuperuser: boolean
     onImported: () => void
-}) {
-    const { t } = useTranslation()
+    onWorkbook?: (file: File | null, tenant: number | null) => void
+}
+
+function BulkImportWizard(props: BulkImportWizardProps) {
+    if (!props.isOpen) return null
+    return <BulkImportWizardContent {...props} />
+}
+
+function BulkImportWizardContent({ isOpen, onClose, assetTypes, tenants, isSuperuser, onImported, onWorkbook }: BulkImportWizardProps) {
+    const { t, i18n } = useTranslation()
+    const navigate = useNavigate()
+    const importText = importCopy(i18n.language)
+    const [templateBusy, setTemplateBusy] = useState(false)
 
     const [step, setStep] = useState<WizardStep>(1)
     const [file, setFile] = useState<File | null>(null)
@@ -302,6 +208,10 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     // Closing, replacing a file or editing settings invalidates any in-flight response.
     const requestSequence = useRef(0)
     const settingsRevision = useRef(0)
+    const { requestClose, requestAction, confirmation } = useDraftGuard({
+        dirty: step !== 3 && (!!file || tenantId !== null || headerRow !== 1 || manualHeader || !!sheetName || skipRows.length > 0 || !!skipInput || !!assetTypeId || Object.keys(mapping).length > 0 || excludeReviewRows),
+        busy: previewing || importing || templateBusy, onClose,
+    })
 
     const reset = useCallback(() => {
         requestSequence.current += 1
@@ -314,13 +224,12 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
         setPreviewing(false); setImporting(false); setDragOver(false)
     }, [])
 
-    useEffect(() => { if (!isOpen) reset() }, [isOpen, reset])
-
     const selectedAssetType = assetTypes.find(at => at.id === assetTypeId)
     const identifierKey = schemaRoleKey(selectedAssetType?.schema ?? [], 'identifier')
     const uniqueKeyField = selectedAssetType?.schema?.find(f => f.key === identifierKey)
     const isTemplate = !!preview?.detected_template
     const analysis = preview?.analysis
+    const combinedSuggested = !!onWorkbook && suggestsCombinedWorkbook(analysis?.sheet_names ?? [])
     const needsTenant = isSuperuser
     const mappedFields = Object.values(mapping).filter((value): value is string => !!value)
     const missingFields = !isTemplate && analysis ? (selectedAssetType?.schema ?? []).filter(field => field.required && !mappedFields.includes(field.key)) : []
@@ -577,8 +486,8 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                 icon={null}
                 onPrimary={runPreview}
                 loading={previewing}
-                disabled={!file || (needsTenant && !tenantId)}
-                onCancel={onClose}
+                disabled={!file || templateBusy || (needsTenant && !tenantId)}
+                onCancel={requestClose}
             />
         )
     } else if (step === 2 && preview) {
@@ -599,7 +508,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                 primaryLabel={t('assets.wizard.newImport')}
                 icon={<RefreshCw size={16} />}
                 onPrimary={reset}
-                onCancel={onClose}
+                onCancel={requestClose}
                 cancelLabel={t('assets.wizard.close')}
             />
         )
@@ -608,16 +517,17 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={requestClose}
             title={t('assets.bulkImportTitle')}
-            closeDisabled={previewing || importing}
+            closeDisabled={previewing || importing || templateBusy}
             size="xl"
             footer={footerNode}
         >
-            <fieldset disabled={previewing || importing} className="min-w-0 space-y-5">
+            {confirmation}
+            <fieldset disabled={previewing || importing || templateBusy} className="min-w-0 space-y-5">
                 <div className="border-l-2 border-slate-400 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-600 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">
                     <p>{t('catalog.inventoryImportHelp')}</p>
-                    <Link to="/assets/types" onClick={event => { if (previewing || importing) event.preventDefault(); else onClose() }} aria-disabled={previewing || importing} className="mt-1 inline-block font-medium underline">{t('catalog.goToTypes')}</Link>
+                    <Link to="/assets/types" onClick={event => { event.preventDefault(); requestAction(() => { onClose(); void navigate({ to: '/assets/types' }) }, { navigates: true }) }} aria-disabled={previewing || importing} className="mt-1 inline-block font-medium underline">{t('catalog.goToTypes')}</Link>
                 </div>
                 {/* Stepper */}
                 <ol className="flex flex-wrap items-center gap-5 border-b border-slate-200 dark:border-slate-700" aria-label={t('assets.bulkImportTitle')}>
@@ -699,6 +609,9 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                             </div>
                         </div>
 
+                        <ImportTemplates assetTypes={assetTypes} canUseWorkbook={!!onWorkbook} disabled={previewing || importing} onBusyChange={setTemplateBusy} />
+                        {onWorkbook && <Button type="button" variant="ghost" size="sm" onClick={() => requestAction(() => onWorkbook(file, tenantId))}>{t('workbook.shortTitle')}</Button>}
+                        <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{importText.partial}</p>
                         {layoutOptions}
                     </div>
                 )}
@@ -706,6 +619,8 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                 {/* ── STEP 2: Mapping + preview ─────────────────────────── */}
                 {step === 2 && preview && (
                     <div className="space-y-4">
+                        {combinedSuggested && <section className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-800 dark:bg-blue-950/30"><h3 className="font-semibold text-blue-900 dark:text-blue-200">{importText.combinedDetected}</h3><p className="leading-6 text-blue-800 dark:text-blue-300">{importText.combinedHelp}</p><Button type="button" size="sm" variant="secondary" onClick={() => requestAction(() => onWorkbook?.(file, tenantId))}>{importText.reviewCombined}</Button></section>}
+                        <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{importText.partial}</p>
                         {analysis && (
                             <section aria-label={t('assets.wizard.analysis.title')} className="min-w-0 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
                                 <div>
@@ -871,7 +786,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                                 <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                                     {t('assets.wizard.dataPreview')} · {t('assets.wizard.rowCount', { count: preview.total_rows })}
                                 </h4>
-                                <ImportPreviewTable preview={preview} mapping={{}} schema={[]} />
+                                <ImportPreviewTable preview={preview} mapping={{}} schema={selectedAssetType?.schema || []} />
                             </div>
                         )}
                     </div>
@@ -914,6 +829,7 @@ function BulkImportWizard({ isOpen, onClose, assetTypes, tenants, isSuperuser, o
                             </div>
                         </div>
 
+                        {summary.error_count > 0 && summary.created_count + summary.updated_count > 0 && <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{importText.partialResult}</p>}
                         {summary.sharing_paused_count > 0 && <p role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">{t('sharingDetails.importPaused', { count: summary.sharing_paused_count })}</p>}
 
                         {(summary.errors ?? []).length > 0 && (
@@ -958,6 +874,7 @@ function ImportPreviewTable({
         const dataColumns: ColumnDef<PreviewRow>[] = (preview.headers ?? []).map((header, colIndex) => {
             const mappedKey = mapping[header]
             const field = mappedKey ? schema.find((f) => f.key === mappedKey) : null
+            const valueField = field ?? (Object.keys(mapping).length === 0 ? schema.find((f) => f.label === header) : undefined)
             return {
                 key: `c${colIndex}`,
                 header: (
@@ -976,14 +893,20 @@ function ImportPreviewTable({
                         ) : null}
                     </div>
                 ),
-                cell: (row) => (
-                    <span
-                        className={`text-xs block max-w-[220px] truncate ${field ? 'text-slate-700 dark:text-slate-200' : Object.keys(mapping).length > 0 && !field ? 'text-slate-400 italic' : 'text-slate-700 dark:text-slate-200'}`}
-                        title={row.cells[colIndex] ?? ''}
-                    >
-                        {row.cells[colIndex] ?? ''}
-                    </span>
-                ),
+                cell: (row) => {
+                    const rawValue = row.cells[colIndex] ?? ''
+                    const displayValue = valueField?.type === 'checkbox' && /^(true|false)$/i.test(rawValue.trim())
+                        ? t(rawValue.trim().toLowerCase() === 'true' ? 'common.yes' : 'common.no')
+                        : rawValue
+                    return (
+                        <span
+                            className={`text-xs block max-w-[220px] truncate ${field ? 'text-slate-700 dark:text-slate-200' : Object.keys(mapping).length > 0 && !field ? 'text-slate-400 italic' : 'text-slate-700 dark:text-slate-200'}`}
+                            title={displayValue}
+                        >
+                            {displayValue}
+                        </span>
+                    )
+                },
             }
         })
         return preview.analysis ? [{ key: 'excelRow', header: t('assets.wizard.analysis.excelRowColumn'), cell: row => <span className="text-xs tabular-nums">{row.excelRow}</span> }, ...dataColumns] : dataColumns
@@ -1006,7 +929,8 @@ function ImportPreviewTable({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ActionsMenu({ onExport, onReport, disabledExport, disabledReport }: { onExport: () => void; onReport: () => void; disabledExport: boolean; disabledReport: boolean }) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
+    const c = exportCopy(i18n.language)
     const [open, setOpen] = useState(false)
     const btnRef = useRef<HTMLButtonElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
@@ -1021,8 +945,8 @@ function ActionsMenu({ onExport, onReport, disabledExport, disabledReport }: { o
     return <div className="relative">
         <Button ref={btnRef} variant="secondary" onClick={() => setOpen(value => !value)} aria-label={t('assets.moreActions')} title={t('assets.moreActions')} aria-expanded={open} onKeyDown={event => { if (event.key === 'Escape') setOpen(false) }} icon={<MoreHorizontal size={16} />}><span className="sr-only">{t('assets.moreActions')}</span></Button>
         {open && <div ref={menuRef} className="absolute right-0 top-full z-10 mt-2 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-md dark:border-slate-700 dark:bg-slate-900">
-            <button type="button" disabled={disabledExport} onClick={() => { setOpen(false); onExport() }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"><Download size={15} />{t('assets.exportExcel')}</button>
-            <button type="button" disabled={disabledReport} onClick={() => { setOpen(false); onReport() }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"><FileText size={15} />{t('common.exportReport')}</button>
+            <button type="button" disabled={disabledExport} onClick={() => { setOpen(false); onExport() }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"><Download size={15} />{c.allType}</button>
+            <button type="button" disabled={disabledReport} onClick={() => { setOpen(false); onReport() }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-200 dark:hover:bg-slate-800"><FileText size={15} />{c.visible}</button>
         </div>}
     </div>
 }
@@ -1034,14 +958,19 @@ function ActionsMenu({ onExport, onReport, disabledExport, disabledReport }: { o
 function AssetsPage() {
     const { user } = useAuth()
     const { t, i18n } = useTranslation()
+    const c = inventoryCopy(i18n.language)
+    const queryClient = useQueryClient()
     const locale = i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US'
-    const isSuperuser = !!user?.is_superuser && !user.tenant_slug
+    const isSuperuser = isGlobalAdministrator(user)
     const hasTenant = isSuperuser || !!user?.tenant_slug
-    const { data: assetTypes = [], isLoading: typesLoading, isError: typesError, refetch: refetchTypes } = useAssetTypes()
-    const { data: tenants = [], isLoading: tenantsLoading, isError: tenantsError, refetch: refetchTenants } = useTenants()
+    const { data: assetTypes = [], isLoading: typesLoading, isFetching: typesFetching, isError: typesError, refetch: refetchTypes } = useAssetTypes()
+    const { data: tenants = [], isLoading: tenantsLoading, isFetching: tenantsFetching, isError: tenantsError, refetch: refetchTenants } = useTenants()
 
     const [filterTenant, setFilterTenant] = useState<number | null>(null)
+    const [filterCategory, setFilterCategory] = useState('')
     const routeSearch = Route.useSearch()
+    const [batchOpen, setBatchOpen] = useState(!!routeSearch.add)
+    const [success, setSuccess] = useState('')
     const [filterType, setFilterType] = useState<string | null>(routeSearch.asset_type ?? null)
     const [needsUpdateOnly, setNeedsUpdateOnly] = useState(!!routeSearch.needs_update)
     useEffect(() => {
@@ -1049,7 +978,8 @@ function AssetsPage() {
         setNeedsUpdateOnly(!!routeSearch.needs_update)
         setSelectedModelKey(null)
         if (routeSearch.needs_update) setInventoryMode('list')
-    }, [routeSearch.asset_type, routeSearch.needs_update])
+        if (routeSearch.add) setBatchOpen(true)
+    }, [routeSearch.asset_type, routeSearch.needs_update, routeSearch.add])
     const [searchQuery, setSearchQuery] = useState('')
     const [inventoryMode, setInventoryMode] = useState<'types' | 'list'>(routeSearch.needs_update ? 'list' : 'types')
     const [selectedModelKey, setSelectedModelKey] = useState<string | null>(null)
@@ -1057,7 +987,6 @@ function AssetsPage() {
     const canManageSharing = isSuperuser || user?.role === 'tenant_admin'
 
     const [formOpen, setFormOpen] = useState(false)
-    const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
     const [editingAsset, setEditingAsset] = useState<Asset | null>(null)
     const [formError, setFormError] = useState<string | null>(null)
 
@@ -1071,22 +1000,33 @@ function AssetsPage() {
 
     const [isImportOpen, setIsImportOpen] = useState(false)
     const [workbookOpen, setWorkbookOpen] = useState(false)
-    const [isExportOpen, setIsExportOpen] = useState(false)
+    const [workbookSource, setWorkbookSource] = useState<{ file: File | null; tenant: number | null }>({ file: null, tenant: null })
+    const [exportScope, setExportScope] = useState<ExportScope | null>(null)
 
-    const { data: assets = [], isLoading, isError: assetsError, refetch: refetchAssets } = useAssets(undefined, hasTenant)
-    const createMutation = useCreateAsset()
+    const { data: assets = [], isLoading, isFetching: assetsFetching, isError: assetsError, refetch: refetchAssets } = useAssets(undefined, hasTenant)
     const updateMutation = useUpdateAsset()
     const deleteMutation = useDeleteAsset()
 
     const isBusy = isLoading || typesLoading || (isSuperuser && tenantsLoading)
     const hasLoadError = typesError || (hasTenant && assetsError) || (isSuperuser && tenantsError)
     const canCreate = hasTenant && assetTypes.length > 0 && !isBusy && !hasLoadError && (!isSuperuser || tenants.length > 0)
-    const hasFilters = !!(searchQuery.trim() || filterType || filterTenant || selectedModelKey || needsUpdateOnly)
-    const resetFilters = () => { setSearchQuery(''); setFilterType(null); setFilterTenant(null); setSelectedModelKey(null); setInventoryMode('types'); setNeedsUpdateOnly(false) }
+    const canImport = isSuperuser ? !isBusy && !hasLoadError : canCreate
+    const openImport = () => {
+        if (!canImport) return
+        if (isSuperuser && (assetTypes.length === 0 || tenants.length === 0)) {
+            setWorkbookSource({ file: null, tenant: null })
+            setWorkbookOpen(true)
+        } else setIsImportOpen(true)
+    }
+    // Background errors disable writes without destroying an already open draft.
+    const canShowBatch = hasTenant && (!isBusy || assetTypes.length > 0)
+    const hasFilters = !!(searchQuery.trim() || filterType || filterTenant || filterCategory || selectedModelKey || needsUpdateOnly)
+    const resetFilters = () => { setSearchQuery(''); setFilterType(null); setFilterTenant(null); setFilterCategory(''); setSelectedModelKey(null); setInventoryMode('types'); setNeedsUpdateOnly(false) }
 
     const scopedAssets = useMemo(() => {
         let result = assets
         if (filterType) result = result.filter(a => a.asset_type === filterType)
+        if (filterCategory) result = result.filter(a => assetTypes.find(type => type.id === a.asset_type)?.category_code === filterCategory)
         if (needsUpdateOnly) result = result.filter(a => a.needs_update)
         if (isSuperuser && filterTenant) result = result.filter(a => a.tenant === filterTenant)
         if (searchQuery.trim()) {
@@ -1097,7 +1037,7 @@ function AssetsPage() {
             })
         }
         return result
-    }, [assets, filterType, filterTenant, searchQuery, isSuperuser, needsUpdateOnly])
+    }, [assets, assetTypes, filterType, filterCategory, filterTenant, searchQuery, isSuperuser, needsUpdateOnly])
 
     const filteredAssets = useMemo(() => selectedModelKey
         ? scopedAssets.filter(asset => getEquipmentModelKey(asset, assetTypes.find(type => type.id === asset.asset_type)) === selectedModelKey)
@@ -1106,23 +1046,18 @@ function AssetsPage() {
         ? getInventoryModelGroups(scopedAssets, assetTypes).find(group => group.key === selectedModelKey)
         : undefined, [scopedAssets, assetTypes, selectedModelKey])
     const totals = getInventoryTotals(scopedAssets, assetTypes)
+    const allTotals = getInventoryTotals(assets, assetTypes)
     const visibleTotals = getInventoryTotals(filteredAssets, assetTypes)
+    const recordListHelp = visibleTotals.stockLineCount
+        ? t(canManageSharing ? 'inventory.stockListHelp' : 'inventory.stockListHelpEditOnly')
+        : t(canManageSharing ? 'inventory.listHelp' : 'inventory.listHelpEditOnly')
     const summaryLabel = (value: ReturnType<typeof getInventoryTotals>) => {
         if (!value.stockLineCount) return t(searchQuery.trim() ? 'inventory.matchingQuantity' : 'inventory.summaryCount', { count: value.equipmentCount })
         const stock = t(value.hasInvalidStock ? 'inventory.stockSummaryUnknown' : 'inventory.stockSummary', { lines: value.stockLineCount.toLocaleString(locale), quantity: value.stockQuantity.toLocaleString(locale) })
         return value.equipmentCount ? `${t('inventory.summaryCount', { count: value.equipmentCount })} · ${stock}` : stock
     }
 
-    const openCreate = () => {
-        if (!canCreate) return
-        setFormMode('create')
-        setEditingAsset(null)
-        setFormError(null)
-        setFormOpen(true)
-    }
-
     const openEdit = (asset: Asset) => {
-        setFormMode('edit')
         setEditingAsset(asset)
         setFormError(null)
         setFormOpen(true)
@@ -1131,22 +1066,15 @@ function AssetsPage() {
     const handleSave = async (data: AssetFormPayload) => {
         try {
             setFormError(null)
-            if (formMode === 'edit' && editingAsset) {
-                const updated = await updateMutation.mutateAsync({
-                    id: editingAsset.id,
-                    data: data as Parameters<typeof updateMutation.mutateAsync>[0]['data'],
-                })
-                if (selectedModelKey) {
-                    setSelectedModelKey(getEquipmentModelKey(updated, assetTypes.find(type => type.id === updated.asset_type)))
-                    setFilterType(updated.asset_type)
-                    setSearchQuery('')
-                }
-            } else {
-                await createMutation.mutateAsync(data as Parameters<typeof createMutation.mutateAsync>[0])
-                setSelectedModelKey(null)
-                setFilterType(null)
+            if (!editingAsset) return
+            const updated = await updateMutation.mutateAsync({
+                id: editingAsset.id,
+                data: data as Parameters<typeof updateMutation.mutateAsync>[0]['data'],
+            })
+            if (selectedModelKey) {
+                setSelectedModelKey(getEquipmentModelKey(updated, assetTypes.find(type => type.id === updated.asset_type)))
+                setFilterType(updated.asset_type)
                 setSearchQuery('')
-                setInventoryMode('types')
             }
             setFormOpen(false)
         } catch (err) {
@@ -1208,16 +1136,22 @@ function AssetsPage() {
 
     return (
         <div className="w-full min-w-0">
+            <nav aria-label={c.workspace} className="mb-6 flex gap-6 border-b border-slate-200 text-sm dark:border-slate-700">
+                <Link to="/assets" className="border-b-2 border-blue-600 pb-3 font-semibold text-blue-700 dark:text-blue-300">{t(isSuperuser ? 'inventory.centralTitle' : 'inventory.myTitle')}</Link>
+                <Link to="/assets/types" className="pb-3 text-slate-500 hover:text-blue-700 dark:text-slate-400 dark:hover:text-blue-300">{c.catalog}</Link>
+            </nav>
             <PageHeader
+                density="compact"
                 title={t(isSuperuser ? 'inventory.centralTitle' : 'inventory.myTitle')}
                 subtitle={isSuperuser ? t('inventory.centralSubtitle') : t('inventory.mySubtitle', { name: user?.tenant_name || t('assets.shipyard') })}
                 actions={<div className="flex max-w-full flex-wrap gap-2">
-                    <Button variant="secondary" icon={<Upload size={16} />} disabled={!canCreate} onClick={() => setIsImportOpen(true)}>{t('assets.importExcel')}</Button>
-                    {(isSuperuser || user?.role === 'tenant_admin') && <Button variant="secondary" icon={<FileSpreadsheet size={16} />} disabled={isBusy || hasLoadError || !hasTenant} onClick={() => setWorkbookOpen(true)}>{t('workbook.shortTitle')}</Button>}
-                    <Button icon={<Plus size={16} />} onClick={openCreate} disabled={!canCreate}>{t('assets.addNew')}</Button>
-                    <ActionsMenu onExport={() => setIsExportOpen(true)} onReport={handleReportExport} disabledExport={!assetTypes.length || isBusy || hasLoadError || !hasTenant} disabledReport={filteredAssets.length === 0 || isBusy || hasLoadError || !hasTenant} />
+                    <Button variant="secondary" icon={<Upload size={16} />} disabled={!canImport} onClick={openImport}>{c.import}</Button>
+                    <Button icon={<Plus size={16} />} onClick={() => { setSuccess(''); setBatchOpen(true) }} disabled={!canCreate}>{c.add}</Button>
+                    <ActionsMenu onExport={() => setExportScope('type')} onReport={() => setExportScope('visible')} disabledExport={!assetTypes.length || isBusy || hasLoadError || !hasTenant} disabledReport={filteredAssets.length === 0 || isBusy || hasLoadError || !hasTenant} />
                 </div>}
             />
+            {success && <div role="status" className="mb-5 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle size={17} />{success}</div>}
+            <InventoryWorkspaceIntro loaded={!isBusy && !hasLoadError && hasTenant} equipmentCount={allTotals.equipmentCount} stockQuantity={allTotals.stockQuantity} invalidStock={allTotals.hasInvalidStock} typeCount={new Set(assets.map(asset => asset.asset_type)).size} />
             {!isBusy && !hasLoadError && assets.some(asset => asset.needs_update) && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                 <span>{t('dynamicSchema.needsUpdate')} · {assets.filter(asset => asset.needs_update).length}</span>
                 <Button size="sm" variant="secondary" onClick={() => { setNeedsUpdateOnly(value => !value); setInventoryMode('list'); setSelectedModelKey(null) }}>{t(needsUpdateOnly ? 'dynamicSchema.allRecords' : 'dynamicSchema.showNeedsUpdate')}</Button>
@@ -1225,12 +1159,12 @@ function AssetsPage() {
             {hasLoadError && <div role="alert" className="mb-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"><p>{t('ux.inventoryLoadFailed')}</p><Button variant="ghost" size="sm" onClick={() => { void refetchAssets(); void refetchTypes(); if (isSuperuser) void refetchTenants() }}>{t('catalog.retry')}</Button></div>}
             {!isBusy && !hasLoadError && (!hasTenant || assetTypes.length === 0 || (isSuperuser && tenants.length === 0)) && <div role="status" className="mb-5 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-semibold text-slate-900 dark:text-white">{t(!hasTenant ? 'ux.tenantNeededTitle' : assetTypes.length === 0 ? 'ux.catalogNeededTitle' : 'ux.shipyardNeededTitle')}</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t(!hasTenant ? 'ux.tenantNeededHelp' : assetTypes.length === 0 ? isSuperuser ? 'ux.catalogNeededHelp' : 'ux.catalogNeededMemberHelp' : 'ux.shipyardNeededHelp')}</p>{hasTenant && assetTypes.length === 0 && <Link to="/assets/types" className="mt-3 inline-block text-sm font-medium text-blue-700 underline dark:text-blue-300">{t('catalog.goToTypes')}</Link>}</div>}
 
-            {!isBusy && !hasLoadError && hasTenant && inventoryMode === 'types' && <div className="mb-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-200 pb-4 dark:border-slate-700">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{summaryLabel(totals)}</p>
-                <p className="max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">{t('inventory.scopeHelp')}</p>
-                <Link to="/shared-equipment" className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-300">{t('inventory.discoverShared')} →</Link>
-            </div>}
-
+            <div className="grid min-w-0 gap-6 lg:grid-cols-[13rem_minmax(0,1fr)]">
+                <aside aria-label={c.category} className="min-w-0"><div className="flex items-center justify-between pb-3"><h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{c.category}</h2><Layers3 size={15} className="text-slate-400" /></div><div className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible">
+                    <button type="button" aria-pressed={!filterCategory} onClick={() => { setFilterCategory(''); setSelectedModelKey(null); setFilterType(null) }} className={`shrink-0 rounded-md px-3 py-2 text-left text-xs font-medium focus-visible:ring-2 focus-visible:ring-blue-500 ${!filterCategory ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}>{c.allCategories}</button>
+                    {categoryCodes.filter(code => assetTypes.some(type => type.category_code === code && assets.some(asset => asset.asset_type === type.id))).map(code => <button type="button" key={code} aria-pressed={filterCategory === code} onClick={() => { setFilterCategory(code); setSelectedModelKey(null); setFilterType(null); setInventoryMode('types') }} className={`flex shrink-0 items-start gap-2 rounded-md px-3 py-2 text-left text-xs leading-5 focus-visible:ring-2 focus-visible:ring-blue-500 ${filterCategory === code ? 'bg-blue-50 font-semibold text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}><span className="font-mono text-slate-400">{code}</span><span>{t(`catalog.categories.${code}`)}</span></button>)}
+                </div><div className="mt-3 hidden border-t border-slate-200 pt-3 lg:block dark:border-slate-700"><Link to="/shared-equipment" className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-300">{t('inventory.discoverShared')} →</Link></div></aside>
+                <div className="min-w-0">
             <div className="mb-6 flex flex-wrap items-center gap-3">
                 <div className="relative min-w-0 flex-1 basis-64">
                     <Search size={17} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1239,28 +1173,33 @@ function AssetsPage() {
                 {isSuperuser && <select value={filterTenant || ''} aria-label={t('assets.shipyard')} onChange={event => setFilterTenant(event.target.value ? Number(event.target.value) : null)} className={`${formControlClass} w-full sm:w-56`}><option value="">{t('assets.allShipyards')}</option>{tenants.map(tenant => <option key={tenant.id} value={tenant.id}>{tenant.name}</option>)}</select>}
                 {inventoryMode === 'list' && <select value={filterType || ''} aria-label={t('assets.assetType')} onChange={event => { setFilterType(event.target.value || null); setSelectedModelKey(null) }} className={`${formControlClass} w-full sm:w-52`}><option value="">{t('assets.allTypes')}</option>{assetTypes.map(type => <option key={type.id} value={type.id}>{type.name}</option>)}</select>}
                 {hasFilters && <Button variant="ghost" size="sm" icon={<X size={14} />} onClick={resetFilters}>{t('ux.clearFilters')}</Button>}
-                {inventoryMode === 'types' && <Button variant="secondary" size="sm" onClick={() => setInventoryMode('list')}>{t(totals.stockLineCount ? 'inventory.allRecords' : 'inventory.allEquipment')}</Button>}
             </div>
+                <div className="mb-4 flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900"><button type="button" aria-pressed={inventoryMode === 'types'} onClick={() => { setInventoryMode('types'); setSelectedModelKey(null) }} className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-blue-500 ${inventoryMode === 'types' ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}><Layers3 size={15} />{c.grouped}</button><button type="button" aria-pressed={inventoryMode === 'list'} onClick={() => { setInventoryMode('list'); setSelectedModelKey(null) }} className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-blue-500 ${inventoryMode === 'list' ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}><List size={15} />{c.records}</button>{inventoryMode === 'types' && !isBusy && !hasLoadError && <span className="basis-full px-3 pb-1 text-xs text-slate-500 sm:ml-auto sm:basis-auto sm:pb-0 dark:text-slate-400">{summaryLabel(totals)}</span>}</div>
 
-            {!hasLoadError && hasTenant && (isBusy ? <div role="status" className="space-y-3">{[0, 1, 2].map(index => <div key={index} className="h-20 animate-pulse rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"><span className="sr-only">{t('common.loading')}</span></div>)}</div> : filteredAssets.length === 0 ? <EmptyState icon={<Package size={28} />} title={t('assets.noAssets')} description={hasFilters ? t('assets.changeFilters') : t('inventory.noTypesHelp')} action={hasFilters ? <Button variant="secondary" onClick={resetFilters}>{t('ux.clearFilters')}</Button> : canCreate ? <Button onClick={openCreate} icon={<Plus size={16} />}>{t('assets.addNew')}</Button> : undefined} /> : inventoryMode === 'types' ? <InventoryTypeOverview key={JSON.stringify([filterType, filterTenant, searchQuery])} assets={filteredAssets} assetTypes={assetTypes} onSelect={viewType} filtered={hasFilters} showOwner={isSuperuser} /> : <>
+
+            {!hasLoadError && hasTenant && (isBusy ? <div role="status" className="space-y-3">{[0, 1, 2].map(index => <div key={index} className="h-20 animate-pulse rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"><span className="sr-only">{t('common.loading')}</span></div>)}</div> : filteredAssets.length === 0 ? <EmptyState icon={<Package size={28} />} title={hasFilters ? t('assets.noAssets') : c.first} description={hasFilters ? t('assets.changeFilters') : c.firstHelp} action={hasFilters ? <Button variant="secondary" onClick={resetFilters}>{t('ux.clearFilters')}</Button> : canCreate ? <Button onClick={() => setBatchOpen(true)} icon={<Plus size={16} />}>{c.add}</Button> : undefined} /> : inventoryMode === 'types' ? <InventoryTypeOverview key={JSON.stringify([filterType, filterTenant, searchQuery])} assets={filteredAssets} assetTypes={assetTypes} onSelect={viewType} filtered={hasFilters} showOwner={isSuperuser} /> : <>
                 <div className="mb-5">
                     <Button variant="ghost" size="sm" icon={<ArrowLeft size={15} />} onClick={() => { setFilterType(null); setSelectedModelKey(null); setInventoryMode('types') }}>{t('inventory.backToTypes')}</Button>
-                    <div className="mt-3 flex flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-xl font-semibold text-slate-900 dark:text-white [overflow-wrap:anywhere]">{selectedModel?.name || selectedType?.name || t(visibleTotals.stockLineCount ? 'inventory.allRecords' : 'inventory.allEquipment')}</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t(visibleTotals.stockLineCount ? 'inventory.stockListHelp' : 'inventory.listHelp')}</p></div><span role="status" className="text-lg font-semibold tabular-nums text-slate-700 dark:text-slate-200">{visibleTotals.stockLineCount ? summaryLabel(visibleTotals) : t(searchQuery.trim() ? 'inventory.matchingQuantity' : 'inventory.modelQuantity', { count: filteredAssets.length })}</span></div>
+                    <div className="mt-3 flex flex-wrap items-end justify-between gap-2"><div className="min-w-0"><h2 className="text-xl font-semibold text-slate-900 dark:text-white [overflow-wrap:anywhere]">{selectedModel?.name || selectedType?.name || t(visibleTotals.stockLineCount ? 'inventory.allRecords' : 'inventory.allEquipment')}</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{recordListHelp}</p></div><span role="status" className="text-lg font-semibold tabular-nums text-slate-700 dark:text-slate-200">{visibleTotals.stockLineCount ? summaryLabel(visibleTotals) : t(searchQuery.trim() ? 'inventory.matchingQuantity' : 'inventory.modelQuantity', { count: filteredAssets.length })}</span></div>
                 </div>
                 <EquipmentRecordList key={`${selectedModelKey}:${filterType}:${filterTenant}:${searchQuery}`} assets={filteredAssets} assetTypes={assetTypes} showType={!filterType} showModel={!selectedModelKey} showOwner={isSuperuser} canManageSharing={canManageSharing} onDetail={asset => { setSelectedAsset(asset); setIsDetailOpen(true) }} onEdit={openEdit} onDelete={asset => { setDeleteError(null); setAssetToDelete(asset); setIsDeleteOpen(true) }} onSharing={setSharingAsset} />
             </>)}
+                </div>
+            </div>
+
+            <InventoryBatchModal isOpen={batchOpen && canShowBatch} onClose={() => setBatchOpen(false)} assetTypes={assetTypes} tenants={tenants} isSuperuser={isSuperuser} initialTypeId={filterType} unavailable={!canCreate} retrying={typesFetching || assetsFetching || (isSuperuser && tenantsFetching)} onRetry={() => { void refetchAssets(); void refetchTypes(); if (isSuperuser) void refetchTenants() }} onCreated={summary => { void queryClient.invalidateQueries({ queryKey: assetKeys.all }); resetFilters(); setSuccess(summary) }} />
 
             <AssetFormModal
                 isOpen={formOpen}
                 onClose={() => { setFormOpen(false); setFormError(null) }}
-                mode={formMode}
+                mode="edit"
                 initialTypeId={filterType}
                 asset={editingAsset}
                 assetTypes={assetTypes}
                 tenants={tenants}
                 isSuperuser={isSuperuser}
                 onSave={handleSave}
-                isLoading={createMutation.isPending || updateMutation.isPending}
+                isLoading={updateMutation.isPending}
                 error={formError}
             />
 
@@ -1282,16 +1221,21 @@ function AssetsPage() {
                 tenants={tenants}
                 isSuperuser={isSuperuser}
                 onImported={refetchAssets}
+                onWorkbook={isSuperuser || user?.role === 'tenant_admin' ? (file, tenant) => { setWorkbookSource({ file, tenant }); setIsImportOpen(false); setWorkbookOpen(true) } : undefined}
             />
-            <WorkbookImportModal isOpen={workbookOpen} onClose={() => setWorkbookOpen(false)} isGlobalAdmin={isSuperuser} tenants={tenants} onImported={refetchAssets} onSingleTypeImport={() => { setWorkbookOpen(false); setIsImportOpen(true) }} />
+            <WorkbookImportModal isOpen={workbookOpen} initialFile={workbookSource.file} initialTenant={workbookSource.tenant ?? undefined} onClose={() => { setWorkbookOpen(false); setWorkbookSource({ file: null, tenant: null }) }} isGlobalAdmin={isSuperuser} tenants={tenants} onImported={refetchAssets} onSingleTypeImport={() => { setWorkbookOpen(false); setIsImportOpen(true) }} />
 
-            <ExportDialog
-                isOpen={isExportOpen}
-                onClose={() => setIsExportOpen(false)}
+            {exportScope && <InventoryExportModal
+                onClose={() => setExportScope(null)}
+                initialScope={exportScope}
+                initialTypeId={filterType}
+                initialTenantId={filterTenant}
+                visibleCount={filteredAssets.length}
+                onVisibleExport={handleReportExport}
                 assetTypes={assetTypes}
                 tenants={tenants}
                 isSuperuser={isSuperuser}
-            />
+            />}
 
             <ConfirmationModal
                 isOpen={isDeleteOpen && !!assetToDelete}

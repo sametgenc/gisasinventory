@@ -78,6 +78,17 @@ class AssetType(models.Model):
         return self.name
 
 
+class AssetBatchOperation(models.Model):
+    """Keep completed quick-entry identities independent of mutable inventory."""
+
+    operation_id = models.UUIDField(primary_key=True, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='asset_batch_operations',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Asset(models.Model):
     """
     Represents individual equipment or a quantity stock line based on an AssetType.

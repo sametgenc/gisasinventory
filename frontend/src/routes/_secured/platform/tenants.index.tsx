@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import {
     Building2, Plus, Pencil, Trash2, Ship, Users,
     MapPin, Phone, Mail, Search, Eye,
@@ -8,7 +9,7 @@ import {
 import { exportReport } from '@/utils/report'
 import {
     useTenants, useCreateTenant, useUpdateTenant, useDeleteTenant,
-    tenantsApi,
+    tenantsApi, tenantKeys,
 } from '@/modules/tenants'
 import type { Tenant, TenantUpdateInput } from '@/modules/tenants'
 import type { BulkImportResult } from '@/modules/tenants/data'
@@ -25,6 +26,9 @@ import {
 } from '@/components/ui'
 import { useTranslation } from 'react-i18next'
 import { TenantFormModal } from '@/components/tenants/TenantFormModal'
+import { getApiErrorMessage } from '@/api/errors'
+import { tenantTrustCopy } from '@/modules/tenants/trust-copy'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export const Route = createFileRoute('/_secured/platform/tenants/')({
     component: TenantsPage,
@@ -42,16 +46,22 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 function TenantsPage() {
-    const { t } = useTranslation()
-    const { data: tenants, isLoading, error } = useTenants()
+    const { t, i18n } = useTranslation()
+    const copy = tenantTrustCopy(i18n.language)
+    const { data: tenants, isLoading, error, refetch } = useTenants()
     const createMutation = useCreateTenant()
     const updateMutation = useUpdateTenant()
     const deleteMutation = useDeleteTenant()
+    const queryClient = useQueryClient()
 
     const [searchQuery, setSearchQuery] = useState('')
     const [isFormModalOpen, setIsFormModalOpen] = useState(false)
     const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
     const [deleteTarget, setDeleteTarget] = useState<Tenant | null>(null)
+    const [saveError, setSaveError] = useState<string | null>(null)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
+    const [downloadError, setDownloadError] = useState<string | null>(null)
+    const [bulkDownloadError, setBulkDownloadError] = useState<string | null>(null)
 
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
     const [bulkImportType, setBulkImportType] = useState<'tenants' | 'users'>('tenants')
@@ -59,6 +69,31 @@ function TenantsPage() {
     const [isImporting, setIsImporting] = useState(false)
     const [isDownloading, setIsDownloading] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const importInFlight = useRef(false)
+    const { requestClose: requestBulkClose, requestAction: requestBulkAction, confirmation: bulkConfirmation } = useDraftGuard({
+        dirty: !!bulkImportResult && bulkImportResult.error_count > 0,
+        busy: isImporting,
+        active: isBulkModalOpen,
+        confirmationCopy: {
+            title: t('common.importResultCloseTitle'),
+            message: t('common.importResultCloseMessage'),
+            confirmText: t('common.importResultCloseAction'),
+        },
+        onClose: () => {
+            setIsBulkModalOpen(false)
+            setBulkImportResult(null)
+            setBulkDownloadError(null)
+        },
+    })
+
+    const changeBulkImportType = (type: 'tenants' | 'users') => {
+        if (importInFlight.current || type === bulkImportType) return
+        requestBulkAction(() => {
+            setBulkImportType(type)
+            setBulkImportResult(null)
+            setBulkDownloadError(null)
+        })
+    }
 
     const filteredTenants = useMemo(
         () => (tenants ?? []).filter((tn) => {
@@ -68,38 +103,48 @@ function TenantsPage() {
         [tenants, searchQuery],
     )
 
-    const handleCreate = () => { setEditingTenant(null); setIsFormModalOpen(true) }
-    const handleEdit = (tn: Tenant) => { setEditingTenant(tn); setIsFormModalOpen(true) }
+    const handleCreate = () => { setSaveError(null); setEditingTenant(null); setIsFormModalOpen(true) }
+    const handleEdit = (tn: Tenant) => { setSaveError(null); setEditingTenant(tn); setIsFormModalOpen(true) }
 
     const handleSave = async (data: TenantUpdateInput) => {
+        setSaveError(null)
         try {
             if (editingTenant) {
                 await updateMutation.mutateAsync({ slug: editingTenant.slug, data })
             } else {
-                await createMutation.mutateAsync({ name: data.name! })
+                await createMutation.mutateAsync({
+                    name: data.name!, description: data.description, address: data.address,
+                    phone: data.phone, email: data.email,
+                })
             }
             setIsFormModalOpen(false)
             setEditingTenant(null)
         } catch (err) {
-            console.error('Failed to save tenant:', err)
+            setSaveError(getApiErrorMessage(err, copy.saveFailed))
         }
     }
 
     const handleDeleteConfirm = async () => {
         if (!deleteTarget) return
-        await deleteMutation.mutateAsync(deleteTarget.slug)
-        setDeleteTarget(null)
+        setDeleteError(null)
+        try {
+            await deleteMutation.mutateAsync(deleteTarget.slug)
+            setDeleteTarget(null)
+        } catch (err) {
+            setDeleteError(getApiErrorMessage(err, copy.deleteFailed))
+        }
     }
 
     const handleDownloadTemplate = async (type: 'tenants' | 'users') => {
         setIsDownloading(true)
+        setBulkDownloadError(null)
         try {
             const blob = type === 'tenants'
                 ? await tenantsApi.downloadTenantsTemplate()
                 : await tenantsApi.downloadUsersTemplate()
             downloadBlob(blob, type === 'tenants' ? 'shipyard_template.xlsx' : 'users_template.xlsx')
         } catch (err) {
-            console.error('Template download failed:', err)
+            setBulkDownloadError(getApiErrorMessage(err, copy.downloadFailed))
         } finally {
             setIsDownloading(false)
         }
@@ -107,7 +152,8 @@ function TenantsPage() {
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (!file) return
+        if (!file || importInFlight.current) return
+        importInFlight.current = true
         setIsImporting(true)
         setBulkImportResult(null)
         try {
@@ -115,10 +161,13 @@ function TenantsPage() {
                 ? await tenantsApi.bulkImportTenants(file)
                 : await tenantsApi.bulkImportUsers(file)
             setBulkImportResult(result)
+            if (result.success_count > 0) {
+                await queryClient.invalidateQueries({ queryKey: tenantKeys.all })
+            }
         } catch (err) {
-            console.error('Import failed:', err)
-            setBulkImportResult({ message: t('tenants.importFailed'), success_count: 0, error_count: 1, errors: [] })
+            setBulkImportResult({ message: getApiErrorMessage(err, t('tenants.importFailed')), success_count: 0, error_count: 1, errors: [] })
         } finally {
+            importInFlight.current = false
             setIsImporting(false)
             if (fileInputRef.current) fileInputRef.current.value = ''
         }
@@ -141,13 +190,14 @@ function TenantsPage() {
     }
 
     const handleExport = async (type: 'tenants' | 'users') => {
+        setDownloadError(null)
         try {
             const blob = type === 'tenants'
                 ? await tenantsApi.exportTenants()
                 : await tenantsApi.exportUsers()
             downloadBlob(blob, type === 'tenants' ? 'shipyards_export.xlsx' : 'users_export.xlsx')
         } catch (err) {
-            console.error('Export failed:', err)
+            setDownloadError(getApiErrorMessage(err, copy.downloadFailed))
         }
     }
 
@@ -234,7 +284,7 @@ function TenantsPage() {
                     </button>
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(tn) }}
+                        onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteTarget(tn) }}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                         title={t('tenants.deleteBtn')}
                     >
@@ -245,10 +295,11 @@ function TenantsPage() {
         },
     ]
 
-    if (error) {
+    if (error && !tenants) {
         return (
-            <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-xl text-red-700 dark:text-red-300">
-                {t('tenants.loadError')}
+            <div role="alert" className="bg-red-50 dark:bg-red-900/20 p-6 rounded-xl text-red-700 dark:text-red-300">
+                <p>{getApiErrorMessage(error, t('tenants.loadError'))}</p>
+                <Button variant="secondary" onClick={() => void refetch()}>{copy.retry}</Button>
             </div>
         )
     }
@@ -298,6 +349,8 @@ function TenantsPage() {
                 }
             />
 
+            {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(error, t('tenants.loadError'))}</p><Button variant="secondary" onClick={() => void refetch()}>{copy.retry}</Button></div>}
+            {downloadError && <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-300">{downloadError}</p>}
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-6">
                 <div className="relative max-w-md">
                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -338,25 +391,31 @@ function TenantsPage() {
                 tenant={editingTenant}
                 onSave={handleSave}
                 isLoading={createMutation.isPending || updateMutation.isPending}
+                saveError={saveError}
             />
 
             <ConfirmationModal
                 isOpen={!!deleteTarget}
-                onClose={() => setDeleteTarget(null)}
+                onClose={() => { setDeleteTarget(null); setDeleteError(null) }}
                 onConfirm={handleDeleteConfirm}
                 title={t('tenants.deleteBtn')}
                 message={t('tenants.deleteConfirm', { name: deleteTarget?.name ?? '' })}
                 confirmText={t('common.delete')}
                 type="danger"
                 isLoading={deleteMutation.isPending}
+                error={deleteError}
             />
 
             {/* Bulk Import Modal (tenants + users) */}
-            <Modal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} title={t('tenants.bulkTitle')} size="lg">
+            <Modal isOpen={isBulkModalOpen} onClose={requestBulkClose} closeDisabled={isImporting} title={t('tenants.bulkTitle')} size="lg">
+                {bulkConfirmation}
                 <div className="space-y-5">
+                    {bulkDownloadError && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{bulkDownloadError}</p>}
                     <div className="grid grid-cols-2 gap-3">
                         <button
-                            onClick={() => { setBulkImportType('tenants'); setBulkImportResult(null) }}
+                            type="button"
+                            disabled={isImporting}
+                            onClick={() => changeBulkImportType('tenants')}
                             className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${bulkImportType === 'tenants'
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                 : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
@@ -368,7 +427,9 @@ function TenantsPage() {
                             </span>
                         </button>
                         <button
-                            onClick={() => { setBulkImportType('users'); setBulkImportResult(null) }}
+                            type="button"
+                            disabled={isImporting}
+                            onClick={() => changeBulkImportType('users')}
                             className={`p-4 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${bulkImportType === 'users'
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                 : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
@@ -393,6 +454,7 @@ function TenantsPage() {
                             icon={<Download size={14} />}
                             onClick={() => handleDownloadTemplate(bulkImportType)}
                             loading={isDownloading}
+                            disabled={isImporting}
                         >
                             {isDownloading ? t('tenants.downloading') : t('tenants.downloadTemplate')}
                         </Button>
@@ -400,7 +462,7 @@ function TenantsPage() {
 
                     <Card padded>
                         <h4 className="font-medium text-slate-900 dark:text-white mb-3 text-sm">2. {t('tenants.uploadFile')}</h4>
-                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleFileSelect} className="hidden" />
+                        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleFileSelect} disabled={isImporting} className="hidden" />
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}

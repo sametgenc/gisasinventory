@@ -298,6 +298,15 @@ class AssetViewSet(viewsets.ModelViewSet):
             validate_inventory_usage_delete(self.get_object())
             return super().destroy(request, *args, **kwargs)
 
+    @action(detail=False, methods=['post'])
+    def batch_create(self, request):
+        from .batch_create import BatchCreateError, create_batch
+
+        try:
+            return Response(create_batch(request), status=status.HTTP_201_CREATED)
+        except BatchCreateError as exc:
+            return Response(exc.response, status=exc.status)
+
     @action(detail=False, methods=['get'], permission_classes=[
         permissions.IsAuthenticated, IsTenantMember, IsActiveAssetUser,
     ], pagination_class=SharedAssetPagination,

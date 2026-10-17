@@ -16,6 +16,10 @@ export interface Tenant {
 
 export interface TenantCreateInput {
     name: string;
+    description?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
 }
 
 export interface TenantUpdateInput {
@@ -35,6 +39,7 @@ export interface TenantUser {
     last_name: string;
     role: string;
     is_active: boolean;
+    is_superuser: boolean;
     date_joined: string;
     last_login: string | null;
     tenant_name: string | null;

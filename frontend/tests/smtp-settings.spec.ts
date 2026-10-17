@@ -85,3 +85,108 @@ test('SMTP form and test dialog fit narrow dark viewport', async ({ page }) => {
     await expect(page.getByRole('dialog')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
+
+test('SMTP requires identity verification before accepting a new settings draft', async ({ page }) => {
+    await mock(page, { mfa_enabled: false, mfa_verified_recently: false, reauthentication_required: true })
+    await page.goto('/platform/settings')
+    await expect(page.getByRole('link', { name: 'Kimliğimi doğrula', exact: true })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /SMTP Sunucu/i })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Kaydet', exact: true })).toBeDisabled()
+})
+
+test('SMTP unsaved settings survive cancelled navigation without persisting credentials', async ({ page }) => {
+    await mock(page)
+    await page.goto('/platform/settings')
+    const host = page.getByRole('textbox', { name: /SMTP Sunucu/i })
+    await host.fill('new.mail.test')
+    await page.locator('#smtp-password').fill('unsaved-test-secret')
+    await page.getByRole('link', { name: 'Hesap güvenliği', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Kaydedilmemiş değişiklikler silinsin mi?', exact: true })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Düzenlemeye devam et', exact: true }).click()
+    await expect(page).toHaveURL(/\/platform\/settings$/)
+    await expect(host).toHaveValue('new.mail.test')
+    await expect(page.locator('#smtp-password')).toHaveValue('unsaved-test-secret')
+    const stored = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }))
+    expect(stored).not.toContain('unsaved-test-secret')
+    await page.getByRole('link', { name: 'Hesap güvenliği', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Değişiklikleri sil', exact: true }).click()
+    await expect(page).toHaveURL(/\/account\/authenticators$/)
+})
+
+test('SMTP draft survives changing interface language', async ({ page }) => {
+    await mock(page)
+    await page.goto('/platform/settings')
+    await page.getByRole('textbox', { name: /SMTP Sunucu/i }).fill('draft.mail.test')
+    await page.locator('#smtp-password').fill('draft-test-secret')
+    await page.getByRole('button', { name: 'Change language', exact: true }).click()
+    await page.getByRole('button', { name: 'en English', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: /SMTP Host/i })).toHaveValue('draft.mail.test')
+    await expect(page.locator('#smtp-password')).toHaveValue('draft-test-secret')
+})
+
+test('successful SMTP save clears secret and permits navigation without discard warning', async ({ page }) => {
+    await mock(page)
+    await page.route(`**${path}`, route => route.fulfill({ json: route.request().method() === 'PUT'
+        ? { ...settings, host: 'saved.mail.test' } : settings }))
+    await page.goto('/platform/settings')
+    await page.getByRole('textbox', { name: /SMTP Sunucu/i }).fill('saved.mail.test')
+    await page.locator('#smtp-password').fill('save-test-secret')
+    await page.getByRole('button', { name: 'Kaydet', exact: true }).click()
+    await expect(page.locator('#smtp-password')).toHaveValue('')
+    await page.getByRole('link', { name: 'Hesap güvenliği', exact: true }).click()
+    await expect(page).toHaveURL(/\/account\/authenticators$/)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('sign out asks before clearing a dirty SMTP draft and cancellation keeps the session', async ({ page }) => {
+    await mock(page)
+    let signedOut = 0
+    await page.route('**/_allauth/browser/v1/auth/session', route => {
+        if (route.request().method() === 'DELETE') signedOut += 1
+        else if (!signedOut) return route.fallback()
+        return route.fulfill({ json: { status: 401, meta: { is_authenticated: false }, data: { flows: [] } } })
+    })
+    await page.goto('/platform/settings')
+    const host = page.getByRole('textbox', { name: /SMTP Sunucu/i })
+    await host.fill('signout-draft.mail.test')
+    await page.getByRole('button', { name: 'admin', exact: true }).click()
+    await page.getByRole('button', { name: 'Çıkış Yap', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Kaydedilmemiş değişiklikler silinsin mi?', exact: true })
+    await expect(dialog).toBeVisible()
+    expect(signedOut).toBe(0)
+    await dialog.getByRole('button', { name: 'Düzenlemeye devam et', exact: true }).click()
+    await expect(host).toHaveValue('signout-draft.mail.test')
+    await page.getByRole('button', { name: 'admin', exact: true }).click()
+    await page.getByRole('button', { name: 'Çıkış Yap', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Değişiklikleri sil', exact: true }).click()
+    await expect(page).toHaveURL(/\/login(?:\?|$)/)
+    expect(signedOut).toBe(1)
+})
+
+test('sign out cannot clear a SMTP form while its save is pending', async ({ page }) => {
+    await mock(page)
+    let signedOut = 0
+    let release = () => {}
+    const pending = new Promise<void>(resolve => { release = resolve })
+    await page.route(`**${path}`, async route => {
+        if (route.request().method() === 'PUT') await pending
+        return route.fulfill({ json: settings })
+    })
+    await page.route('**/_allauth/browser/v1/auth/session', route => {
+        if (route.request().method() !== 'DELETE') return route.fallback()
+        signedOut += 1
+        return route.fulfill({ json: { status: 401, meta: { is_authenticated: false }, data: { flows: [] } } })
+    })
+    await page.goto('/platform/settings')
+    const host = page.getByRole('textbox', { name: /SMTP Sunucu/i })
+    await host.fill('pending.mail.test')
+    await page.getByRole('button', { name: 'Kaydet', exact: true }).click()
+    await expect(host).toBeDisabled()
+    await page.getByRole('button', { name: 'admin', exact: true }).click()
+    await page.getByRole('button', { name: 'Çıkış Yap', exact: true }).click()
+    await expect(host).toBeVisible()
+    expect(signedOut).toBe(0)
+    release()
+    await expect(page.getByRole('button', { name: 'Kaydet', exact: true })).toBeEnabled()
+})

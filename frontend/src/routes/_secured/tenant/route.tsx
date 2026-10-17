@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 import type { RouterContext } from '../../__root'
+import { isGlobalAdministrator } from '@/auth/permissions'
 
 export const Route = createFileRoute('/_secured/tenant')({
     beforeLoad: ({ context }) => {
@@ -8,7 +9,7 @@ export const Route = createFileRoute('/_secured/tenant')({
         if (!user) {
             throw redirect({ to: '/login', search: { redirect: undefined } })
         }
-        const isTenantAdmin = user.role === 'tenant_admin' || user.is_superuser
+        const isTenantAdmin = isGlobalAdministrator(user) || (user.role === 'tenant_admin' && !!(user.tenant_slug || user.tenant_id))
         if (!isTenantAdmin) {
             throw redirect({ to: '/dashboard' })
         }

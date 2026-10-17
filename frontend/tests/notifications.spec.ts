@@ -95,3 +95,54 @@ test('failed preference save restores the saved selection and exposes a retryabl
     await expect(preference).toBeChecked()
     await expect(preference).toBeEnabled()
 })
+
+for (const scope of ['all', 'single'] as const) {
+    test(`${scope} notification deletion requires consent and keeps failed deletion retryable`, async ({ page }) => {
+        await mock(page)
+        let attempts = 0
+        let removed = false
+        await page.route(url => url.pathname === '/api/notifications/', route => route.fulfill({ json: {
+            count: removed ? 0 : 1, results: removed ? [] : [notification], next: null, previous: null,
+        } }))
+        await page.route(url => url.pathname === (scope === 'all' ? '/api/notifications/clear_all/' : '/api/notifications/1/'), route => {
+            attempts += 1
+            if (attempts === 1) return route.fulfill({ status: 500, json: { detail: 'Silme tamamlanamadı.' } })
+            removed = true
+            return route.fulfill({ json: {} })
+        })
+        await page.goto('/notifications')
+        const trigger = page.getByRole('button', { name: scope === 'all' ? 'Tümünü Temizle' : 'Sil: Aktarım tamamlandı', exact: true })
+        await trigger.click()
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toContainText(scope === 'all' ? 'tüm bildirimleri' : 'Aktarım tamamlandı')
+        expect(attempts).toBe(0)
+        await dialog.getByRole('button', { name: 'İptal', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+        expect(attempts).toBe(0)
+        await trigger.click()
+        await dialog.getByRole('button', { name: 'Sil', exact: true }).click()
+        await expect(dialog.getByRole('alert')).toContainText('Silme tamamlanamadı.')
+        expect(attempts).toBe(1)
+        await expect(dialog.getByRole('button', { name: 'Sil', exact: true })).toBeEnabled()
+        await dialog.getByRole('button', { name: 'Sil', exact: true }).click()
+        await expect(dialog).not.toBeVisible()
+        await expect(page.getByText('Bildirimler geldiğinde burada görünecektir.')).toBeVisible()
+        expect(attempts).toBe(2)
+    })
+}
+
+test('failed notification loading offers retry without claiming the account is empty', async ({ page }) => {
+    await mock(page)
+    let fails = true
+    await page.route(url => url.pathname === '/api/notifications/', route => fails
+        ? route.fulfill({ status: 500, json: { detail: 'Bildirimler yüklenemedi.' } })
+        : route.fulfill({ json: { count: 1, results: [notification], next: null, previous: null } }))
+    await page.goto('/notifications')
+    const error = page.getByRole('alert').filter({ hasText: 'Bildirimler yüklenemedi.' })
+    await expect(error).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText('Bildirimler geldiğinde burada görünecektir.')).toHaveCount(0)
+    fails = false
+    await error.getByRole('button').click()
+    await expect(page.getByRole('heading', { name: 'Aktarım tamamlandı', exact: true })).toBeVisible()
+    await expect(error).not.toBeVisible()
+})

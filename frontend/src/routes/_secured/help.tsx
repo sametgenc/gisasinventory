@@ -3,13 +3,14 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ArrowRight, BookOpen, ChevronLeft, ChevronRight, Download, Printer, Search, X, ZoomIn } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
+import { isGlobalAdministrator } from '@/auth/permissions'
 import { Button, Modal, formControlClass } from '@/components/ui'
 import { guideContent, type GuideTask, type GuideTaskId } from '@/modules/guide-content'
 import { helpCopy } from '@/modules/help-copy'
 import { isDemoMode } from '@/modules/demo'
 import { canUseSharedUsage } from '@/modules/assets/usage'
 
-const taskIds: GuideTaskId[] = ['inspect', 'add', 'excel', 'publish', 'catalog', 'usage']
+const taskIds: GuideTaskId[] = ['inspect', 'add', 'excel', 'publish', 'catalog', 'usage', 'users']
 export const Route = createFileRoute('/_secured/help')({
     validateSearch: (search: Record<string, unknown>): { task?: GuideTaskId; step?: number } => ({
         task: typeof search.task === 'string' && taskIds.includes(search.task as GuideTaskId) ? search.task as GuideTaskId : 'inspect',
@@ -24,6 +25,7 @@ const labels = {
         searchResults: 'Rehberde bulunanlar', noResults: 'Bu aramayla eşleşen adım yok.', clearSearch: 'Aramayı temizle',
         relatedQuestions: 'Bu işlemle ilgili sorular', openStep: 'Bu adımı aç', allSteps: 'Tüm adımları gör',
         reset: 'Baştan göster', signIn: 'İşlemi yapmak için giriş yap', requiresRole: 'Bu işlemi yetkili yönetici yapar.',
+        globalUsage: 'Kullanım talebi, onay, teslim ve iade için ilgili tersane hesabını kullanın. Platform hesabı tersane adına bu işlemleri yapamaz.',
         requiresShipyard: 'İşlem yapabilmek için hesabınızın bir tersaneye atanması gerekir.',
         practice: 'Deneme dosyaları ve hesaplar', practiceHelp: 'İsterseniz aynı adımları kurmaca verilerle deneyin.',
         taskProgress: 'Rehber adımları', chooseAnother: 'Başka bir işlem seçin',
@@ -33,6 +35,7 @@ const labels = {
         searchResults: 'Guide matches', noResults: 'No step matches this search.', clearSearch: 'Clear search',
         relatedQuestions: 'Questions about this task', openStep: 'Open this step', allSteps: 'View all steps',
         reset: 'Start again', signIn: 'Sign in to perform this task', requiresRole: 'An authorized administrator performs this task.',
+        globalUsage: 'Use the relevant shipyard account for usage requests, approval, handover and return. Platform accounts cannot perform these actions on a shipyard’s behalf.',
         requiresShipyard: 'Your account needs a shipyard assignment to perform this task.',
         practice: 'Practice files and accounts', practiceHelp: 'Try the same steps using fictional data.',
         taskProgress: 'Guide steps', chooseAnother: 'Choose another task',
@@ -59,7 +62,7 @@ function HelpPage() {
     const matchedSteps = normalizedSearch ? copy.tasks.flatMap(item => item.steps.flatMap((itemStep, index) =>
         matches([item.title, item.summary, itemStep.title, itemStep.body].join(' ')) ? [{ task: item, step: itemStep, index }] : [])) : []
     const questions = normalizedSearch ? copy.faq.filter(item => matches(item.question + ' ' + item.answer)) : copy.faq.filter(item => item.taskId === task.id)
-    const isPlatform = !!user?.is_superuser && !user.tenant_slug
+    const isPlatform = isGlobalAdministrator(user)
     const isManager = isPlatform || user?.role === 'tenant_admin'
     const hasShipyard = isPlatform || !!user?.tenant_slug
     const canPerform = !!user && hasShipyard && (task.audienceRole === 'all' || (task.audienceRole === 'manager' ? isManager : isPlatform))
@@ -71,7 +74,7 @@ function HelpPage() {
 
     function actionFor(item: GuideTask, className: string) {
         if (!user) return <Link to="/login" search={{ redirect: item.route }} className={className}>{ui.signIn}<ArrowRight size={16} /></Link>
-        if (item.id === 'usage' && !canUseSharedUsage(user)) return <p className="text-sm text-slate-500 dark:text-slate-400">{ui.requiresShipyard}</p>
+        if (item.id === 'usage' && !canUseSharedUsage(user)) return <p className="text-sm text-slate-500 dark:text-slate-400">{isPlatform ? ui.globalUsage : ui.requiresShipyard}</p>
         if (canPerform) return <Link to={item.route} className={className}>{item.action}<ArrowRight size={16} /></Link>
         return <p className="text-sm text-slate-500 dark:text-slate-400">{hasShipyard ? ui.requiresRole : ui.requiresShipyard}</p>
     }

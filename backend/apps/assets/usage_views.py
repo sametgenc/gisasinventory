@@ -41,7 +41,7 @@ class SharedUsageRequestViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         tenant_id = self.request.user.tenant_id
         queryset = SharedUsageRequest.objects.select_related(
-            "owner_tenant", "requester_tenant", "asset__tenant", "asset__asset_type",
+            "owner_tenant", "requester_tenant", "requested_by", "asset__tenant", "asset__asset_type",
         ).filter(Q(owner_tenant_id=tenant_id) | Q(requester_tenant_id=tenant_id))
         direction = self.request.query_params.get("direction", "")
         if direction == "sent":

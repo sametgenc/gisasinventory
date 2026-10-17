@@ -7,6 +7,7 @@ import { getStockRecord, isStockType } from '@/modules/assets/inventory-groups'
 import { getApiErrorMessage } from '@/api/errors'
 import { Modal, FormField, FormFooter, formControlClass } from '@/components/ui'
 import { SharedEquipmentSummary } from './SharedEquipmentSummary'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export function AssetSharingModal({ asset, assetType, equipmentIdentifier, onClose }: { asset: Asset | null; assetType?: AssetType; equipmentIdentifier?: string; onClose: () => void }) {
     if (!asset) return null
@@ -34,6 +35,7 @@ function SharingForm({ asset, assetType, equipmentIdentifier, onClose }: { asset
     const [emailError, setEmailError] = useState('')
     const blocked = !!assetType?.sharing_excluded
     const changed = JSON.stringify(values) !== JSON.stringify(initial)
+    const { requestClose, confirmation } = useDraftGuard({ dirty: changed, busy: mutation.isPending, onClose })
     const withdrawing = initial.enabled && !values.enabled
     const stock = isStockType(assetType) ? getStockRecord(asset, assetType) : null
     const formId = 'equipment-sharing-form'
@@ -109,7 +111,8 @@ function SharingForm({ asset, assetType, equipmentIdentifier, onClose }: { asset
         }
     }
 
-    return <Modal isOpen onClose={onClose} closeDisabled={mutation.isPending} title={t('inventory.sharingTitle')} size="lg" footer={<FormFooter asSubmit formId={formId} loading={mutation.isPending} disabled={!changed || (values.enabled && blocked)} onCancel={onClose} primaryLabel={t(withdrawing ? 'sharingDetails.withdraw' : 'common.save')} />}>
+    return <Modal isOpen onClose={requestClose} closeDisabled={mutation.isPending} title={t('inventory.sharingTitle')} size="lg" footer={<FormFooter asSubmit formId={formId} loading={mutation.isPending} disabled={!changed || (values.enabled && blocked)} onCancel={requestClose} primaryLabel={t(withdrawing ? 'sharingDetails.withdraw' : 'common.save')} />}>
+        {confirmation}
         <form id={formId} onSubmit={submit} className="space-y-6" noValidate>
             <div><h3 className="font-semibold text-slate-900 dark:text-white [overflow-wrap:anywhere]">{equipmentIdentifier}</h3><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{asset.asset_type_name} · {asset.tenant_name}</p></div>
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('inventory.sharingHelp')}</p>

@@ -80,6 +80,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm test
@@ -104,6 +105,9 @@ jobs:
       - run: docker build -t gisasinventory-${{ matrix.name }}:ci -f ${{ matrix.dockerfile }} .
       - if: matrix.name == 'backend'
         run: docker run --rm --entrypoint python gisasinventory-backend:ci manage.py check --settings=config.test_settings
+      - if: matrix.name == 'backend'
+        name: Reject unsafe production startup settings
+        run: bash ../scripts/check-production-backend.sh gisasinventory-backend:ci
       - if: matrix.name == 'frontend'
         uses: actions/setup-node@v4
         with:

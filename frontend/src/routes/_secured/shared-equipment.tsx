@@ -7,7 +7,8 @@ import { categoryCodes, useSharedEquipment, type SharedEquipment } from '@/modul
 import { Button, EmptyState, FormField, Modal, PageHeader, Pagination, formControlClass } from '@/components/ui'
 import { SharedEquipmentSummary } from '@/components/assets/SharedEquipmentSummary'
 import { UsageRequestModal } from '@/components/assets/UsageRequestModal'
-import { canRequestEquipment, canUseSharedUsage, usageCopy } from '@/modules/assets/usage'
+import { canRequestEquipment, canUseSharedUsage, requestBlockedReason, usageCopy } from '@/modules/assets/usage'
+import { isGlobalAdministrator } from '@/auth/permissions'
 
 export const Route = createFileRoute('/_secured/shared-equipment')({
     component: SharedEquipmentPage,
@@ -35,8 +36,11 @@ function SharedEquipmentPage() {
     // Read the current public response; never retain withdrawn details in modal state.
     const selectedEquipment = canBrowse && !query.isError && !query.isPending && !query.isFetching && selection?.dataUpdatedAt === query.dataUpdatedAt
         ? query.data?.results.find(equipment => equipment.id === selection?.id) : undefined
-    const requestEquipment = canUseSharedUsage(user) && !query.isError && !query.isPending
+    const requestEquipment = canUseSharedUsage(user) && !query.isError && !query.isPending && !query.isFetching
         ? query.data?.results.find(equipment => equipment.id === requestId && canRequestEquipment(user, equipment)) : undefined
+    const requestUnavailable = query.isError || query.isPending || query.isFetching ? 'unknown' as const
+        : requestEquipment ? undefined : 'withdrawn' as const
+    const blockedReason = selectedEquipment ? requestBlockedReason(user, selectedEquipment) : null
 
     function submitSearch(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -55,8 +59,7 @@ function SharedEquipmentPage() {
 
     return (
         <div className="mx-auto max-w-6xl">
-            <PageHeader title={t('sharedEquipment.title')} subtitle={t('sharedEquipment.subtitle')}
-                actions={canUseSharedUsage(user) && <Link to="/shared-usage" search={{ request: undefined }} className="inline-flex min-h-10 items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">{usage.title}</Link>} />
+            <PageHeader title={t('sharedEquipment.title')} subtitle={t('sharedEquipment.subtitle')} />
 
             {!canBrowse ? (
                 <div className="rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
@@ -124,9 +127,14 @@ function SharedEquipmentPage() {
             )}
             {selectedEquipment && <Modal isOpen onClose={() => setSelection(null)} title={t('sharingDetails.detailsTitle')} size="md" footer={<div className="flex flex-wrap justify-end gap-2 px-5 py-4"><Button variant="secondary" onClick={() => setSelection(null)}>{t('common.close')}</Button>{canRequestEquipment(user, selectedEquipment) && <Button onClick={() => { setRequestId(selectedEquipment.id); setSelection(null) }}>{usage.request}</Button>}</div>}>
                 <SharedEquipmentSummary equipment={selectedEquipment} detailed />
-                <p className="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('inventory.publicationIsNotAvailability')}</p>
+                {blockedReason && <div className="mt-5 space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                    <p>{usage.blocked[blockedReason]}</p>
+                    {blockedReason === 'own' ? user?.role === 'tenant_admin' ? <Link to="/assets" className="font-medium underline">{usage.ownManagerNext}</Link> : <p>{usage.ownMemberNext}</p>
+                        : blockedReason === 'account' ? <p>{isGlobalAdministrator(user) ? usage.accountNext : usage.unassignedNext}</p>
+                            : <p>{selectedEquipment.sharing_contact_name || selectedEquipment.sharing_contact_email || selectedEquipment.sharing_contact_phone ? usage.contactNext : usage.noContactNext}</p>}
+                </div>}
             </Modal>}
-            {requestEquipment && <UsageRequestModal key={requestEquipment.id} equipment={requestEquipment} onClose={() => setRequestId(null)} />}
+            {requestId && canUseSharedUsage(user) && <UsageRequestModal key={requestId} equipment={requestEquipment} unavailable={requestUnavailable} onClose={() => setRequestId(null)} onRetry={() => { void query.refetch() }} retrying={query.isFetching} />}
         </div>
     )
 }

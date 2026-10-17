@@ -1,6 +1,8 @@
 import { useCaptcha } from '@/hooks/useCaptcha'
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { useAuth } from '@/auth/context'
 import { MailCheck, Loader2 } from 'lucide-react'
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/_auth/auth/email/confirm/$key')({
 })
 
 function ConfirmEmail() {
+    const { t } = useTranslation()
     const captcha = useCaptcha()
     const { key, verification, error: loadError } = Route.useLoaderData()
     const navigate = useNavigate()
@@ -44,10 +47,10 @@ function ConfirmEmail() {
                 // Verification successful but user not logged in
                 navigate({ to: '/login', search: { redirect: undefined } })
             } else {
-                setError(res.errors?.[0]?.message || 'Verification failed')
+                setError(t(accountErrorKey(res, 'account.emailLink.failed')))
             }
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
             setSubmitting(false)
             captcha.reset()
@@ -58,15 +61,15 @@ function ConfirmEmail() {
     if (loadError || !verification) {
         body = (
             <div className="text-red-500">
-                <h3 className="text-xl font-bold mb-2">Error Loading Verification</h3>
-                <p>Unable to load verification details. The link may be invalid.</p>
+                <h3 className="text-xl font-bold mb-2">{t('account.emailLink.loadTitle')}</h3>
+                <p>{t('account.emailLink.loadDescription')}</p>
             </div>
         )
     } else if (verification.status === 200 && verification.data) {
         body = (
             <>
                 <p className="text-gray-600 dark:text-gray-400 mb-8">
-                    Please confirm that <span className="font-bold text-gray-900 dark:text-white">{verification.data.email}</span> is an email address for user <span className="font-bold text-gray-900 dark:text-white">{verification.data.user?.display || verification.data.user?.username}</span>.
+                    {t('account.emailLink.description', { email: verification.data.email, user: verification.data.user?.display || verification.data.user?.username || '' })}
                 </p>
                 {captcha.widget}
                 <button
@@ -74,20 +77,20 @@ function ConfirmEmail() {
                     disabled={submitting || !captcha.ready}
                     className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                    {submitting ? <Loader2 className="animate-spin" size={20} /> : 'Confirm'}
+                    {submitting ? <Loader2 className="animate-spin" size={20} /> : t('account.emailLink.confirm')}
                 </button>
             </>
         )
     } else if (verification.status === 401) {
         // Should not usually happen for public verify but handling just in case
         body = (
-            <p>Please login to verify this email.</p>
+            <p>{t('account.emailLink.loginRequired')}</p>
         )
     }
     else if (!verification.data?.email) {
-        body = <p className="text-gray-600 dark:text-gray-400">Invalid verification link.</p>
+        body = <p className="text-gray-600 dark:text-gray-400">{t('account.emailLink.invalid')}</p>
     } else {
-        body = <p className="text-gray-600 dark:text-gray-400">Unable to confirm email {verification.data.email} because it is already confirmed.</p>
+        body = <p className="text-gray-600 dark:text-gray-400">{t('account.emailLink.alreadyConfirmed', { email: verification.data.email })}</p>
     }
 
     return (
@@ -99,11 +102,11 @@ function ConfirmEmail() {
                     </div>
 
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                        Confirm Email Address
+                        {t('account.emailLink.title')}
                     </h2>
 
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl text-sm italic">
+                        <div role="alert" className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl text-sm italic">
                             {error}
                         </div>
                     )}

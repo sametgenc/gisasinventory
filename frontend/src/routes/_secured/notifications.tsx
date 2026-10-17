@@ -9,6 +9,7 @@ import {
 import { Bell, CheckCheck, Trash2, Clock, Inbox, FileText } from 'lucide-react'
 import { exportReport } from '@/utils/report'
 import { notificationPath, notificationTime } from '@/modules/notification/presentation'
+import type { NotificationData } from '@/modules/notification/types'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
@@ -17,6 +18,7 @@ import {
     Button,
     EmptyState,
     Pagination,
+    ConfirmationModal,
 } from '@/components/ui'
 
 export const Route = createFileRoute('/_secured/notifications')({
@@ -26,19 +28,31 @@ export const Route = createFileRoute('/_secured/notifications')({
 function NotificationsPage() {
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(25)
-    const { data, isLoading: loading, isFetching, error } = useNotificationsQuery({ limit: pageSize, offset: (page - 1) * pageSize })
+    const { data, isLoading: loading, isFetching, error, refetch } = useNotificationsQuery({ limit: pageSize, offset: (page - 1) * pageSize })
     const notifications = data?.results ?? []
     const { markAsRead, markAllAsRead, clearAll, deleteNotification } = useNotificationMutations()
     const { t, i18n } = useTranslation()
     const preferences = useNotificationPreferences()
+    const [deleteTarget, setDeleteTarget] = useState<NotificationData | 'all' | null>(null)
+    const deleting = clearAll.isPending || deleteNotification.isPending
 
     const handleMarkAsRead = (id: number) => { markAsRead.mutate(id) }
-    const handleDeleteNotification = (id: number) => {
-        deleteNotification.mutate(id, { onSuccess: () => {
-            if (notifications.length === 1 && page > 1) setPage(page - 1)
-        } })
+    const requestDeletion = (target: NotificationData | 'all') => {
+        clearAll.reset()
+        deleteNotification.reset()
+        setDeleteTarget(target)
     }
-    const handleClearAll = () => { clearAll.mutate(undefined, { onSuccess: () => setPage(1) }) }
+    const confirmDeletion = () => {
+        if (!deleteTarget || deleting) return
+        if (deleteTarget === 'all') {
+            clearAll.mutate(undefined, { onSuccess: () => { setPage(1); setDeleteTarget(null) } })
+        } else {
+            deleteNotification.mutate(deleteTarget.id, { onSuccess: () => {
+                if (notifications.length === 1 && page > 1) setPage(page - 1)
+                setDeleteTarget(null)
+            } })
+        }
+    }
     const handleMarkAllAsRead = () => { markAllAsRead.mutate() }
     const requestError = error || markAsRead.error || deleteNotification.error || clearAll.error || markAllAsRead.error
     const lastPage = Math.max(1, Math.ceil((data?.count ?? 0) / pageSize))
@@ -84,7 +98,8 @@ function NotificationsPage() {
                         <Button
                             variant="danger"
                             icon={<Trash2 size={16} />}
-                            onClick={handleClearAll}
+                            onClick={() => requestDeletion('all')}
+                            disabled={!data?.count || deleting}
                             loading={clearAll.isPending}
                         >
                             {t('notifications.clearAll')}
@@ -102,7 +117,7 @@ function NotificationsPage() {
             </section>
 
             <Card className="overflow-hidden">
-                {requestError && <p role="alert" className="p-4 text-red-600 dark:text-red-400">{getApiErrorMessage(requestError)}</p>}
+                {requestError && <div role="alert" className="p-4 text-red-600 dark:text-red-400"><p>{getApiErrorMessage(requestError)}</p>{error && <Button variant="ghost" size="sm" onClick={() => void refetch()}>{t('catalog.retry')}</Button>}</div>}
                 {loading ? (
                     <div className="py-16 flex flex-col items-center justify-center space-y-3">
                         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -154,8 +169,8 @@ function NotificationsPage() {
                                     )}
                                     <button
                                         type="button"
-                                        onClick={() => handleDeleteNotification(notification.id)}
-                                        disabled={deleteNotification.isPending}
+                                        onClick={() => requestDeletion(notification)}
+                                        disabled={deleting}
                                         aria-label={`${t('notifications.deleteNotification')}: ${notification.content?.title || t('notifications.title')}`}
                                         className="p-1.5 rounded-md text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                                         title={t('notifications.deleteNotification')}
@@ -166,7 +181,7 @@ function NotificationsPage() {
                             </div>
                         ))}
                     </div>
-                ) : (
+                ) : error ? null : (
                     <EmptyState
                         icon={<Inbox size={40} />}
                         title={t('notifications.noNotifications')}
@@ -177,6 +192,16 @@ function NotificationsPage() {
                     pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={setPageSize}
                     itemLabel={t('pagination.notifications')} disabled={paginationDisabled} />
             </Card>
+            <ConfirmationModal
+                isOpen={deleteTarget !== null}
+                onClose={() => { if (!deleting) setDeleteTarget(null) }}
+                onConfirm={confirmDeletion}
+                title={t(deleteTarget === 'all' ? 'notifications.confirmClearTitle' : 'notifications.confirmDeleteTitle')}
+                message={deleteTarget === 'all' ? t('notifications.confirmClearMessage') : t('notifications.confirmDeleteMessage', { title: deleteTarget?.content?.title || t('notifications.title') })}
+                confirmText={t('common.delete')}
+                isLoading={deleting}
+                error={clearAll.error || deleteNotification.error ? getApiErrorMessage(clearAll.error || deleteNotification.error, t('notifications.actionFailed')) : null}
+            />
         </div>
     )
 }

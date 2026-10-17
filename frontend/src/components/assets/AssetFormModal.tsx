@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { Asset, AssetType, SchemaField } from '@/modules/assets'
 import { isStockType } from '@/modules/assets/inventory-groups'
 import { schemaRoleKey } from '@/modules/assets/schema'
+import { inventoryCopy } from '@/modules/assets/inventory-copy'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 import {
     Modal,
     FormField,
@@ -57,12 +59,16 @@ function AssetFormContent({
     error,
     initialTypeId,
 }: AssetFormModalProps) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation()
+    const c = inventoryCopy(i18n.language)
     const initialType = mode === 'edit' ? asset?.asset_type ?? '' : initialTypeId ?? ''
     const [selectedTypeId, setSelectedTypeId] = useState(initialType)
     const [inventoryCode, setInventoryCode] = useState(asset?.inventory_code ?? '')
     const [selectedTenantId, setSelectedTenantId] = useState<number | null>(mode === 'edit' ? asset?.tenant ?? null : null)
     const [formData, setFormData] = useState<Record<string, unknown>>(() => mode === 'edit' ? { ...asset?.custom_data } : Object.fromEntries((assetTypes.find(type => type.id === initialType)?.schema ?? []).flatMap(field => field.default !== undefined ? [[field.key, field.default]] : field.type === 'checkbox' ? [[field.key, false]] : [])))
+    const draft = JSON.stringify({ selectedTypeId, inventoryCode, selectedTenantId, formData })
+    const [initialDraft] = useState(draft)
+    const { requestClose, confirmation } = useDraftGuard({ dirty: draft !== initialDraft, busy: isLoading, onClose })
 
     const selectedType = useMemo(
         () => assetTypes.find((at) => at.id === selectedTypeId),
@@ -72,8 +78,8 @@ function AssetFormContent({
     const canSubmit = !!selectedTypeId && (!isSuperuser || !!selectedTenantId)
     const stock = isStockType(selectedType)
     const stockKeys = (['identifier', 'display_name', 'quantity'] as const).flatMap(role => { const key = schemaRoleKey(selectedType?.schema ?? [], role); return key ? [key] : [] })
-    const stockFields = selectedType?.schema.filter(field => stockKeys.includes(field.key) || field.required) ?? []
-    const additionalFields = stock ? selectedType?.schema.filter(field => !stockFields.includes(field)) ?? [] : []
+    const primaryFields = selectedType?.schema.filter(field => field.required || (stock && stockKeys.includes(field.key))) ?? []
+    const additionalFields = selectedType?.schema.filter(field => !primaryFields.includes(field)) ?? []
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
@@ -156,22 +162,26 @@ function AssetFormContent({
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={requestClose}
             closeDisabled={isLoading}
+            density="compact"
             title={stock ? t(mode === 'edit' ? 'inventory.editStock' : 'inventory.createStock') : mode === 'edit' ? t('assets.editAsset') : t('assets.createAsset')}
             footer={
                 <FormFooter
+                    density="compact"
                     asSubmit
                     formId={formId}
                     loading={isLoading}
                     disabled={!canSubmit}
-                    onCancel={onClose}
+                    onCancel={requestClose}
                     primaryLabel={mode === 'edit' ? t('common.save') : t('common.create')}
                 />
             }
         >
-            <form id={formId} onSubmit={handleSubmit} className="space-y-6">
-                <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{t(stock ? 'inventory.stockMeaning' : 'inventory.typeMeaning')}</p>
+            {confirmation}
+            <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+                <fieldset disabled={isLoading} className="min-w-0 space-y-4">
+                <p className="text-xs leading-[18px] text-slate-500 dark:text-slate-400">{t(stock ? 'inventory.stockMeaning' : 'inventory.typeMeaning')}</p>
                 {error && (
                     <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                         {error}
@@ -179,8 +189,8 @@ function AssetFormContent({
                 )}
                 {asset?.needs_update && <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t('dynamicSchema.missingHelp')} {(asset.missing_required_fields ?? []).map(field => field.label).join(', ')}</div>}
 
-                <fieldset disabled={isLoading} className="min-w-0 space-y-6">
-                <FormSection title={t('assets.fields.generalInfo')} layout={isSuperuser ? 'grid' : 'stack'}>
+                <fieldset disabled={isLoading} className="min-w-0 space-y-4">
+                <FormSection density="compact" title={t('assets.fields.generalInfo')} layout={isSuperuser ? 'grid' : 'stack'}>
                     <FormField label={t('assets.typeLabel')} required>
                         <select
                             value={selectedTypeId}
@@ -219,23 +229,27 @@ function AssetFormContent({
                     )}
                 </FormSection>
 
+                {selectedType && <div className="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs leading-[18px] text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200"><p>{c.code}: <span className="font-mono font-medium">{selectedType.catalog_code || c.noCode}</span></p><p className="mt-0.5">{c.codeOwnership}</p></div>}
+
                 <FormField label={t('dynamicSchema.inventoryCode')} help={t('dynamicSchema.inventoryCodeHelp')}>
                     <input className={formControlClass} maxLength={160} value={inventoryCode} onChange={event => setInventoryCode(event.target.value)} />
                 </FormField>
 
-                {selectedType && (selectedType.schema?.length ?? 0) > 0 && (
+                {selectedType && primaryFields.length > 0 && (
                     <FormSection
+                        density="compact"
                         title={t(stock ? 'inventory.stockInformation' : 'assets.fields.customFields')}
                         description={selectedType.name}
                         layout="grid"
                     >
-                        {(stock ? stockFields : selectedType.schema || []).map(renderField)}
+                        {primaryFields.map(renderField)}
                     </FormSection>
                 )}
-                {stock && additionalFields.length > 0 && <details className="rounded-md border border-slate-200 dark:border-slate-700">
-                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-200">{t('inventory.additionalInformation')}</summary>
-                    <div className="grid gap-4 border-t border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">{additionalFields.map(renderField)}</div>
+                {additionalFields.length > 0 && <details open={mode === 'edit' || undefined} className="rounded-md border border-slate-200 dark:border-slate-700">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">{c.optional} ({additionalFields.length})</summary>
+                    <div className="grid gap-3 border-t border-slate-200 p-3 sm:grid-cols-2 dark:border-slate-700">{additionalFields.map(renderField)}</div>
                 </details>}
+                </fieldset>
                 </fieldset>
             </form>
         </Modal>

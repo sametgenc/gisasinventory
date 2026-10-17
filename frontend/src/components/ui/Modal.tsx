@@ -9,6 +9,8 @@ interface ModalProps {
     title: string;
     children: React.ReactNode;
     size?: 'sm' | 'md' | 'lg' | 'xl';
+    /** Compact typography and spacing for inventory workspaces. */
+    density?: 'comfortable' | 'compact';
     /**
      * Optional sticky footer slot. When supplied, the modal becomes a
      * flex-column layout: header + scrollable body + fixed footer. The footer
@@ -28,6 +30,7 @@ const sizeClasses: Record<string, string> = {
 };
 
 const openDialogs: HTMLElement[] = [];
+const dialogReturnFocus = new WeakMap<HTMLElement, HTMLElement | null>();
 let originalBodyOverflow = '';
 
 export const Modal: React.FC<ModalProps> = ({
@@ -36,6 +39,7 @@ export const Modal: React.FC<ModalProps> = ({
     title,
     children,
     size = 'lg',
+    density = 'comfortable',
     footer,
     closeDisabled = false,
 }) => {
@@ -50,6 +54,7 @@ export const Modal: React.FC<ModalProps> = ({
         if (!isOpen || !modalRef.current) return;
         const dialog = modalRef.current;
         const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        dialogReturnFocus.set(dialog, previousFocus);
         if (openDialogs.length === 0) originalBodyOverflow = document.body.style.overflow;
         openDialogs.push(dialog);
         document.body.style.overflow = 'hidden';
@@ -86,10 +91,20 @@ export const Modal: React.FC<ModalProps> = ({
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('focusin', containFocus);
             const wasTopDialog = isTopDialog();
+            const returnFocus = dialogReturnFocus.get(dialog);
+            // Closing a form and its discard prompt together must return to the page trigger.
+            for (const remaining of openDialogs) {
+                const target = dialogReturnFocus.get(remaining);
+                if (target && dialog.contains(target)) dialogReturnFocus.set(remaining, returnFocus ?? null);
+            }
             const index = openDialogs.indexOf(dialog);
             if (index >= 0) openDialogs.splice(index, 1);
+            dialogReturnFocus.delete(dialog);
             if (!openDialogs.length) document.body.style.overflow = originalBodyOverflow;
-            if (wasTopDialog && previousFocus?.isConnected) previousFocus.focus();
+            if (wasTopDialog) {
+                if (returnFocus?.isConnected) returnFocus.focus();
+                else openDialogs.at(-1)?.focus();
+            }
         };
     }, [isOpen]);
 
@@ -112,8 +127,8 @@ export const Modal: React.FC<ModalProps> = ({
                     tabIndex={-1}
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
-                        <h2 id={titleId} className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
+                    <div className={`flex items-center justify-between border-b border-slate-200 dark:border-slate-700 shrink-0 ${density === 'compact' ? 'gap-3 px-4 py-3' : 'gap-4 px-5 py-4'}`}>
+                        <h2 id={titleId} className={`${density === 'compact' ? 'text-sm font-medium' : 'text-base font-semibold'} text-slate-900 dark:text-slate-100`}>{title}</h2>
                         <button
                             type="button"
                             onClick={onClose}
@@ -126,7 +141,7 @@ export const Modal: React.FC<ModalProps> = ({
                     </div>
 
                     {/* Body (scrolls) */}
-                    <div className="p-5 overflow-y-auto flex-1 min-h-0">
+                    <div className={`${density === 'compact' ? 'p-4' : 'p-5'} overflow-y-auto flex-1 min-h-0`}>
                         {children}
                     </div>
 

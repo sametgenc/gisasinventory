@@ -6,6 +6,8 @@ import { getEquipmentModelKey, getInventoryModelGroups, getStockRecord, isStockT
 import { Pagination } from '@/components/ui'
 import { useClickOutside } from '@/hooks/useClickOutside'
 import { schemaRoleKey } from '@/modules/assets/schema'
+import { equipmentDistinguishingFields } from '@/modules/assets/inventory-summary'
+import { inventoryCopy } from '@/modules/assets/inventory-copy'
 
 interface EquipmentRecordListProps {
     assets: Asset[]
@@ -54,7 +56,7 @@ function RecordActions({ asset, code, canManageSharing, onEdit, onDelete, onShar
         <button ref={triggerRef} type="button" aria-label={t('inventory.recordActions', { code })} aria-expanded={isOpen} aria-controls={panelId} onClick={() => setIsOpen(open => !open)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
             {t('inventory.actions')}<ChevronDown size={15} aria-hidden="true" className={isOpen ? 'rotate-180' : ''} />
         </button>
-        {isOpen && <div id={panelId} role="group" aria-label={t('inventory.recordActions', { code })} className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-900">
+        {isOpen && <div id={panelId} role="group" aria-label={t('inventory.recordActions', { code })} className="absolute right-0 top-full z-[45] mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-900">
             {canManageSharing && <button type="button" onClick={() => runAction(onSharing)} aria-label={`${t('inventory.sharingAction')}: ${code}`} className={`${actionClass} text-blue-700 dark:text-blue-300`}><Share2 size={16} aria-hidden="true" />{t('inventory.sharingAction')}</button>}
             <button type="button" onClick={() => runAction(onEdit)} aria-label={`${t('common.edit')}: ${code}`} className={`${actionClass} text-slate-700 dark:text-slate-200`}><Pencil size={16} aria-hidden="true" />{t('common.edit')}</button>
             <button type="button" onClick={() => runAction(onDelete)} aria-label={`${t('common.delete')}: ${code}`} className={`${actionClass} text-red-700 dark:text-red-300`}><Trash2 size={16} aria-hidden="true" />{t('common.delete')}</button>
@@ -64,6 +66,7 @@ function RecordActions({ asset, code, canManageSharing, onEdit, onDelete, onShar
 
 export function EquipmentRecordList({ assets, assetTypes, showType, showModel = true, showOwner, canManageSharing, onDetail, onEdit, onDelete, onSharing }: EquipmentRecordListProps) {
     const { t, i18n } = useTranslation()
+    const c = inventoryCopy(i18n.language)
     const numberFormat = new Intl.NumberFormat(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US')
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(24)
@@ -86,10 +89,13 @@ export function EquipmentRecordList({ assets, assetTypes, showType, showModel = 
                 const secondaryName = stock ? [code, showType ? asset.asset_type_name : ''].filter(Boolean).join(' · ')
                     : showType ? group?.name || asset.asset_type_name : showModel ? modelName : ''
                 const stateLabel = t(asset.is_listed_for_sharing ? 'inventory.published' : asset.sharing_needs_review ? 'sharingDetails.pausedLabel' : asset.is_shared ? 'inventory.blockedPublication' : 'inventory.private')
+                const distinguishing = stock ? [] : equipmentDistinguishingFields(asset, type)
                 return <article key={asset.id} className="flex min-w-0 flex-col gap-3 border-b border-slate-200 px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-5 sm:px-5 dark:border-slate-700" aria-label={`${asset.asset_type_name} · ${code}`}>
                     <div className="min-w-0 flex-1">
                         <h3><button type="button" onClick={() => onDetail(asset)} className="inline-flex max-w-full items-center gap-2 rounded-sm text-left text-base font-semibold text-blue-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-200"><span className="min-w-0 [overflow-wrap:anywhere]">{stock?.materialName || code}</span><Eye size={15} aria-hidden="true" className="shrink-0 text-slate-400" /></button></h3>
                         {(secondaryName || (showOwner && asset.tenant_name)) && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 [overflow-wrap:anywhere]">{[secondaryName, showOwner ? asset.tenant_name : ''].filter(Boolean).join(' · ')}</p>}
+                        {!stock && asset.inventory_code && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 [overflow-wrap:anywhere]">{c.localCode}: {asset.inventory_code}</p>}
+                        {distinguishing.length > 0 && <dl className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-300">{distinguishing.map(({ field, value }) => <div key={field.key} className="flex min-w-0 gap-1 [overflow-wrap:anywhere]"><dt>{field.label}:</dt>{' '}<dd>{field.type === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`).toLocaleDateString(i18n.language) : value}</dd></div>)}</dl>}
                     </div>
                     <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
                         {asset.needs_update && <button type="button" onClick={() => onEdit(asset)} className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{t('dynamicSchema.needsUpdate')}</button>}

@@ -1,7 +1,7 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page, type Locator } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
-const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { catalog: { directoryHelp: string }; workbook: { title: string } }
+const english = JSON.parse(readFileSync(new URL('../src/i18n/locales/en.json', import.meta.url), 'utf8')) as { workbook: { title: string } }
 
 const typeId = 'a0000000-0000-4000-8000-000000000001'
 const equipmentType = {
@@ -28,6 +28,12 @@ async function session(page: Page, assigned = true, platform = false) {
             methods: [],
         } } })
     })
+}
+
+async function chooseForklift(dialog: Locator) {
+    const change = dialog.getByRole('button', { name: 'Change', exact: true })
+    if (await change.isVisible()) await change.click()
+    await dialog.getByRole('option').filter({ hasText: 'Forklift' }).click()
 }
 
 async function standardApi(page: Page, intercept?: (path: string, method: string) => { status?: number; json: unknown } | undefined) {
@@ -63,15 +69,15 @@ test('inventory load failure shows retry instead of an empty inventory', async (
 
 test('revoked session leaves protected inventory and keeps the login destination stable', async ({ page }) => {
     await session(page)
-    await standardApi(page, (path, method) => path === '/api/assets/items/' && method === 'POST' ? {
+    await standardApi(page, (path, method) => path === '/api/assets/items/batch_create/' && method === 'POST' ? {
         status: 401, json: { status: 401, meta: { is_authenticated: false }, data: { flows: [] } },
     } : undefined)
     await page.goto('/assets')
-    await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Add equipment', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Add equipment' })
-    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await chooseForklift(dialog)
     await dialog.getByRole('textbox', { name: /Equipment code/ }).fill('NEW-REVOKED')
-    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Add to inventory', exact: true }).click()
     await expect(page).toHaveURL(/\/login\?redirect=%2Fassets$/)
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
     await expect(dialog).not.toBeVisible()
@@ -88,6 +94,7 @@ test('unassigned accounts see a next step and cannot create or import equipment'
     })
     await page.goto('/assets')
     await expect(page.getByText('Your account needs a shipyard')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add equipment', exact: true })).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Add equipment', exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Import from Excel', exact: true }).first()).toBeDisabled()
     await expect(page.getByText('Equipment data could not be loaded.')).not.toBeVisible()
@@ -103,21 +110,24 @@ test('inventory filters reset and dialogs contain keyboard focus then restore it
     await page.getByRole('button', { name: 'Clear filters' }).first().click()
     await page.getByRole('button', { name: 'Open Forklift equipment' }).click()
     await expect(page.getByRole('button', { name: 'TEST-001', exact: true })).toBeVisible()
-    const trigger = page.getByRole('button', { name: 'Add equipment', exact: true }).first()
+    const trigger = page.getByRole('button', { name: 'Add equipment', exact: true })
     await trigger.click()
     const dialog = page.getByRole('dialog', { name: 'Add equipment' })
-    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await chooseForklift(dialog)
     await dialog.getByRole('textbox', { name: /Equipment code/ }).fill('NEW-001')
-    await dialog.getByRole('button', { name: 'Create', exact: true }).focus()
+    await dialog.getByRole('button', { name: 'Add to inventory', exact: true }).focus()
     await page.keyboard.press('Tab')
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
     await page.keyboard.press('Shift+Tab')
-    await expect(dialog.getByRole('button', { name: 'Create', exact: true })).toBeFocused()
+    await expect(dialog.getByRole('button', { name: 'Add to inventory', exact: true })).toBeFocused()
     await page.keyboard.press('Escape')
+    const discard = page.getByRole('dialog', { name: 'Discard unsaved changes?', exact: true })
+    await expect(discard).toBeVisible()
+    await discard.getByRole('button', { name: 'Discard changes', exact: true }).click()
     await expect(dialog).not.toBeVisible()
     await expect(trigger).toBeFocused()
     await trigger.click()
-    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await chooseForklift(dialog)
     await expect(dialog.getByRole('textbox', { name: /Equipment code/ })).toHaveValue('')
 })
 
@@ -157,10 +167,11 @@ test('equipment type directory explains global definitions and filters by catego
     await session(page)
     await standardApi(page, path => path === '/api/assets/types/' ? { json: [equipmentType, { ...equipmentType, id: 'global-generator', name: 'Generator', category_code: 'E' }] } : undefined)
     await page.goto('/assets/types')
-    await expect(page.getByText(english.catalog.directoryHelp, { exact: true })).toBeVisible()
+    await expect(page.getByText('Shared platform definition', { exact: true })).toBeVisible()
+    await expect(page.getByText('Shipyard-owned record', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Generator', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'TEST-001', exact: true })).not.toBeVisible()
-    await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('G')
+    await page.getByRole('navigation', { name: 'Categories', exact: true }).getByRole('button', { name: /Construction and handling equipment/ }).click()
     await expect(page.getByRole('button', { name: 'Forklift', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Generator', exact: true })).not.toBeVisible()
     await expect(page.getByRole('combobox', { name: 'Preliminary sharing class' })).not.toBeVisible()
@@ -258,23 +269,23 @@ test('equipment save blocks dismissal until the server responds', async ({ page 
     await standardApi(page)
     let releaseRequest!: () => void
     const pending = new Promise<void>(resolve => { releaseRequest = resolve })
-    await page.route(url => url.pathname === '/api/assets/items/', async route => {
+    await page.route(url => url.pathname === '/api/assets/items/batch_create/', async route => {
         if (route.request().method() !== 'POST') return route.fallback()
         await pending
         await route.fulfill({ status: 400, json: { detail: 'Equipment code already exists.' } })
     })
     await page.goto('/assets')
-    await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Add equipment', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Add equipment' })
-    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await chooseForklift(dialog)
     await dialog.getByRole('textbox', { name: /Equipment code/ }).fill('TEST-001')
-    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Add to inventory', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeDisabled()
     await expect(dialog.getByRole('textbox', { name: /Equipment code/ })).toBeDisabled()
     await page.keyboard.press('Escape')
     await expect(dialog).toBeVisible()
     releaseRequest()
-    await expect(dialog.getByRole('alert')).toHaveText('Equipment code already exists.')
+    await expect(dialog.getByRole('alert')).toContainText('Equipment code already exists.')
     await expect(dialog.getByRole('textbox', { name: /Equipment code/ })).toHaveValue('TEST-001')
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeEnabled()
 })
@@ -286,21 +297,21 @@ test('equipment fields keep zero defaults, accept decimals and submit unchecked 
         { key: 'capacity', label: 'Capacity', type: 'number', required: true, default: 0 },
         { key: 'inspected', label: 'Inspected', type: 'checkbox', required: true },
     ] }] } : undefined)
-    let payload: { custom_data: Record<string, unknown> } | undefined
-    await page.route(url => url.pathname === '/api/assets/items/', async route => {
+    let payload: { rows: { custom_data: Record<string, unknown> }[] } | undefined
+    await page.route(url => url.pathname === '/api/assets/items/batch_create/', async route => {
         if (route.request().method() !== 'POST') return route.fallback()
         payload = route.request().postDataJSON()
-        await route.fulfill({ status: 201, json: { ...equipment, custom_data: payload?.custom_data } })
+        await route.fulfill({ status: 201, json: { created_count: 1, record_count: 1, unit_count: 1 } })
     })
     await page.goto('/assets')
-    await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Add equipment', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Add equipment' })
-    await dialog.getByRole('combobox', { name: /Equipment type/ }).selectOption(typeId)
+    await chooseForklift(dialog)
     await expect(dialog.getByRole('spinbutton', { name: /Capacity/ })).toHaveValue('0')
     await dialog.getByRole('spinbutton', { name: /Capacity/ }).fill('3.5')
     await dialog.getByRole('textbox', { name: /Equipment code/ }).fill('NEW-DECIMAL')
     await expect(dialog.getByRole('checkbox', { name: /Inspected/ })).not.toBeChecked()
-    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Add to inventory', exact: true }).click()
     await expect(dialog).not.toBeVisible()
-    expect(payload?.custom_data).toEqual({ code: 'NEW-DECIMAL', capacity: '3.5', inspected: false })
+    expect(payload?.rows[0].custom_data).toEqual({ code: 'NEW-DECIMAL', capacity: '3.5', inspected: false })
 })

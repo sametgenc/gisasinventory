@@ -27,11 +27,11 @@ export function SharedEquipmentSummary({ equipment, detailed = false }: { equipm
             <h3 className="text-lg font-semibold leading-7 text-slate-900 dark:text-slate-100 [overflow-wrap:anywhere]">{equipment.sharing_title?.trim() || equipment.asset_type_name}</h3>
             <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400 [overflow-wrap:anywhere]">{[equipment.asset_type_name, equipment.category_code ? t(`catalog.categories.${equipment.category_code}`) : '', equipment.catalog_code].filter(Boolean).join(' · ')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/50">
+            <p className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{quantity === null ? t('sharingDetails.quantityNotDeclared') : t('sharingDetails.offeredQuantity', { quantity: quantity?.toLocaleString(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US') })}</p>
+            {equipment.sharing_capacity && <p className="text-sm leading-6 text-slate-700 dark:text-slate-200 [overflow-wrap:anywhere]"><span className="font-medium">{t('sharingDetails.capacity')}: </span>{equipment.sharing_capacity}</p>}
             <span className={`rounded-md border px-2.5 py-1 text-xs font-medium ${availability === 'available' ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' : availability === 'unavailable' ? 'border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300' : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200'}`}>{t(`sharingDetails.availability.${availability}`)}</span>
-            <span className="text-sm font-medium tabular-nums text-slate-800 dark:text-slate-200">{quantity === null ? t('sharingDetails.quantityNotDeclared') : t('sharingDetails.offeredQuantity', { quantity: quantity?.toLocaleString(i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US') })}</span>
         </div>
-        {equipment.sharing_capacity && <p className="text-sm leading-6 text-slate-700 dark:text-slate-200 [overflow-wrap:anywhere]"><span className="font-medium">{t('sharingDetails.capacity')}: </span>{equipment.sharing_capacity}</p>}
         {detailed && equipment.sharing_availability_note && <div><h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('sharingDetails.availabilityNote')}</h4><p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-300 [overflow-wrap:anywhere]">{equipment.sharing_availability_note}</p></div>}
         <div>
             {detailed && <h4 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-200">{t('sharingDetails.conditions')}</h4>}

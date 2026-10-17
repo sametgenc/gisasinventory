@@ -1,3 +1,5 @@
+import type { SocialProvider } from '@/modules/allauth/types'
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
@@ -28,7 +30,7 @@ function RegisterComponent() {
     const { pendingFlow } = useAuth()
     React.useEffect(() => {
         if (pendingFlow) {
-            const nextStep = pathForPendingFlow({ data: { flows: [pendingFlow] } } as any)
+            const nextStep = pathForPendingFlow({ status: 401, data: { flows: [pendingFlow] } })
             if (nextStep) {
                 navigate({ to: nextStep })
             }
@@ -53,19 +55,19 @@ function RegisterComponent() {
                 const pendingPath = pathForPendingFlow(res)
                 if (pendingPath) {
                     navigate({ to: pendingPath })
-                } else if (res.errors && res.errors.length > 0) {
-                    throw new Error(res.errors[0].message)
+                } else {
+                    setError(t(accountErrorKey(res, 'account.providers.signupFailed')))
                 }
             }
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
             setLoading(false)
             captcha.reset()
         }
     }
 
-    const handleSocialLogin = (provider: any) => {
+    const handleSocialLogin = (provider: SocialProvider) => {
         if (!captcha.ready || loading) return
         redirectToProvider(provider.id, '/dashboard', 'login', captcha.token)
     }
@@ -85,7 +87,7 @@ function RegisterComponent() {
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-sm">
+                        <div role="alert" className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-sm">
                             <AlertCircle size={16} />
                             {error}
                         </div>

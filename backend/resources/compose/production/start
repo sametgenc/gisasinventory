@@ -3,6 +3,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# Reject development and incomplete security settings before touching a database.
+python manage.py check --deploy --fail-level WARNING
+
 postgres_ready() {
 python << 'END'
 import sys, socket, time, os

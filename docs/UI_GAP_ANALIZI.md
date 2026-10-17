@@ -1,117 +1,76 @@
 # GİSAŞ — kullanıcı deneyimi ve ürün GAP analizi
 
-14 Ekim 2026 · Yerel kaynak kodu ve örnek veriyle test kapsamı
+15 Ekim 2026 · P0–P2 sonrası kaynak, P3 kullanım akışları ve rehber karşılaştırması
 
-Uygulamanın güçlü tarafı ortak tip tanımlarını tersane envanterinden ayırmasıdır. Kullanıcının ilk işi bu ayrımı anlamak, doğru Excel dosyasını seçmek ve aktarımın sonucunu görmek. Arayüz geliştirmesinde öncelik, bu üç adımı görünür yapmak ve bir hata olduğunda kullanıcıyı çıkmazda bırakmamaktır.
+Ortak ekipman türü ile tersanenin özel envanteri ayrıdır. Yeni envanter kaydı veya Excel aktarımı yayın açmaz. Ortak listede yalnız açıkça yayımlanan, görünürlük koşullarını sağlayan kayıtlar ve yayın için girilen bilgiler bulunur. Bedelsiz kullanım talebi, onay, miktar ayırma, teslim ve iade akışları uygulanmıştır.
 
-Bu rapor canlı ortam kabulü değildir. Yerel demo kurmaca verilerle çalışır. Test/build kanıtları [VERIFICATION.md](VERIFICATION.md), demo kurulumu [TEST_ORTAMI.md](TEST_ORTAMI.md), kullanıcı anlatımı [KULLANIM_REHBERI.md](KULLANIM_REHBERI.md) içindedir.
+Bu belge canlı ortam kabulü değildir. P0–P3 birleşik kabulü ve yayın hazırlığının güncel durumu [son doğrulama raporunda](P0_P3_SON_DOGRULAMA.md), P3 rol/cihaz/klavye kapsamı [P3 doğrulama raporunda](P3_KULLANIM_DOGRULAMASI.md) kayıtlıdır. Önceki doğrulama kayıtları [VERIFICATION.md](VERIFICATION.md), demo kurulumu [TEST_ORTAMI.md](TEST_ORTAMI.md), güncel işlem anlatımı [KULLANIM_REHBERI.md](KULLANIM_REHBERI.md) ve [çevrimdışı rehber](kullanim-rehberi.html) içindedir.
 
-## Merkezi envanter ve kontrollü ortak liste için güncel durum
+## Uygulanmış temel akışlar
 
-Kullanıcının ürün açıklamasıyla kapsam netleşti: ayrı Excel envanterleri ortak ekipman türlerinde birleşir; bütün özel kayıtlar diğer tersanelere açılmaz. Ortak listede yalnız sahibi tersanenin yöneticisinin paylaşıma açtığı kayıtlar görünür. Ayrıntılı güncel ürün analizi [ORTAK_ENVANTER_URUN_ANALIZI.md](ORTAK_ENVANTER_URUN_ANALIZI.md) içindedir.
-
-- **Envanterim:** ilk ekran ekipman türü ve sayı kartları; tür seçince ekipman kodu, teknik bilgiler ve kayıt işlemleri. Platform için adı **Birleşik envanter** ve kapsamı bütün tersanelerdir.
-- **Ekipman türleri:** kategori başlıkları altında ortak tanım dizini. “Forklift” bir türdür; belirli tersanenin FL-001 kaydı fiziksel ekipmandır.
-- **Ortak ekipmanlar:** yönetici tarafından yayımlanan aktif/kapsam içindeki kayıtların ayrı, sayfalı listesi. Diğer tersaneler yalnız tür, sahibi tersane, katalog/kategori, kamuya yazılmış not ve yayın tarihini görür.
-- **Yayın kararı:** tersane yöneticisi kendi ekipmanını açar/kapatır; personel yayın izni veremez. Normal kayıt ve Excel aktarımı otomatik paylaşım açmaz. Sahip değişince yayın sıfırlanır.
-
-Aşağıdaki SSRP operasyon GAP'leri tam kullanım/rezervasyon ürünü içindir. Rezervasyon ve ödeme, merkezi envanter/listeleme MVP'sinin zorunlu başlangıç işi değildir. Kontrollü keşif artık temel düzeyde uygulanmıştır; kalan iş yapılandırılmış kamu teknik bilgileri, iletişim/talep kanalı ve daha güçlü kayıt standardıdır.
-
-## Kullanıcının izleyeceği ana akış
-
-| Adım | Ekran | Başarı göstergesi |
+| Kullanıcı işi | Güncel davranış | Kaynak |
 |---|---|---|
-| Ortak tanımı hazırlama | Varlık Tipleri | Tip kodu, kategori, ön sınıf ve ekipman alanları görünür |
-| Katalog dosyasını gözden geçirme | Katalogdan aktar | Oluşturma/güncelleme/atlama/hata sayıları; değişecek mevcut bilgiler |
-| Fiziksel ekipmanı kaydetme | Envanter | Doğru tip ve sahibi tersaneyle ekipman kodlu kayıt |
-| Excel'i eşleme | Envanter aktarımı | Başlık satırı, tip, hedef kurum ve zorunlu sütun eşlemesi belirgin |
-| Sonucu kontrol etme | Aktarım sonucu ve liste | Oluşturulan/güncellenen/hatalı satırlar; filtre ve aramayla kayıt doğrulaması |
+| Doğru başlangıcı bulma | Role uygun ana sayfa ve sayaçlar; ortak ekipmanlar ve kullanım talepleri ana **Ortak kullanım** alanındadır. Hesap menüsü tekrarlayan yönetim bağlantıları içermez. | [Ana sayfa](../frontend/src/components/OverviewDashboard.tsx), [gezinme](../frontend/src/components/RootLayout.tsx) |
+| Envanteri inceleme | Envanter özeti, model grupları ve tek tek kayıtlar; arama üst alanda, stok ve ekipman sayıları ayrıdır. Detaydan düzenleme ve yetkili kullanıcıya paylaşım erişimi vardır. | [Envanter](../frontend/src/routes/_secured/assets/index.tsx), [kayıt listesi](../frontend/src/components/assets/EquipmentRecordList.tsx) |
+| Ekipman ekleme | Tek **Ekipman ekle** başlangıcı; adet 1. Her tekil adet ayrı kayıt, stok satırı bir kayıt olur. İç envanter kodu otomatik atanır; üretici seri numarası üretilmez. Bütün kalemler birlikte kaydedilir. | [Ekleme formu](../frontend/src/components/assets/InventoryBatchModal.tsx), [toplu ekleme](../backend/apps/assets/batch_create.py) |
+| Excel yolunu seçme | **Excel’den aktar** içinde tek tür ve birleşik şablonlar; dosyanın içeriğine göre birleşik inceleme önerisi. Seçili dosya yeniden yükletilmeden taşınır. | [Envanter](../frontend/src/routes/_secured/assets/index.tsx), [şablonlar](../frontend/src/components/assets/ImportTemplates.tsx), [birleşik inceleme](../frontend/src/components/assets/WorkbookImportModal.tsx) |
+| Aktarım sonucunu anlama | Tek tür yolu satır bazlı kısmi kayıt yapabilir; birleşik yol tüm dosyayı birlikte uygular. Ekran bu farkı ve yeniden denemeden önce kayıt kontrolünü açıklar. | [Aktarım metinleri](../frontend/src/modules/assets/p2-import-copy.ts), [envanter API](../backend/apps/assets/views.py) |
+| Dışa aktarma kapsamını seçme | CSV geçerli filtrelere uyan tüm sayfaları; Excel seçilen türün erişilebilir kayıtlarını kapsar. Excel yolunda arama/kategori/model/güncelleme filtrelerinin uygulanmadığı indirmeden önce gösterilir. Boş şablon ayrı aktarım akışındadır. | [Dışa aktarma](../frontend/src/components/assets/InventoryExportModal.tsx), [çıktı güvenliği](../frontend/src/utils/report.ts) |
+| Kullanıcıyı oluşturup atama | Yetkili genel yönetim hesabı tersane veya atamasız durumunu ve rol etkisini seçer; özeti görüp tek işlemde oluşturur. Pasif tersane ve atamasız erişim etkisi açıklanır. | [Kullanıcı formu](../frontend/src/components/users/UserFormModal.tsx), [sunucu doğrulaması](../backend/apps/tenants/serializers.py) |
+| Kontrollü paylaşım | Başlık, adet, kapasite, uygunluk, koşullar ve açıkça girilen iletişim bilgileri yayımlanır. İç kod, özel teknik veri, toplam stok ve atanan kişi açılmaz. Yayını geri çekmek geçmişi silmez. | [Paylaşım formu](../frontend/src/components/assets/AssetSharingModal.tsx), [ortak liste](../frontend/src/routes/_secured/shared-equipment.tsx) |
+| Kullanımı takip etme | Kurumun talepleri; talebi oluşturan kişi, sonraki işlem ve sorumlu rol görünür. Onay miktarı ilgili tarihler için ayırır; teslim edilen miktar iade kaydedilene kadar ayrılmış kalır. | [Kullanım talepleri](../frontend/src/routes/_secured/shared-usage.tsx), [kullanım modeli](../backend/apps/assets/usage_models.py), [işlemler](../backend/apps/assets/usage_views.py) |
+| Yardım bulma | Uygulama rehberi, yazılı rehber ve çevrimdışı HTML aynı işlem adlarını izler; ekran görselleri ortak `frontend/public/guide/images` kaynağını kullanır. | [Uygulama rehberi](../frontend/src/routes/_secured/help.tsx), [rehber içeriği](../frontend/src/modules/guide-content.ts) |
 
-## Bu turda ele alınan kullanıcı deneyimi alanları
+## Korunan yetki ve güven sınırları
 
-| Sorun / kullanıcı etkisi | Değişikliğin hedef davranışı | Kaynak ve kabul kontrolü |
+| Hesap | Mevcut erişim | Yetki sayılmayan işlem |
 |---|---|---|
-| Katalog ile ekipman dosyası karışabiliyor | Ayrı adlandırma, akış açıklaması, rehber ve örnek dosyalarla doğru yol bulunur | [Katalog ekranı](../frontend/src/routes/_secured/assets/types.tsx), [Envanter](../frontend/src/routes/_secured/assets/index.tsx), [Rehber](../frontend/src/routes/help.tsx); iki dosya türü gerçek demoda denenir |
-| Güncelleme dosyasında boş hücrenin bilgiyi temizlediği kolay fark edilmiyor | Katalog önizlemesi eski/yeni değeri ve temizlenen alanı açık gösterir | [Katalog servisi](../backend/apps/assets/catalog_import.py), [Önizleme penceresi](../frontend/src/components/assets/CatalogImportModal.tsx); güncelleme dosyasında açıklama/gerekçe kontrolü |
-| Yalnız yeni modunda atlanan satırın yüklenen sınıfı mevcut kayıt sanılabiliyor | Atlanan mevcut kaydın saklanan bilgisi ve atlama nedeni gösterilir | Aynı katalog dosyaları; tekrar önizleme sırasında yanlış “güncellenecek” izlenimi olmamalı |
-| Ana ekranda işlem adı ile varılan ekran farklı olabiliyor | Ekipman listesine yönlendiren bağlantı kendi görevini açık söyler; tıklanamayan ok kaldırılır veya gerçek yönlendirme olur | [Ana ekran](../frontend/src/routes/_secured/dashboard.tsx); son kayıt ve hızlı işlem kontrolü |
-| Ölçülmeyen “sistem güncel/sağlıklı” göstergesi yanlış güven verebiliyor | Gerçek ölçüme dayanmayan operasyon durumu yerine yapılabilir kullanıcı görevi gösterilir | Ana ekran; backend/SMTP/Redis sağlığına dair kanıtsız iddia olmamalı |
-| Yetkisiz hesapta yönetici sorgusu gereksiz hata/istek oluşturabiliyor | Rol uygun değilse ayrıcalıklı liste çağrısı çalışmaz | [Kurum sorguları](../frontend/src/modules/tenants/hooks.ts), Ana ekran; personel hesabında genel kullanıcı çağrısı olmamalı |
-| Boş liste ile yükleme hatası aynı görünebiliyor | Hata, tekrar deneme, gerçekten boş durum ve filtre sonucu boş durum ayrılır | Envanter ve katalog ekranı; hata yanıtı/mobil boş sonuç senaryosu |
-| Pencere açıkken klavye odağı arka ekrana kaçabiliyor | Başlık/kapama adı okunur; odak pencere içinde kalır, kapanınca önceki noktaya döner | [Ortak pencere](../frontend/src/components/ui/Modal.tsx); Tab/Shift+Tab/Escape kontrolü |
-| Dosya işlenirken pencereyi kapatmak sonucu belirsizleştiriyor | Devam eden iş sırasında kapama ve dosya değişimi kontrol edilir | Katalog ve envanter aktarım pencereleri; işlem sürerken klavye/kapama testi |
-| Tip/kurum seçimi eksik olunca pasif düğmenin nedeni anlaşılmıyor | Ön koşullar, aktif kurum ve alan eşleme açıklanır; eksik tanım için katalog bağlantısı bulunur | [Ekipman formu](../frontend/src/components/assets/AssetFormModal.tsx), Envanter; farklı rollerle kayıt |
-| Aynı ekipman şablonunun tekrar yüklenmesi kopya oluşturabiliyor | Benzersiz anahtarlı tipte tersane+tip+anahtarla güncelleme, ayrı oluşturma/güncelleme sayısı | [Ekipman aktarımı](../backend/apps/assets/views.py); tekrarlı dosyada ekipman sayısı artmamalı |
-| Tip adındaki `/` ve Excel'e özel karakterler şablon indirmeyi bozabiliyor | Geçerli sayfa adı, `_mapping` koruması ve güvenli Unicode indirme başlığı | [Excel işlemleri](../backend/apps/assets/views.py); gerçek demoda MIG/MAG şablonu indirildi |
-| Excel çıktısındaki `=` ile başlayan kullanıcı metni formüle dönüşebiliyor | Metin hücre türü korunuyor | Ekipman dışa aktarma regresyonu; sayı/checkbox değerleri kendi türünde kalır |
-| Kullanıcı yardım almak için dış anlatım aramak zorunda | Üst çubukta rehber, demo örnekleri, görev odaklı adımlar ve sık sorular | [Uygulama rehberi](../frontend/src/routes/help.tsx), [Çevrimdışı rehber](kullanim-rehberi.html); dar ekranda erişim |
+| Platform yöneticisi | Tersaneye bağlı olmayan aktif yetkili genel yönetim hesabı; ortak katalog, birleşik envanter, tersane/kullanıcı yönetimi ve yetkili yayın yönetimi | Yalnız `platform_admin` rol etiketi genel yetki vermez. Tersane adına kullanım onayı, teslim veya iade yapamaz. |
+| Tersane yöneticisi | Kendi envanteri, kendi kullanıcıları, yayın ve sahibi tersane olarak kullanım kararları | Diğer tersanenin özel envanterini veya yönetimini açmaz. |
+| Tersane personeli | Kendi envanterini ekleme/düzenleme/silme/aktarma; kurum adına kullanım talebi | Personelin kayıt silebilmesi mevcut yetkidir. Salt okunur role dönüştürülmedi. Yayın, onay, teslim ve iade yönetici işlemidir. |
+| Atamasız hesap | Hesap işlemleri ve yetkisinin izin verdiği alanlar | Tersane envanteri ve kurum adına kullanım işlemi için tersane ataması gerekir. |
 
-Bu tablo değişikliklerin kabul hedefini belirtir. Test sonuçlarını ayrı doğrulama kaydından okuyun; kodda bulunması tek başına bütün tarayıcı/rol senaryolarının geçtiği anlamına gelmez.
+Genel yönetim sınırı [ortak istemci kontrolünde](../frontend/src/auth/permissions.ts) ve [sunucu izinlerinde](../backend/apps/tenants/permissions.py) izlenir. Arayüz düğmesi tek başına yetki vermez. Kullanım işlem düğmeleri sunucunun izin verdiği işlemleri izler. Kurumun gönderdiği talepler, sadece oturum sahibinin oluşturdukları diye adlandırılmaz.
 
-## Kurumsal arayüz düzeni
+Hata ile boş veri ayrılır; başarısız sayaç sıfır gösterilmez. Düzenlenmiş formdan ayrılma onayı, işlem sırasında kapatmayı kontrol etme ve başarılı sonuçtan önce taslağı koruma uygulanmıştır. Geri bildirim düğmesi kayıt silme menüsünü örtmeyecek katmandadır. Bu davranışların cihaz ve klavye kabulü P3 doğrulamasının parçasıdır.
 
-Arayüz, günlük envanter işlerinde okunurluk ve tutarlılığa göre yenilendi. Sistem yazı karakteri, çelik mavisi işlem rengi, düz yüzeyler, küçük köşeler ve ölçülü ikonlar ortak bileşenlere uygulandı. Dekoratif gradient, parlama, büyük ikon kutuları ve ölçeklenen düğmeler ana ekranlardan kaldırıldı.
+## Önceki GAP kayıtlarından kapanan veya daralanlar
 
-- Ana ekran: tek özet şeridi, açık işlem adları, son ekipmanlar ve tarihli bildirimler.
-- Envanter ve katalog: türe göre envanter kartları, ekipman ayrıntı kartları ve kategori altında ortak tür dizini. Ekipman kodu, sahibi ve yayın durumu ayrı görünür; ön A/B/C değerlendirmesi yayın kararıyla karıştırılmaz.
-- Navigasyon, giriş, kullanıcı ve tersane yönetimi: tutarlı başlıklar, düğmeler ve küçük, nötr hesap işaretleri.
-- Açık/koyu tema: aynı hiyerarşi; koyu temada görünür klavye odağı ve işlem vurguları. Tema animasyonu düğmenin merkezinden başlamaya devam eder.
-- Rehber: uygulama ile aynı renk ve yüzey düzeni; çevrimdışı HTML sürümündeki anlatım, arama ve yazdırma akışları korunur.
-
-Yerel demo örnekleri: [ana ekran](images/corporate-dashboard-desktop-light.png), [katalog](images/corporate-catalog-desktop-light.png), [giriş](images/corporate-login-desktop-light.png), [koyu ana ekran](images/corporate-dashboard-desktop-dark.png), [mobil envanter](images/corporate-inventory-mobile-light.png). Kontrol sonuçları aşağıdaki ürün GAP'lerinden ayrı olarak [doğrulama kaydında](VERIFICATION.md) tutulur.
-
-## Kalan UI ve günlük kullanım eksikleri
-
-| Öncelik | Eksik ve somut etki | Kaynak kanıtı | Önerilen sonraki dilim / kabul |
-|---|---|---|---|
-| P1 | `tenant_user` salt okunur değil; personel kendi kurum ekipmanını silebilir. Kurumun beklediği onay/salt okuma ayrımı bulunmuyor | [Varlık izinleri](../backend/apps/assets/views.py), [IsTenantMember](../backend/apps/tenants/permissions.py) | Görüntüleme/oluşturma/düzenleme/silme ayrı ürün yetkileri; API ve düğmeler aynı matrisi uygulamalı |
-| P1 | Genel yönetimde `superuser`, katalogda ayrıca `platform_admin` rolü kullanılıyor; tek “platform yöneticisi” etiketi kapsamı açıklamıyor | [Kurum izinleri](../backend/apps/tenants/permissions.py), [Platform rota koruması](../frontend/src/routes/_secured/platform/route.tsx), [Tip API](../backend/apps/assets/views.py) | Rol açıklaması ve yönetim görevi netleştirilmeli; mevcut izinleri farkında olmadan genişletmeden ortak yetki politikası |
-| P1 | Büyük listeler bütün kayıtları getirip tarayıcıda filtreliyor; binlerce kayıtta yükleme ve mobil kullanım yavaşlayabilir | [Varlık sorguları](../frontend/src/modules/assets/hooks.ts), Envanter/katalog listeleri | Sunucu sayfalaması+arama+filtreleme birlikte; doğru toplam ve dışa aktarım kapsamı, temsilî büyük veri ölçümü |
-| P1 | Dinamik benzersiz anahtar aktarım eşlemesidir; eşzamanlı veya elle kayıtta tekillik garantisi yok | [Asset modeli](../backend/apps/assets/models.py), `bulk_import`/`raw_import` | Normalize ekipman kimliği ve veritabanı kısıtı; iki eşzamanlı istekte aynı kodun tek kayıt oluşturduğunu PostgreSQL'de test |
-| P1 | Tip alan şeması yerinde değişiyor; eski ekipman verisi/görünümü yeni şemaya sessizce bağımlı | [Tip modeli ve serializer](../backend/apps/assets/serializers.py), [Detay ekranı](../frontend/src/routes/_secured/assets/index.tsx) | Şema sürümü, etkilenen kayıt özeti ve kontrollü veri göçü; eski değer kaybolmamalı |
-| P1 | Envanter dosyası önizlemesi örnek satırlardır; bütün dosya için ön doğrulama ve katalogdaki kadar güçlü kaynak sınırı yok | `preview_import`, `bulk_import`, `raw_import` içinde [views.py](../backend/apps/assets/views.py) | Dosya boyutu/açılmış boyut/satır sınırı, tam doğrulama ve indirilebilir tüm hata raporu; büyük dosyada görev ilerlemesi |
-| P1 | Envanter aktarımı satır bazında kısmi başarı verebilir; kullanıcı başarıyla aktarılan satırları tekrar gönderebilir | Aynı aktarım yolları; hata listesi ilk 20 satırla sınırlı | Sonuçtan yalnız hatalı satırları indirip yeniden deneme; kısmi başarı açıklaması ve iş geçmişi |
-| P2 | Çok sayıda tipte kısa açılır listede seçim zorlaşır | [Ekipman formu](../frontend/src/components/assets/AssetFormModal.tsx), Envanter aktarım tipi seçimi | Klavyeyle aranabilen tip seçici; kategori ve kodla arama, seçimi koruma |
-| P2 | Modelde kişiye atama alanı mevcut, ekipman formunda sorumlu kişi seçimi yok | `Asset.assigned_to`, [Ekipman formu](../frontend/src/components/assets/AssetFormModal.tsx) | Aynı tersanedeki aktif kullanıcılar için rol kapsamına uygun liste API'si ve sorumlu seçici |
-| P2 | Arayüz TR/EN olsa da katalog adı ve özel alan etiketi tek metin | [AssetType.schema](../backend/apps/assets/models.py) ve katalog modeli | Katalog/etiket çevirisi ayrı saklansın; eksik çeviride tutarlı geri dönüş |
-| P2 | Şema yapıcısı ve envanter ekranı büyük; kod bakımı ve ilk yükleme maliyeti yüksek | [Tip formu](../frontend/src/components/assets/AssetTypeFormModal.tsx), Envanter route'u | Parçalama ve rota yükleme ayrımı; bundle ölçümüyle, davranış korunarak ilerleme |
-| P2 | Form/kimlik ekranlarında biriken lint ve tip borcu yeni hataları ayırt etmeyi zorlaştırıyor | Önceki [doğrulama kaydı](VERIFICATION.md), Allauth ekranları | Borcu modül modül temizleme; yeni işlerde kuralları gevşetmeden değişen dosyaları kontrol |
-
-P1 temel günlük kullanım/veri bütünlüğü; P2 sonraki iyileştirme. Mevcut kurumların yetki veya iş kurallarını değiştiren işler ayrı kabul kriteriyle tasarlanmalıdır.
-
-## Ortak kullanım ürünü için kalan GAP'ler
-
-| Öncelik | Eksik | Kullanıcıda yaratılmaması gereken izlenim | İlk kabul kriteri |
-|---|---|---|---|
-| P0 | Fiziksel ekipmanın saha uygunluk değerlendirmesi | “A rozeti varsa kullanıma hazır” | Değerlendiren, tarih, geçerlilik, gerekçe/kanıt ve nihai karar ekipmana bağlı kaydedilmeli |
-| P0 | Miktarlı stok ve tahsis | “Bir iskele kaydı, 1.200 m² stokla aynı şey” | Tekil ekipman, havuz ve sarf ayrılmalı; stok birimi kapasiteden bağımsız olmalı |
-| P0 | Talep/onay ve rezervasyon | “Katalogdan başka tersanenin ekipmanını hemen rezerve edebilirim” | Sahip kurum, talep eden kurum, zaman, miktar, karar ve çakışma kontrolü birlikte |
-| P0 | Muayene/kalibrasyon/belge geçerliliği | “Envanter kaydı güvenlik kontrolünü tamamlar” | Geçersiz/eksik uygunluk gerekli işlemde paylaşımı bloke etmeli |
-| P1 | Kontrollü keşfin ayrıntılı teknik araması ve iletişim kanalı | “Yayımlanmış kayıt, anında kullanılabilir ekipmandır” | Temel kontrollü liste var; kamu teknik alanları, kapasite/birim filtreleri ve talep/iletişim yönü ayrıca tasarlanmalı |
-| P1 | Teslim/iade, hasar ve bakım geçmişi | “Kişiye atama, kurumlar arası teslimdir” | Sahiplik sabit; kullanım ilişkisi ve teslim/iade olayları ayrı tutulmalı |
-| P1 | Değişiklik geçmişi ve katalog sürümü | “Oluşturan/tarih alanları tam denetim kaydıdır” | Önemli eski/yeni değerler, kişi, zaman ve kaynak/sürüm izlenmeli |
-| P2 | Kiralama, maliyet paylaşımı, ortak satın alma | “Mevcut envanter ekranı ödeme/sözleşme sürecini kapsar” | Tam SSRP raporu ve ürün kurallarıyla ayrı ticari kapsam belirlenmeli |
-
-Tam teknik/modelleme bağlamı [GİSBİR SSRP analizinde](GISBIR_SSRP_GAP_ANALIZI.md). İç katalog kodu atama sıradan bir katalog işlemidir; PDF'nin özgün kodu diye sunulmaması yeterlidir. Kaynak PDF'nin 175 tiplik listesi, kontrollü kaynak/sürüm dosyası olarak ayrıca tamamlanmalıdır.
-
-## Demo kabul senaryoları
-
-| Senaryo | Beklenen davranış |
+| Önceki ifade | Güncel durum |
 |---|---|
-| Yeni kullanıcı ilk 15 dakika | Rehberden hesap seçer, tip/ekipman ayrımını anlar, örnek dosya indirip aktarım sonucunu bulur |
-| Geçerli katalog | Yeni tipler oluşur, tekrar önizlemede mevcut kodlar atlanır |
-| Hatalı katalog | Hatalar satırlarıyla görünür; onay kapalı ve kayıt yok |
-| Katalog güncellemesi | Eski/yeni değer ve boş hücre temizliği görülebilir; şema ve ekipmanlar korunur |
-| Forklift dosyası tekrar aktarım | Benzersiz anahtarlı tipte aynı kurum/anahtar güncellenir; yeni kopya yok |
-| Mavi Körfez → Poyraz hesap değişimi | Ortak tipler görünür, diğer kurumun fiziksel ekipmanları görünmez |
-| Personel hesabı | Tip yönetim düğmeleri görünmez; kendi envanterini yönetir; genel yönetici isteği gönderilmez |
-| Mobil ve klavye | Menü erişilir, sayfa yatay taşmaz; pencere odağı ve kapama davranışı anlaşılır |
-| Açık/koyu tema | Tema gerçek düğmeden başlar; içerik ve hata metni iki temada okunur |
+| “Miktarlı stok yok” | Tekil ekipman ve adetli malzeme stoku ayrılmıştır. Toplam stok ile paylaşıma açılan miktar ayrıdır. Kapasite stok adedi değildir. |
+| “Talep/onay/rezervasyon henüz yok” | Bedelsiz kullanım talebi, karar, tarih ve miktar çakışma kontrolü vardır. Bekleyen talep miktar ayırmaz; onay ayırır. |
+| “Teslim/iade henüz yok” | Sahibi tersane yöneticisi teslim ve iade kaydeder. Planlanan iade gününün geçmesi, fiilî teslimi serbest bırakmaz. Hasar ve bakım geçmişi ayrı ürün ihtiyacıdır. |
+| “İletişim kanalı yok” | Yalnız yayın için açıkça girilen kişi, e-posta ve telefon gösterilir; bağlantı kullanıcının iletişim uygulamasını açar. Uygulama içi mesaj gönderimi veya görüşme geçmişi yoktur. |
+| “Yerel envanter kodunun tekilliği yok” | Boş olmayan yerel kod için tersane+tür+kod veritabanı kısıtı vardır. Dinamik JSON eşleştirme alanının bütün kayıt yollarında eşzamanlı tekilliği ayrı inceleme konusudur. |
+| “Şema değişimi sessiz; etki görünmüyor” | Şema revizyonu, değişiklik öncesi etki özeti, eksik kayıt işareti ve ilgili yöneticilere bildirim vardır. Tam tarihsel şema görüntüsü ve veri göçü ürünü ayrıca değerlendirilmelidir. |
+| “Aktarım önizlemesi yalnız birkaç satırı kontrol ediyor” | Tek tür dosyasının tamamı analiz edilir; arayüz örnek satırlar gösterir. Kısmi kayıt davranışı açıkça anlatılır; birleşik aktarım bütün dosyayı birlikte uygular. |
+| “Kullanıcı oluşturma ve atama bağlantısız” | Genel yönetimde erişim özetiyle tek akış ve tek oluşturma/atama işlemi vardır. Tersane yöneticisinin kapsamı genişletilmemiştir. |
 
-## Önerilen sonraki sıra
+## Gerçek ürün sınırları ve kalan işler
 
-1. Günlük veri bütünlüğü: ekipman tekilliği, rol matrisi, tam dosya ön doğrulaması ve hata raporu.
-2. Büyük veri ve bakım: sunucu filtre/sayfalama, tip arama, şema sürümleme, kod/lint borcu.
-3. SSRP pilotu: saha değerlendirmesi ve miktarlı stok; ardından talep/onay/rezervasyon ve teslim/iade.
+Aşağıdaki başlıklar uygulanmış günlük akışları yok saymaz. Önceki P0/P1/P2/P3 uygulama aşamalarından bağımsız ürün/bakım konularıdır; bu belgede yapılmış kabul edilmez.
 
-Bu sıra kalan kapsamı belirtir; mevcut demoda rezervasyon veya ticari işlem bulunduğu iddia edilmez.
+| Konu | Mevcut sınır ve kullanıcı etkisi | Olası sonraki kabul |
+|---|---|---|
+| Saha uygunluğu, muayene ve kalibrasyon | A/B/C tür ön değerlendirmesidir. Kapasite veya muayene tarihi bilgisinin gösterilmesi, belgenin geçerliliğinin veya mühendislik uygunluğunun doğrulanması değildir. | Ekipmana bağlı değerlendiren, kanıt, tarih, geçerlilik ve nihai karar; gerekli işlemlerde açık engelleme kuralı |
+| Büyük envanter yükü | Özel envanter ve tür listeleri istemcide gruplama/filtreleme için tüm kayıtları alır. Sayfalı ekran, sunucuda sınırlı veri çekildiği anlamına gelmez. | Sunucuda arama+filtre+sayfalama, doğru toplam/çıktı kapsamı ve temsilî büyük veri ölçümü |
+| Kısmi aktarım kurtarma | Tek tür aktarımı başarılı satırları kaydetmiş olabilir. Eşleştirme alanı yoksa yeniden gönderim yeni kayıt oluşturabilir. | Kalıcı aktarım geçmişi, yalnız hatalı satırları indirme ve güvenli yeniden deneme |
+| Eşzamanlı dinamik kimlik | Yerel kod kısıtı vardır; dinamik JSON kimlik alanı yerel koddan farklıdır. | Farklı kayıt yollarında eşzamanlı aynı kimlik denemesi; gerekirse normalize kimlik modeli ve veritabanı kısıtı |
+| Tarihsel şema ve denetim | Revizyon ve etki kontrolü vardır; her eski şema/değer görüntüsünü geri oynatan tam kayıt ürünü yoktur. | Kritik eski/yeni değer, kişi, zaman ve kaynak sürümünü kapsayan denetim politikası |
+| Hasar, bakım ve teslim kanıtı | Teslim/iade durumları vardır; ayrıntılı hasar, bakım ve belge/teslim kanıtı yönetimi aynı şey değildir. | Ayrı olaylar, sorumluluk, ekler ve kullanıcıya açık geçmiş |
+| Özel envanterde sorumlu kişi | Modelde `assigned_to` bulunur; ana ekipman formunda sorumlu kişi seçicisi yoktur. | Yalnız aynı tersanenin aktif kullanıcılarını sunan izinli seçim |
+| Ortak katalog çevirileri | Arayüz TR/EN’dir; tür adı ve özel alan etiketi tek metindir. | Katalog/alan çevirilerinin ayrı saklanması ve tutarlı eksik çeviri davranışı |
+| Bakım ve ilk yükleme | Şema yapıcısı ve envanter ekranı büyük; genel lint kontrolü temizdir, üretim derlemesinde ana JavaScript paketi boyut uyarısı sürer. | Ölçülen rota yüklemesi ve modül bazlı kalite iyileştirmesi; yeni işte kuralları gevşetmeme |
+| Ticari kapsam | Mevcut süreç bedelsiz ortak kullanımdır. Ödeme, kiralama sözleşmesi, maliyet paylaşımı ve ortak satın alma uygulanmış sayılmaz. | Ayrı ürün/iş kuralları ve kabul kapsamı |
+
+Tam teknik ve saha bağlamı [GİSBİR SSRP analizinde](GISBIR_SSRP_GAP_ANALIZI.md), merkezi envanter bağlamı [ortak envanter ürün analizinde](ORTAK_ENVANTER_URUN_ANALIZI.md). Bu eski analizler tarihsel bağlamdır; güncel kullanım adımları için rehbere başvurun. İç katalog kodu, kaynak PDF’nin özgün kodu gibi sunulmamalıdır.
+
+## P3 kabul kontrolü
+
+- Platform yöneticisi, tersane yöneticisi, personel ve atamasız hesabın temel akışlarını ayrı doğrula; mevcut yetkiler değişmesin.
+- Masaüstü ve dar mobil ekranda ana sayfa, envanter/ekleme, aktarım/çıktı, ortak liste/talep ve kullanıcı yönetiminin hesaba uygun yollarını dene.
+- Klavyeyle gezinme, arama/seçim, Tab/Shift+Tab, Enter/Space, Escape, pencere odağı ve kapatınca odağın dönüşünü kontrol et.
+- Boş veri, yükleme hatası, yasak yanıtı, devam eden işlem ve korunmuş taslakları başarı durumlarından ayır.
+- Rehberdeki işlem adlarını ve ekranları güncel kurmaca verili görsellerle karşılaştır; özel envanter/iletişim verisini görsellere taşımadan yenile.
+- Test sonuçlarını yalnız gerçekten çalıştırılan kapsamla raporla; yerel testleri canlı ortam veya saha uygunluğu kabulü sayma.

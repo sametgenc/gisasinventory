@@ -53,16 +53,22 @@ class UsageActionSerializer(StrictInputSerializer):
 class SharedUsageRequestSerializer(serializers.ModelSerializer):
     owner_tenant_name = serializers.CharField(source="owner_tenant.name", read_only=True)
     requester_tenant_name = serializers.CharField(source="requester_tenant.name", read_only=True)
+    requested_by_display = serializers.SerializerMethodField()
     allowed_actions = serializers.SerializerMethodField()
     status_label = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
         model = SharedUsageRequest
         fields = ["id", "asset", "owner_tenant", "owner_tenant_name", "requester_tenant",
-                  "requester_tenant_name", "requested_by", "listing_snapshot", "start_date", "end_date",
+                  "requester_tenant_name", "requested_by", "requested_by_display", "listing_snapshot", "start_date", "end_date",
                   "quantity", "purpose", "status", "status_label", "decision_note", "approved_at",
                   "handed_over_at", "returned_at", "closed_at", "created_at", "updated_at", "allowed_actions"]
         read_only_fields = fields
 
     def get_allowed_actions(self, obj):
         return allowed_actions(self.context["request"].user, obj)
+
+    def get_requested_by_display(self, obj):
+        if obj.requested_by is None:
+            return ""
+        return obj.requested_by.get_full_name().strip() or obj.requested_by.username

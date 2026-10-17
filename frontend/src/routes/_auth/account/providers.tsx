@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { useAuth } from '@/auth/context'
 import { useCaptcha } from '@/hooks/useCaptcha'
@@ -9,10 +11,13 @@ export const Route = createFileRoute('/_auth/account/providers')({
     component: ManageProviders,
 })
 
+type ProviderAccount = { uid: string; display?: string; provider: { id: string; name: string } }
+
 function ManageProviders() {
+    const { t } = useTranslation()
     const captcha = useCaptcha()
     const { config } = useAuth()
-    const [accounts, setAccounts] = useState<any[]>([])
+    const [accounts, setAccounts] = useState<ProviderAccount[]>([])
     const [loading, setLoading] = useState(true)
     const [actionLoading, setActionLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -34,8 +39,8 @@ function ManageProviders() {
         }
     }
 
-    const disconnect = async (account: any) => {
-        if (!confirm(`Are you sure you want to disconnect ${account.provider.name}?`)) return
+    const disconnect = async (account: ProviderAccount) => {
+        if (!confirm(t('account.providers.disconnectConfirm', { provider: account.provider.name }))) return
 
         setActionLoading(true)
         setError(null)
@@ -51,10 +56,10 @@ function ManageProviders() {
                     loadAccounts()
                 }
             } else {
-                setError(res.errors?.[0]?.message || 'Failed to disconnect account')
+                setError(t(accountErrorKey(res, 'account.providers.disconnectFailed')))
             }
-        } catch (e: any) {
-            setError(e.message || 'An error occurred')
+        } catch (e: unknown) {
+            setError(t(accountErrorKey(e, 'account.errors.connection')))
         } finally {
             setActionLoading(false)
         }
@@ -69,7 +74,7 @@ function ManageProviders() {
         try {
             ALLAUTH_API.redirectToProvider(providerId, '/account/providers', 'connect', captcha.token)
         } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to connect account')
+            setError(t(accountErrorKey(error, 'account.providers.connectFailed')))
             setActionLoading(false)
         } finally {
             captcha.reset()
@@ -79,12 +84,12 @@ function ManageProviders() {
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-8">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Connected Accounts</h1>
-                <p className="text-gray-500 dark:text-gray-400">Manage your connected social accounts.</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t('account.providers.title')}</h1>
+                <p className="text-gray-500 dark:text-gray-400">{t('account.providers.description')}</p>
             </div>
 
             {error && (
-                <div className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-2xl flex items-center gap-3">
+                <div role="alert" className="mb-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 text-red-600 dark:text-red-400 rounded-2xl flex items-center gap-3">
                     <AlertTriangle size={20} />
                     {error}
                 </div>
@@ -97,11 +102,11 @@ function ManageProviders() {
                     </div>
                 ) : accounts.length === 0 ? (
                     <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-                        No connected accounts found.
+                        {t('account.providers.empty')}
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {accounts.map((account: any) => (
+                        {accounts.map((account) => (
                             <div key={account.uid} className="p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
@@ -116,7 +121,7 @@ function ManageProviders() {
                                     onClick={() => disconnect(account)}
                                     disabled={actionLoading}
                                     className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors disabled:opacity-50"
-                                    title="Disconnect"
+                                    title={t('account.providers.disconnect')}
                                 >
                                     {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20} />}
                                 </button>
@@ -127,13 +132,13 @@ function ManageProviders() {
             </div>
 
             <div className="mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Connect New Account</h2>
-                <p className="text-gray-500 dark:text-gray-400">Select a provider to connect to your account.</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('account.providers.connectTitle')}</h2>
+                <p className="text-gray-500 dark:text-gray-400">{t('account.providers.connectDescription')}</p>
             </div>
 
             {availableProviders.length > 0 && <div className="mb-4">{captcha.widget}</div>}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {availableProviders.map((provider: any) => (
+                {availableProviders.map((provider) => (
                     <button
                         key={provider.id}
                         onClick={() => connect(provider.id)}
@@ -151,7 +156,7 @@ function ManageProviders() {
                 ))}
                 {availableProviders.length === 0 && (
                     <div className="col-span-full p-8 text-center bg-gray-50 dark:bg-gray-900/50 rounded-2xl text-gray-500 dark:text-gray-400 border border-dashed border-gray-200 dark:border-gray-800">
-                        No providers configured in backend.
+                        {t('account.providers.noProviders')}
                     </div>
                 )}
             </div>

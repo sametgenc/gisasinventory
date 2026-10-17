@@ -9,6 +9,7 @@ export interface FormSectionProps {
     actions?: React.ReactNode;
     /** Layout for immediate children. `grid` renders a 2-col responsive grid. Default: `stack`. */
     layout?: 'stack' | 'grid';
+    density?: 'comfortable' | 'compact';
     className?: string;
     children: React.ReactNode;
 }
@@ -26,15 +27,16 @@ export const FormSection: React.FC<FormSectionProps> = ({
     description,
     actions,
     layout = 'stack',
+    density = 'comfortable',
     className = '',
     children,
 }) => {
     const bodyClass = layout === 'grid'
-        ? 'grid grid-cols-1 sm:grid-cols-2 gap-4'
-        : 'space-y-4';
+        ? `grid grid-cols-1 sm:grid-cols-2 ${density === 'compact' ? 'gap-3' : 'gap-4'}`
+        : density === 'compact' ? 'space-y-3' : 'space-y-4';
 
     return (
-        <section className={`space-y-3 ${className}`}>
+        <section className={`${density === 'compact' ? 'space-y-2' : 'space-y-3'} ${className}`}>
             {(title || description || actions) && (
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

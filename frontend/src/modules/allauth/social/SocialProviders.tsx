@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { ALLAUTH_API } from '../data';
 import { useAuth } from '../../../auth/context';
 import { Loader2, Link as LinkIcon, Trash2, Plus } from 'lucide-react';
-import type { SocialProvider } from '../types';
+import type { ProviderAccount, SocialProvider } from '../types';
 
 export const SocialProviders: React.FC = () => {
     const { config } = useAuth();
-    const [connected, setConnected] = useState<any[]>([]);
+    const [connected, setConnected] = useState<ProviderAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -17,8 +17,8 @@ export const SocialProviders: React.FC = () => {
         try {
             // Assuming we have an endpoint to list connected social accounts
             // Based on reference code: getProviderAccounts matches '/account/providers'
-            const res = await (ALLAUTH_API as any).getProviderAccounts();
-            if (res.status === 200) {
+            const res = await ALLAUTH_API.getProviderAccounts();
+            if (res.status === 200 && res.data) {
                 setConnected(res.data);
             }
         } catch (e) {
@@ -51,23 +51,18 @@ export const SocialProviders: React.FC = () => {
         if (!confirm('Are you sure you want to disconnect this account?')) return;
         setActionLoading(true);
         try {
-            const res = await (ALLAUTH_API as any).disconnectProviderAccount(providerId, accountId);
+            const res = await ALLAUTH_API.disconnectProviderAccount(providerId, accountId);
             if (res.status === 200) {
                 fetchConnected();
             } else {
                 setError(res.errors?.[0]?.message || 'Failed to disconnect.');
             }
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Failed to disconnect.');
         } finally {
             setActionLoading(false);
         }
     };
-
-    // Helper to get provider name from ID
-    const getProviderName = (id: string) => {
-        return providers.find(p => p.id === id)?.name || id;
-    }
 
     if (loading) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-gray-400" /></div>;
@@ -92,17 +87,17 @@ export const SocialProviders: React.FC = () => {
                         <p className="text-gray-500 italic">No third-party accounts connected.</p>
                     ) : (
                         <div className="space-y-4">
-                            {connected.map((account: any) => (
+                            {connected.map((account) => (
                                 <div key={account.uid} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                                     <div className="flex items-center gap-3">
                                         {/* Could add provider icons here if we had them map */}
                                         <div>
-                                            <p className="font-bold text-gray-900">{getProviderName(account.provider)}</p>
+                                            <p className="font-bold text-gray-900">{account.provider.name}</p>
                                             <p className="text-sm text-gray-500">{account.display || account.uid}</p>
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() => handleDisconnect(account.provider, account.uid)}
+                                        onClick={() => handleDisconnect(account.provider.id, account.uid)}
                                         disabled={actionLoading}
                                         className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
                                         title="Disconnect"
@@ -119,7 +114,7 @@ export const SocialProviders: React.FC = () => {
                     <h3 className="font-semibold text-gray-900 mb-4">Add Connection</h3>
                     <div className="flex flex-wrap gap-3">
                         {providers.map((provider) => {
-                            const isConnected = connected.some(c => c.provider === provider.id);
+                            const isConnected = connected.some(c => c.provider.id === provider.id);
                             if (isConnected) return null; // Already connected
 
                             return (

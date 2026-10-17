@@ -18,7 +18,9 @@ function formatCell(value: unknown): string {
         return value.toISOString()
     }
     if (typeof value === 'boolean') return value ? 'Evet' : 'Hayır'
-    return String(value)
+    const text = String(value)
+    // Spreadsheet applications must treat user-provided strings as literal text.
+    return typeof value === 'string' && /^\s*[=+\-@]/.test(text) ? `'${text}` : text
 }
 
 function escapeCSV(value: string): string {
@@ -29,7 +31,7 @@ function escapeCSV(value: string): string {
 
 function buildCSV<T>(rows: T[], columns: ReportColumn<T>[]): string {
     const lines: string[] = []
-    lines.push(columns.map((c) => escapeCSV(c.header)).join(';'))
+    lines.push(columns.map((c) => escapeCSV(formatCell(c.header))).join(';'))
     for (const row of rows) {
         const cells = columns.map((c) => escapeCSV(formatCell(c.value(row))))
         lines.push(cells.join(';'))
@@ -49,7 +51,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 function sanitizeFilename(name: string): string {
-    return name.replace(/[^a-zA-Z0-9_\-]+/g, '_').replace(/^_+|_+$/g, '') || 'report'
+    return name.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'report'
 }
 
 function timestamp(): string {

@@ -32,14 +32,10 @@ export function pathForFlow(
     typ = typ ?? flow.types[0];
     key = `${key}:${typ}`;
   }
-  console.log(
-    `[Routing] Looking up path for key: "${key}" (Original ID: "${flow.id}")`,
-  );
   const path = flow2path[key] ?? flow2path[flow.id];
 
   if (!path) {
-    console.warn(`[Routing] Unknown path for flow key: ${key}`);
-    console.log("[Routing] Available paths keys:", Object.keys(flow2path));
+    console.warn("[Routing] Unknown authentication flow.");
     // Fallback to dashboard or login if unknown, or throw
     return "/dashboard";
   }
@@ -47,14 +43,10 @@ export function pathForFlow(
 }
 
 export function pathForPendingFlow(auth: AuthResponse): string | null {
-  console.log("[Routing] Checking flows:", auth.data?.flows);
   if (!auth.data?.flows) return null;
   const flow = auth.data.flows.find((flow) => flow.is_pending);
-  console.log("[Routing] Pending flow found:", flow);
   if (flow) {
-    console.log("[Routing] Processing pending flow:", flow);
     const path = pathForFlow(flow);
-    console.log("[Routing] Resolved path for pending flow:", path);
     return path;
   }
   return null;

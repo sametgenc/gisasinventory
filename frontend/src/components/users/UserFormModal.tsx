@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, Shield, ShieldCheck, UserPlus, Wand2 } from 'lucide-react'
-import type { TenantUser, UserCreateInput } from '@/modules/tenants'
+import type { Tenant, TenantUser, UserCreateInput } from '@/modules/tenants'
 import type { UpdateUserInput } from '@/modules/tenants'
+import { userCreationCopy } from '@/modules/tenants/user-creation-copy'
 import {
     Modal,
     FormField,
@@ -10,6 +12,7 @@ import {
     FormFooter,
     formControlClass,
     cn,
+    Button,
 } from '@/components/ui'
 
 export type UserRole = 'tenant_user' | 'tenant_admin' | 'platform_admin'
@@ -17,7 +20,7 @@ export type UserRole = 'tenant_user' | 'tenant_admin' | 'platform_admin'
 type Mode = 'create' | 'edit'
 
 export type UserFormPayload =
-    | { mode: 'create'; data: UserCreateInput }
+    | { mode: 'create'; data: UserCreateInput; tenantSlug?: string | null }
     | { mode: 'edit'; data: UpdateUserInput }
 
 export interface UserFormModalProps {
@@ -32,6 +35,14 @@ export interface UserFormModalProps {
     allowedRoles?: UserRole[]
     context?: string
     hint?: string
+    /** Platform creation uses existing assigned/unassigned endpoints after review. */
+    assignment?: {
+        tenants: Pick<Tenant, 'slug' | 'name' | 'is_active'>[]
+        fixedTenantSlug?: string
+        isLoading?: boolean
+        error?: string | null
+        onRetry?: () => void
+    }
 }
 
 const defaultRoles: UserRole[] = ['tenant_user', 'tenant_admin']
@@ -81,7 +92,12 @@ function generatePassword(length = 14): string {
  * Shared user form modal — create + edit flows with role cards, avatar preview,
  * password strength meter, and Generate-password shortcut.
  */
-export function UserFormModal({
+export function UserFormModal(props: UserFormModalProps) {
+    if (!props.isOpen) return null
+    return <UserFormContent key={`${props.mode ?? 'create'}:${props.user?.id ?? 'new'}`} {...props} />
+}
+
+function UserFormContent({
     isOpen,
     onClose,
     mode = 'create',
@@ -92,45 +108,38 @@ export function UserFormModal({
     allowedRoles = defaultRoles,
     context,
     hint,
+    assignment,
 }: UserFormModalProps) {
-    const { t } = useTranslation()
-    const roles = allowedRoles.length ? allowedRoles : defaultRoles
+    const { t, i18n } = useTranslation()
+    const copy = userCreationCopy(i18n.language)
+    const [original] = useState(mode === 'edit' ? user : null)
+    const [tenantSlug, setTenantSlug] = useState<string | undefined>(assignment?.fixedTenantSlug)
+    const hasAssignment = mode === 'create' && !!assignment
+    const assigned = !!tenantSlug && tenantSlug !== '__unassigned__'
+    const roles = (allowedRoles.length ? allowedRoles : defaultRoles).filter(value => (value !== 'tenant_admin' || mode !== 'edit' || original?.tenant_name || original?.role === 'tenant_admin') && (!hasAssignment || assigned || value === 'tenant_user'))
+    const [initialRole] = useState<UserRole>((original?.role as UserRole) ?? roles[0])
 
-    const [username, setUsername] = useState('')
-    const [email, setEmail] = useState('')
-    const [firstName, setFirstName] = useState('')
-    const [lastName, setLastName] = useState('')
+    const [username, setUsername] = useState(original?.username ?? '')
+    const [email, setEmail] = useState(original?.email ?? '')
+    const [firstName, setFirstName] = useState(original?.first_name || '')
+    const [lastName, setLastName] = useState(original?.last_name || '')
     const [password, setPassword] = useState('')
-    const [role, setRole] = useState<UserRole>(roles[0])
-    const [isActive, setIsActive] = useState(true)
+    const [role, setRole] = useState<UserRole>(initialRole)
+    const [isActive, setIsActive] = useState(original?.is_active ?? true)
     const [showPassword, setShowPassword] = useState(false)
     const [localError, setLocalError] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (!isOpen) return
-        if (mode === 'edit' && user) {
-            setUsername(user.username)
-            setEmail(user.email)
-            setFirstName(user.first_name || '')
-            setLastName(user.last_name || '')
-            setPassword('')
-            setRole((user.role as UserRole) ?? roles[0])
-            setIsActive(user.is_active)
-        } else {
-            setUsername('')
-            setEmail('')
-            setFirstName('')
-            setLastName('')
-            setPassword('')
-            setRole(roles[0])
-            setIsActive(true)
-        }
-        setShowPassword(false)
-        setLocalError(null)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, mode, user])
+    const [reviewing, setReviewing] = useState(false)
+    const submitting = useRef(false)
+    const selectedTenant = assignment?.tenants.find(tenant => tenant.slug === tenantSlug)
+    const inactiveTenant = selectedTenant?.is_active === false
+    const assignmentHelp = inactiveTenant ? copy.inactiveEffect : copy.assignmentHelp
 
     const displayError = error ?? localError
+    const dirty = username !== (original?.username ?? '') || email !== (original?.email ?? '')
+        || firstName !== (original?.first_name || '') || lastName !== (original?.last_name || '')
+        || password !== '' || role !== initialRole || isActive !== (original?.is_active ?? true)
+        || tenantSlug !== assignment?.fixedTenantSlug
+    const { requestClose, confirmation } = useDraftGuard({ dirty, busy: isLoading, active: isOpen, onClose })
     const passwordScore = useMemo(() => scorePassword(password), [password])
 
     const handleGenerate = () => {
@@ -141,14 +150,21 @@ export function UserFormModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (isLoading || submitting.current) return
         if (mode === 'create') {
             if (!username || !email || !password) { setLocalError(t('tenants.fillAllFields')); return }
             if (password.length < 8) { setLocalError(t('tenants.passwordMinLength')); return }
+            if (hasAssignment && (assignment?.isLoading || assignment?.error || !tenantSlug || (assigned && !selectedTenant))) { setLocalError(copy.chooseRequired); return }
             setLocalError(null)
-            await onSave({
-                mode: 'create',
-                data: { username, email, password, role },
-            })
+            if (hasAssignment && !reviewing) { setShowPassword(false); setReviewing(true); return }
+            submitting.current = true
+            try {
+                await onSave({
+                    mode: 'create',
+                    data: { username, email, password, role: hasAssignment && !assigned ? 'tenant_user' : role },
+                    ...(hasAssignment ? { tenantSlug: assigned ? tenantSlug : null } : {}),
+                })
+            } finally { submitting.current = false }
             return
         }
         // Edit mode
@@ -182,7 +198,8 @@ export function UserFormModal({
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={requestClose}
+            closeDisabled={isLoading}
             size="xl"
             title={mode === 'edit' ? t('tenants.editUser') : t('tenants.createUser')}
             footer={
@@ -190,13 +207,17 @@ export function UserFormModal({
                     asSubmit
                     formId={formId}
                     loading={isLoading}
-                    onCancel={onClose}
+                    onCancel={requestClose}
                     icon={mode === 'create' ? <UserPlus size={16} /> : undefined}
-                    primaryLabel={mode === 'edit' ? t('common.save') : t('tenants.createUserBtn')}
+                    primaryLabel={mode === 'edit' ? t('common.save') : hasAssignment ? reviewing ? assigned ? copy.createAssigned : copy.createUnassigned : copy.review : t('tenants.createUserBtn')}
+                    disabled={hasAssignment && (!!assignment?.isLoading || !!assignment?.error)}
+                    leading={reviewing ? <Button variant="ghost" disabled={isLoading} onClick={() => setReviewing(false)}>{copy.back}</Button> : undefined}
                 />
             }
         >
+            {confirmation}
             <form id={formId} onSubmit={handleSubmit} className="space-y-6">
+                <fieldset disabled={isLoading} className="min-w-0 space-y-6">
                 {(context || hint) && (
                     <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1">
                         {context && <p className="font-medium text-slate-600 dark:text-slate-300">{context}</p>}
@@ -205,12 +226,25 @@ export function UserFormModal({
                 )}
 
                 {displayError && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+                    <div role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
                         {displayError}
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5">
+                {assignment?.error && <div role="alert" className="rounded-lg border border-red-200 p-3 text-sm text-red-700 dark:border-red-800 dark:text-red-300"><p>{assignment.error}</p>{assignment.onRetry && <Button variant="secondary" onClick={assignment.onRetry}>{copy.retry}</Button>}</div>}
+                {reviewing ? (
+                    <section className="space-y-4">
+                        <div><h3 className="text-base font-semibold text-slate-900 dark:text-white">{copy.reviewTitle}</h3><p className="mt-1 text-sm text-slate-500">{copy.reviewHelp}</p></div>
+                        <dl className="grid grid-cols-1 gap-4 rounded-lg border border-slate-200 p-4 sm:grid-cols-2 dark:border-slate-700">
+                            <div><dt className="text-xs text-slate-500">{t('tenants.username')}</dt><dd className="mt-1 break-words text-sm font-medium">{username}</dd></div>
+                            <div><dt className="text-xs text-slate-500">{t('common.email')}</dt><dd className="mt-1 break-all text-sm font-medium">{email}</dd></div>
+                            <div><dt className="text-xs text-slate-500">{copy.shipyard}</dt><dd className="mt-1 text-sm font-medium">{selectedTenant?.name ?? copy.unassigned}</dd></div>
+                            <div><dt className="text-xs text-slate-500">{t('users.roleLabel')}</dt><dd className="mt-1 text-sm font-medium">{roleLabel(role)}</dd></div>
+                        </dl>
+                        <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-200">{!assigned ? copy.unassignedEffect : inactiveTenant ? copy.inactiveEffect : role === 'tenant_admin' ? copy.adminEffect : copy.userEffect}</p>
+                        <p className="text-xs text-slate-500">{copy.passwordProtected}</p>
+                    </section>
+                ) : <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5">
                     {/* Avatar + status chip */}
                     <div className="flex flex-col items-center gap-2">
                         <Avatar username={displayUsername} email={email} />
@@ -298,7 +332,7 @@ export function UserFormModal({
                                                 type="button"
                                                 onClick={() => setShowPassword((v) => !v)}
                                                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded"
-                                                aria-label={showPassword ? 'Hide' : 'Show'}
+                                                aria-label={showPassword ? copy.hidePassword : copy.showPassword}
                                             >
                                                 {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
@@ -320,6 +354,7 @@ export function UserFormModal({
                         </FormSection>
 
                         <FormSection title={t('tenants.accessHeading')}>
+                            {hasAssignment && (assignment?.fixedTenantSlug ? <div><p className="text-xs text-slate-500">{copy.shipyard}</p><p className="mt-1 text-sm font-medium">{selectedTenant?.name}{inactiveTenant ? ` · ${copy.inactive}` : ''}</p><p className="mt-1 text-xs text-slate-500">{assignmentHelp}</p></div> : <FormField label={copy.shipyard} required help={assigned ? assignmentHelp : tenantSlug === '__unassigned__' ? copy.unassignedEffect : undefined}><select value={tenantSlug ?? ''} onChange={event => { setTenantSlug(event.target.value); if (event.target.value === '__unassigned__') setRole('tenant_user') }} className={formControlClass} required disabled={assignment?.isLoading || !!assignment?.error}><option value="" disabled>{assignment?.isLoading ? copy.loadingShipyards : copy.chooseShipyard}</option><option value="__unassigned__">{copy.unassigned}</option>{assignment?.tenants.map(tenant => <option key={tenant.slug} value={tenant.slug}>{tenant.name}{tenant.is_active === false ? ` · ${copy.inactive}` : ''}</option>)}</select></FormField>)}
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 {roles.map((r) => {
                                     const active = role === r
@@ -327,6 +362,7 @@ export function UserFormModal({
                                         <button
                                             key={r}
                                             type="button"
+                                            aria-pressed={active}
                                             onClick={() => setRole(r)}
                                             className={cn(
                                                 'flex items-start gap-2.5 p-3 rounded-lg border text-left transition-colors',
@@ -367,7 +403,8 @@ export function UserFormModal({
                             )}
                         </FormSection>
                     </div>
-                </div>
+                </div>}
+                </fieldset>
             </form>
         </Modal>
     )

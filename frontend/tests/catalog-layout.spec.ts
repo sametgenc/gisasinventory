@@ -16,10 +16,10 @@ const equipmentTypes = categories.flatMap(category => Array.from({ length: categ
     sharing_excluded: index === 0,
     exclusion_reason: index === 0 ? 'Personal equipment excluded from sharing.' : '',
     description: index === 0 ? 'Equipment with a longer description covering technical capacity, workshop use and a maintenance assessment before sharing across shipyards.' : index === 1 ? '' : 'Workshop equipment.',
-    schema: [{ key: 'code', label: 'Equipment code', type: 'text', required: true, is_unique_key: true }],
+    schema: [{ key: 'code', label: 'Equipment code', type: 'text', required: true, is_unique_key: true }, { key: 'capacity', label: 'Capacity', type: 'number', required: false }],
 })))
 
-async function mockCatalog(page: Page) {
+async function mockCatalog(page: Page, platformAdmin = true) {
     const writes: string[] = []
     await page.addInitScript(() => {
         localStorage.setItem('language', 'en')
@@ -30,7 +30,7 @@ async function mockCatalog(page: Page) {
         await route.fulfill({ json: { status: 200, meta: { is_authenticated: true }, data: config ? {
             account: {}, socialaccount: { providers: [] }, mfa: { supported_types: [] },
         } : {
-            user: { id: '1', username: 'layout', email: 'layout@example.test', role: 'platform_admin', is_superuser: true, tenant_id: null, tenant_slug: null },
+            user: { id: '1', username: 'layout', email: 'layout@example.test', role: 'platform_admin', is_superuser: platformAdmin, tenant_id: platformAdmin ? null : 1, tenant_slug: platformAdmin ? null : 'yard' },
             methods: [],
         } } })
     })
@@ -45,81 +45,58 @@ async function mockCatalog(page: Page) {
 }
 
 for (const width of [1440, 900, 390, 320]) {
-    test(`catalog categories stay vertically ordered without gaps or overflow at ${width}px`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 })
+    test(`catalog rows stay readable and category filtering works at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 })
         const writes = await mockCatalog(page)
         await page.goto('/assets/types')
-        await expect(page.getByRole('region', { name: categories[0].name, exact: true })).toBeVisible()
-
-        const sectionBoxes: { x: number; y: number; width: number; height: number }[] = []
-        for (const category of categories) {
-            const region = page.getByRole('region', { name: category.name, exact: true })
-            const cards = region.getByRole('listitem')
-            await expect(cards).toHaveCount(category.count)
-            const regionBox = await region.boundingBox()
-            expect(regionBox).not.toBeNull()
-            sectionBoxes.push(regionBox!)
-            const availableWidth = await region.evaluate(element => element.parentElement!.getBoundingClientRect().width)
-            expect(Math.abs(regionBox!.width - availableWidth)).toBeLessThanOrEqual(1)
-
-            const rows = new Map<number, number[]>()
-            for (let index = 0; index < category.count; index += 1) {
-                const card = cards.nth(index)
-                const box = await card.boundingBox()
-                const titleBox = await card.getByRole('button').first().boundingBox()
-                const footerBox = await card.getByRole('button', { name: /^View equipment type:/ }).boundingBox()
-                expect(box).not.toBeNull()
-                expect(titleBox).not.toBeNull()
-                expect(footerBox).not.toBeNull()
-                expect(titleBox!.x).toBeGreaterThanOrEqual(box!.x)
-                expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
-                expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(box!.y + box!.height)
-                if (index === 0) {
-                    const badgeBox = await card.getByText('Excluded', { exact: true }).boundingBox()
-                    expect(badgeBox).not.toBeNull()
-                    expect(badgeBox!.x).toBeGreaterThanOrEqual(box!.x)
-                    expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual(box!.x + box!.width + 1)
-                }
-                const rowTop = Math.round(box!.y)
-                const footers = rows.get(rowTop) ?? []
-                footers.push(footerBox!.y)
-                rows.set(rowTop, footers)
-            }
-            if (category.code === 'K') {
-                const expectedFirstRowCount = width >= 1280 ? 3 : width >= 640 ? 2 : 1
-                expect([...rows.values()][0]).toHaveLength(expectedFirstRowCount)
-                for (const footers of rows.values()) {
-                    expect(Math.max(...footers) - Math.min(...footers)).toBeLessThanOrEqual(1)
-                }
-            }
+        const results = page.getByRole('region', { name: 'All equipment types', exact: true })
+        await expect(results.getByRole('listitem')).toHaveCount(equipmentTypes.length)
+        await expect(page.getByText('Shared platform definition', { exact: true })).toBeVisible()
+        await expect(page.getByText('Shipyard-owned record', { exact: true })).toBeVisible()
+        if (width >= 1024) {
+            await page.getByRole('navigation', { name: 'Categories', exact: true }).getByRole('button', { name: /Electric and hand tools/ }).click()
+        } else {
+            await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('K')
         }
-
-        for (let index = 1; index < sectionBoxes.length; index += 1) {
-            const previous = sectionBoxes[index - 1]
-            const current = sectionBoxes[index]
-            expect(Math.abs(current.x - previous.x)).toBeLessThanOrEqual(1)
-            expect(Math.abs(current.width - previous.width)).toBeLessThanOrEqual(1)
-            const gap = current.y - previous.y - previous.height
-            expect(gap).toBeGreaterThanOrEqual(16)
-            expect(gap).toBeLessThanOrEqual(40)
-        }
+        await expect(results.getByRole('listitem')).toHaveCount(3)
+        await expect(results.getByRole('status')).toHaveText('3 results from 10 types')
+        const type = equipmentTypes.find(item => item.category_code === 'K')!
+        const row = results.getByRole('listitem').filter({ has: page.getByRole('button', { name: type.name, exact: true }) })
+        await expect(row.getByText('Excluded from sharing', { exact: true })).toBeVisible()
+        await expect(row.getByText('1 optional', { exact: true })).toBeVisible()
+        await expect(row.getByText('1 required', { exact: true })).toBeVisible()
+        await row.getByRole('button', { name: `View equipment type: ${type.name}`, exact: true }).click()
+        const dialog = page.getByRole('dialog', { name: type.name, exact: true })
+        await expect(dialog).toBeVisible()
+        await expect(dialog.getByText(type.catalog_code, { exact: true })).toBeVisible()
+        await expect(dialog.getByText('Common catalog code', { exact: true })).toBeVisible()
+        await expect(dialog.getByText('Optional', { exact: true })).toBeVisible()
+        await expect(dialog.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(dialog).not.toBeVisible()
+        await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
+        await expect(results.getByRole('listitem')).toHaveCount(equipmentTypes.length)
+        await page.screenshot({ path: testInfo.outputPath('common-catalog.png'), fullPage: true })
+        await page.getByRole('searchbox', { name: 'Search catalog', exact: true }).fill(type.catalog_code)
+        await expect(results.getByRole('listitem')).toHaveCount(1)
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
         expect(overflow).toBeLessThanOrEqual(1)
-
-        if (width === 1440) {
-            const type = equipmentTypes.find(item => item.category_code === 'K')!
-            await page.getByRole('button', { name: `View equipment type: ${type.name}`, exact: true }).click()
-            const dialog = page.getByRole('dialog', { name: type.name, exact: true })
-            await expect(dialog).toBeVisible()
-            await expect(dialog.getByText(type.catalog_code, { exact: true })).toBeVisible()
-            await page.keyboard.press('Escape')
-            await expect(dialog).not.toBeVisible()
-            await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('K')
-            await expect(page.getByRole('region', { name: categories[1].name, exact: true }).getByRole('listitem')).toHaveCount(3)
-            await expect(page.getByRole('region', { name: categories[0].name, exact: true })).toHaveCount(0)
-            await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
-            await expect(page.getByRole('region', { name: categories[0].name, exact: true })).toBeVisible()
-        }
         expect(writes).toEqual([])
     })
 }
+
+test('shipyard sees catalog definitions and opens its inventory with the selected type', async ({ page }) => {
+    await mockCatalog(page, false)
+    await page.goto('/assets/types')
+    await expect(page.getByRole('button', { name: 'Add type', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Edit:/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Delete:/ })).toHaveCount(0)
+    const type = equipmentTypes[0]
+    await page.getByRole('button', { name: `View equipment type: ${type.name}`, exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: type.name, exact: true })
+    await expect(dialog.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0)
+    const inventoryLink = dialog.getByRole('link', { name: 'Add to inventory', exact: true })
+    await expect(inventoryLink).toHaveAttribute('href', `/assets?asset_type=${type.id}&add=true`)
+    await inventoryLink.click()
+    await expect(page).toHaveURL(new RegExp(`/assets\\?asset_type=${type.id}&add=true$`))
+})

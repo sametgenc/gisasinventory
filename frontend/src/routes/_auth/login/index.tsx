@@ -1,3 +1,5 @@
+import { accountErrorKey } from '@/modules/allauth/account-errors'
+import type { SocialProvider } from '@/modules/allauth/types'
 import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
@@ -26,10 +28,10 @@ function LoginComponent() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    const handleSuccessRedirect = () => {
+    const handleSuccessRedirect = React.useCallback(() => {
         const target = (search.redirect && search.redirect !== '/login') ? search.redirect : '/dashboard'
         navigate({ to: target })
-    }
+    }, [search.redirect, navigate])
 
     const handleWebAuthnLogin = async () => {
         if (!captcha.ready || loading) return
@@ -49,16 +51,16 @@ function LoginComponent() {
                 if (nextStep) {
                     navigate({ to: nextStep })
                 } else {
-                    setError(res.errors?.[0]?.message || t('login.loginFailed'))
+                    setError(t(accountErrorKey(res, 'login.loginFailed')))
                 }
             } else {
-                setError(res.errors?.[0]?.message || t('login.loginFailed'))
+                setError(t(accountErrorKey(res, 'login.loginFailed')))
             }
-        } catch (err: any) {
-            if (err.name === 'NotAllowedError' || err.message?.includes('not allowed')) {
+        } catch (err: unknown) {
+            if (err instanceof Error && (err.name === 'NotAllowedError' || err.message.includes('not allowed'))) {
                 return
             }
-            setError(err.message || t('login.unexpectedError'))
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
             setLoading(false)
             captcha.reset()
@@ -69,13 +71,13 @@ function LoginComponent() {
         if (user) {
             handleSuccessRedirect()
         }
-    }, [user])
+    }, [user, handleSuccessRedirect])
 
     const { pendingFlow } = useAuth()
     React.useEffect(() => {
         // A pending email code must still allow choosing password sign-in.
         if (pendingFlow && pendingFlow.id !== 'login_by_code') {
-            const nextStep = pathForPendingFlow({ data: { flows: [pendingFlow] } } as any)
+            const nextStep = pathForPendingFlow({ status: 401, data: { flows: [pendingFlow] } })
             if (nextStep) {
                 navigate({ to: nextStep })
             }
@@ -101,20 +103,20 @@ function LoginComponent() {
                 if (nextStep) {
                     navigate({ to: nextStep })
                 } else {
-                    setError(res.errors?.[0]?.message || t('login.loginFailed'))
+                    setError(t(accountErrorKey(res, 'login.loginFailed')))
                 }
             } else {
-                setError(res.errors?.[0]?.message || t('login.loginFailed'))
+                setError(t(accountErrorKey(res, 'login.loginFailed')))
             }
-        } catch (err: any) {
-            setError(err.message || t('login.unexpectedError'))
+        } catch (err: unknown) {
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
             setLoading(false)
             captcha.reset()
         }
     }
 
-    const handleSocialLogin = (provider: any) => {
+    const handleSocialLogin = (provider: SocialProvider) => {
         if (!captcha.ready || loading) return
         const target = (search.redirect && search.redirect !== '/login') ? search.redirect : '/dashboard'
         redirectToProvider(provider.id, target, 'login', captcha.token)

@@ -1,9 +1,10 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { CheckCircle2, Paperclip, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button, FormField, Modal, formControlClass } from '@/components/ui'
 import { attachmentValidation, feedbackAccept, feedbackAreas, feedbackError, feedbackTypes, formatAttachmentSize, safeFeedbackPath, useCreateDevelopmentRequest, type DevelopmentRequest, type FeedbackArea, type FeedbackType } from '.'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export function CreateRequestDialog({ onClose, pagePath, onCreated }: { onClose: () => void; pagePath: string; onCreated?: (request: DevelopmentRequest) => void }) {
     const { t } = useTranslation()
@@ -21,6 +22,11 @@ export function CreateRequestDialog({ onClose, pagePath, onCreated }: { onClose:
     const [saved, setSaved] = useState<DevelopmentRequest | null>(null)
     const submitting = useRef(false)
     const capturedPath = useState(() => safeFeedbackPath(pagePath))[0]
+    const navigate = useNavigate()
+    const { requestClose, requestAction, confirmation } = useDraftGuard({
+        dirty: !saved && (type !== 'feature' || area !== 'other' || !!subject || !!description || !!solution || !!benefit || files.length > 0),
+        busy: mutation.isPending, onClose,
+    })
 
     function pickFiles(picked: File[]) {
         const next = [...files, ...picked]
@@ -47,12 +53,13 @@ export function CreateRequestDialog({ onClose, pagePath, onCreated }: { onClose:
         finally { submitting.current = false }
     }
 
-    return <Modal isOpen title={saved ? t('feedback.savedTitle') : t('feedback.title')} onClose={onClose} closeDisabled={mutation.isPending} size="lg"
+    return <Modal isOpen title={saved ? t('feedback.savedTitle') : t('feedback.title')} onClose={requestClose} closeDisabled={mutation.isPending} size="lg"
         footer={<div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-            <Link to="/development-requests" search={{ request: saved?.id }} onClick={mutation.isPending ? event => event.preventDefault() : onClose} aria-disabled={mutation.isPending || undefined} className={`text-sm font-medium text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-blue-300 ${mutation.isPending ? 'pointer-events-none opacity-50' : 'hover:underline'}`}>{saved ? t('feedback.track') : t('feedback.mine')}</Link>
-            <div className="flex gap-2"><Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>{t(saved ? 'feedback.close' : 'feedback.cancel')}</Button>
+            <Link to="/development-requests" search={{ request: saved?.id }} onClick={event => { event.preventDefault(); requestAction(() => { onClose(); void navigate({ to: '/development-requests', search: { request: saved?.id } }) }, { navigates: true }) }} aria-disabled={mutation.isPending || undefined} className={`text-sm font-medium text-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-blue-300 ${mutation.isPending ? 'pointer-events-none opacity-50' : 'hover:underline'}`}>{saved ? t('feedback.track') : t('feedback.mine')}</Link>
+            <div className="flex gap-2"><Button variant="secondary" onClick={requestClose} disabled={mutation.isPending}>{t(saved ? 'feedback.close' : 'feedback.cancel')}</Button>
                 {!saved && <Button type="submit" form={formId} loading={mutation.isPending}>{t('feedback.submit')}</Button>}</div>
         </div>}>
+        {confirmation}
         {saved ? <div role="status" className="space-y-3 py-4"><CheckCircle2 size={24} className="text-emerald-700 dark:text-emerald-300" aria-hidden /><p className="text-sm leading-6 text-slate-700 dark:text-slate-200">{t('feedback.success')}</p><p className="break-words text-base font-semibold text-slate-900 dark:text-slate-100">{saved.subject}</p><p className="text-xs leading-5 text-slate-500 dark:text-slate-400">{t('feedback.savedHelp')}</p></div>
             : <form id={formId} onSubmit={event => void submit(event)} noValidate className="space-y-5">
                 <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('feedback.subtitle')}</p>

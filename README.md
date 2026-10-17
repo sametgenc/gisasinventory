@@ -1,14 +1,18 @@
 # GisasInventory
 
-Central shipyard inventory with shared equipment definitions. Cross-shipyard publication is disabled by default; private inventory and users remain shipyard-scoped. Production requires server-verified CAPTCHA and recent MFA for global administrator access.
+Central shipyard inventory with shared equipment definitions. Cross-shipyard publication is disabled by default; private inventory and users remain shipyard-scoped. Production requires server-verified CAPTCHA. Administrator MFA follows the `ADMIN_REQUIRE_MFA` policy and is optional by default.
 
 **Tech Stack:** Django 5 + React 19 + PostgreSQL + Redis + Celery + Traefik
 
 See the [SSRP capability and GAP analysis](docs/GISBIR_SSRP_GAP_ANALIZI.md) and [local verification guide](docs/VERIFICATION.md) for current support and regression checks.
 
+See the [combined P0–P3 verification and release readiness report](docs/P0_P3_SON_DOGRULAMA.md) for the current acceptance results and remaining production checks. Local verification does not confirm the live deployment environment.
+
 See the [security, CAPTCHA and SIEM verification notes](docs/VERIFICATION.md#guvenlik-captcha-ve-siem) before deploying. Audit events are durable and append-only; an HTTPS collector can receive them through the retrying SIEM outbox.
 
 The [central inventory product analysis](docs/ORTAK_ENVANTER_URUN_ANALIZI.md) explains the listing MVP, current permissions, inventory standardization, Excel gaps and the next priorities. Shared listings are separate from availability, requests and reservations.
+
+The [catalog and inventory UX redesign](docs/ENVANTER_UX_YENIDEN_TASARIM.md) defines platform-owned catalog codes, shipyard-owned records, optional specifications and quantity-first entry. Multiple equipment types can be added atomically, with up to 50 entry groups and 500 individual equipment records per operation. Apply the assets migrations when updating an existing installation.
 
 ## Demo and user guide
 

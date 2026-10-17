@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useAuth } from "@/auth/context";
 import { pathForPendingFlow } from "@/modules/allauth/routing";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/_auth/account/provider/callback")({
 });
 
 function ProviderCallback() {
+  const { t } = useTranslation();
   const { error } = Route.useSearch();
   const { user, pendingFlow, refresh, loading } = useAuth();
   const navigate = useNavigate();
@@ -25,22 +27,13 @@ function ProviderCallback() {
 
   React.useEffect(() => {
     if (!error && !loading) {
-      console.log("[ProviderCallback] State:", { user, pendingFlow, loading });
       if (user) {
-        console.log(
-          "[ProviderCallback] User authenticated, redirecting to dashboard",
-        );
         navigate({ to: "/dashboard" });
       } else if (pendingFlow) {
-        console.log("[Auth] ProviderCallback pending flow:", pendingFlow.id);
         // Check path for pending flow (like provider_signup or mfa_authenticate)
-        const target = pathForPendingFlow({ data: { flows: [pendingFlow] } } as any) || "/login";
-        console.log("[ProviderCallback] Redirecting to:", target);
+        const target = pathForPendingFlow({ status: 401, data: { flows: [pendingFlow] } }) || "/login";
         navigate({ to: target });
       } else {
-        console.log(
-          "[ProviderCallback] No user and no pending flow, redirecting to login",
-        );
         navigate({ to: "/login", search: { redirect: "/dashboard" } });
       }
     }
@@ -57,19 +50,19 @@ function ProviderCallback() {
           <AlertCircle size={40} />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Login Failed
+          {t("login.loginFailed")}
         </h2>
         <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
           {error === "access_denied"
-            ? "Access was denied by the third-party provider."
-            : "Something went wrong during the login process."}
+            ? t("account.providers.denied")
+            : t("account.providers.loginFailed")}
         </p>
         <Link
           to="/login"
           search={{ redirect: undefined }}
           className="inline-flex items-center justify-center px-8 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl"
         >
-          Back to Login
+          {t("passwordRequest.backToLogin")}
         </Link>
       </div>
     </div>

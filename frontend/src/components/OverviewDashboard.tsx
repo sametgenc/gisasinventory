@@ -2,8 +2,10 @@ import { Link } from '@tanstack/react-router'
 import { ArrowRight, Bell, BookOpen, Package, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
+import { isGlobalAdministrator } from '@/auth/permissions'
 import { useTenants, useAllUsers } from '@/modules/tenants'
 import { useAssetTypes, useAssets } from '@/modules/assets'
+import { canUseSharedUsage, usageCopy, useUsageHomeCounts } from '@/modules/assets/usage'
 import { useRecentNotificationsQuery } from '@/modules/notification/hooks'
 import { dashboardCopy } from '@/modules/dashboard-copy'
 import { Button, Card, EmptyState, PageHeader } from '@/components/ui'
@@ -15,35 +17,55 @@ export function OverviewDashboard() {
     const tenants = useTenants()
     const types = useAssetTypes()
     const assets = useAssets()
-    const users = useAllUsers(!!user?.is_superuser)
+    const isPlatformAdmin = isGlobalAdministrator(user)
+    const users = useAllUsers(isPlatformAdmin)
+    const canUse = canUseSharedUsage(user)
+    const isYardManager = canUse && user?.role === 'tenant_admin'
+    const usageDirection = isYardManager ? 'received' : 'sent'
+    const usageCounts = useUsageHomeCounts(`${user?.id ?? ''}:${user?.tenant_id ?? user?.tenant_slug ?? ''}`, usageDirection, canUse)
+    const usage = usageCopy[i18n.language.startsWith('tr') ? 'tr' : 'en']
     const notifications = useRecentNotificationsQuery(3)
     const locale = i18n.language.startsWith('tr') ? 'tr-TR' : 'en-US'
-    const canManageCatalog = user?.is_superuser || user?.role === 'platform_admin'
-    const queries = [types, assets, ...(user?.is_superuser ? [tenants, users] : [])]
+    const canManageCatalog = isPlatformAdmin
+    const queries = [types, assets, ...(isPlatformAdmin ? [tenants, users] : [])]
     const failed = queries.some(query => query.isError)
 
     if (loading) return <p role="status" className="p-8 text-center text-slate-500">{t('common.loading')}</p>
     if (!user) return null
 
     const metrics = [
-        ...(user.is_superuser ? [{ to: '/platform/tenants' as const, label: t('dashboard.activeTenants'), value: tenants.data?.filter(tenant => tenant.is_active).length, loading: tenants.isPending, error: tenants.isError }] : []),
+        ...(isPlatformAdmin ? [{ to: '/platform/tenants' as const, label: t('dashboard.activeTenants'), value: tenants.data?.filter(tenant => tenant.is_active).length, loading: tenants.isPending, error: tenants.isError }] : []),
         { to: '/assets/types' as const, label: t('dashboard.assetTypes'), value: types.data?.length, loading: types.isPending, error: types.isError },
         { to: '/assets' as const, label: t('dashboard.totalAssets'), value: assets.data?.length, loading: assets.isPending, error: assets.isError },
-        ...(user.is_superuser ? [{ to: '/platform/users' as const, label: t('dashboard.totalUsers'), value: users.data?.length, loading: users.isPending, error: users.isError }] : []),
+        ...(isPlatformAdmin ? [{ to: '/platform/users' as const, label: t('dashboard.totalUsers'), value: users.data?.length, loading: users.isPending, error: users.isError }] : []),
     ]
 
     return <div className="min-w-0 space-y-6">
         <PageHeader title={t('dashboard.overview')} subtitle={
             <span className="flex flex-wrap items-center gap-x-4 gap-y-1">{new Date().toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}{canManageCatalog && <span className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><Shield size={12} />{t('dashboard.platformAdmin')}</span>}</span>
         } actions={<Link to="/assets" className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950">{copy.inventory}<ArrowRight size={16} /></Link>} />
+        {isPlatformAdmin && <section aria-label={copy.administration} className="rounded-md border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">{copy.administration}</h2><p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{copy.administrationHelp}</p>
+            <div className="mt-4 flex flex-wrap gap-3">{([{ to: '/platform/tenants', label: copy.manageTenants }, { to: '/platform/users', label: copy.manageUsers }, { to: '/assets/types', label: copy.manageCatalog }] as const).map(item => <Link key={item.to} to={item.to} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">{item.label}<ArrowRight size={14} /></Link>)}</div>
+        </section>}
+        {canUse && <section aria-label={isYardManager ? usage.homeTitle : usage.homeSentTitle} className="space-y-3">
+            <div><h2 className="text-base font-semibold text-slate-900 dark:text-white">{isYardManager ? usage.homeTitle : usage.homeSentTitle}</h2><p className="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{isYardManager ? usage.homeScope : usage.homeSentScope}</p></div>
+            {usageCounts.some(query => query.isError) && <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{usage.homeError}<Button size="sm" variant="ghost" onClick={() => usageCounts.forEach(query => { if (query.isError) void query.refetch() })}>{usage.retry}</Button></div>}
+            <div className="grid gap-3 sm:grid-cols-3">{(['requested', 'approved', 'active'] as const).map((status, index) => {
+                const query = usageCounts[index]
+                return <Link key={status} to="/shared-usage" search={{ direction: usageDirection, status }} className="flex min-w-0 items-center justify-between gap-4 rounded-md border border-slate-200 bg-white p-4 hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-400">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{(isYardManager ? usage.homeReceived : usage.homeSent)[status]}</span><span aria-busy={query.isPending} className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">{query.isPending || query.isError || query.data === undefined ? '—' : query.data.count.toLocaleString(locale)}</span>
+                </Link>
+            })}</div>
+        </section>}
         {failed && <div role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">{copy.queryError}<Button size="sm" variant="ghost" onClick={() => queries.forEach(query => { if (query.isError) void query.refetch() })}>{copy.retry}</Button></div>}
-        <div className={`grid grid-cols-2 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${user.is_superuser ? 'lg:grid-cols-4' : ''}`}>
+        <div className={`grid grid-cols-2 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 ${isPlatformAdmin ? 'lg:grid-cols-4' : ''}`}>
             {metrics.map(({ to, label, value, loading: pending, error }, index) => <Link key={to} to={to} className={`group flex min-w-0 flex-col justify-between gap-3 px-5 py-4 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:hover:bg-slate-800 ${index % 2 === 0 ? '' : 'border-l border-slate-200 dark:border-slate-700'} ${index > 1 ? 'border-t border-slate-200 dark:border-slate-700 lg:border-t-0' : ''} ${user.is_superuser && index === 2 ? 'lg:border-l' : ''}`}>
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
                 <div className="flex items-end justify-between gap-2"><p className="text-3xl font-semibold tabular-nums leading-none tracking-tight text-slate-900 dark:text-white" aria-busy={pending}>{pending || error ? '—' : (value ?? 0).toLocaleString(locale)}</p><ArrowRight size={15} className="text-slate-400 group-hover:text-blue-700 dark:group-hover:text-blue-300" /></div>
             </Link>)}
         </div>
-        {!user.is_superuser && <div className="border-l-2 border-slate-300 pl-4 dark:border-slate-600"><p className="text-sm font-medium text-slate-900 dark:text-white">{user.tenant_name || (canManageCatalog ? t('dashboard.platformAdmin') : copy.noYard)}</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{user.tenant_name ? copy.workingYard : canManageCatalog ? t('catalog.workflowHelp') : copy.noYardHelp}</p></div>}
+        {!isPlatformAdmin && <div className="border-l-2 border-slate-300 pl-4 dark:border-slate-600"><p className="text-sm font-medium text-slate-900 dark:text-white">{user.tenant_name || copy.noYard}</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{user.tenant_name ? copy.workingYard : copy.noYardHelp}</p></div>}
         <div className="grid gap-6 lg:grid-cols-3">
             <Card className="overflow-hidden lg:col-span-2">
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-700"><h2 className="text-sm font-semibold text-slate-900 dark:text-white">{copy.recent}</h2><Link to="/assets" className="shrink-0 text-xs font-medium text-blue-700 hover:underline dark:text-blue-300">{t('dashboard.viewAll')}</Link></div>
@@ -65,7 +87,7 @@ export function OverviewDashboard() {
             </div>
         </div>
         <section className="flex flex-wrap items-start justify-between gap-4 border-t border-slate-200 pt-5 dark:border-slate-800">
-            <div className="max-w-3xl"><h2 className="text-sm font-medium text-slate-700 dark:text-slate-200">{copy.introTitle}</h2><p className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{copy.introBody}</p></div>
+            <div className="max-w-3xl"><h2 className="text-sm font-medium text-slate-700 dark:text-slate-200">{isPlatformAdmin ? copy.platformIntroTitle : copy.introTitle}</h2><p className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{isPlatformAdmin ? copy.platformIntroBody : copy.introBody}</p></div>
             <Link to="/help" className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-blue-700 hover:underline dark:text-blue-300"><BookOpen size={15} />{copy.openGuide}</Link>
         </section>
     </div>

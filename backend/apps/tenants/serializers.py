@@ -33,11 +33,11 @@ class TenantSerializer(serializers.ModelSerializer):
 
 
 class TenantCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating tenants - only name required, slug auto-generated."""
+    """Create a tenant with its optional description and contact information."""
     
     class Meta:
         model = Tenant
-        fields = ["name"]
+        fields = ["name", "description", "address", "phone", "email"]
 
 
 class TenantUpdateSerializer(serializers.ModelSerializer):
@@ -57,10 +57,10 @@ class TenantUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "username", "email", "first_name", "last_name",
-            "role", "is_active", "date_joined", "last_login",
+            "role", "is_active", "is_superuser", "date_joined", "last_login",
             "tenant_name", "tenant_slug",
         ]
-        read_only_fields = ["id", "date_joined", "last_login", "tenant_name", "tenant_slug"]
+        read_only_fields = ["id", "is_superuser", "date_joined", "last_login", "tenant_name", "tenant_slug"]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import axios from 'axios'
 import { settingsApi, type SmtpSettingsData, type SmtpSettingsInput } from '@/modules/settings/data'
 import { Modal, FormField, FormSection, FormFooter, PageHeader, Button, Card, formControlClass } from '@/components/ui'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export const Route = createFileRoute('/_secured/platform/settings')({ component: SettingsPage })
 type Gate = 'mfa_verification_required' | 'reauthentication_required' | null
@@ -40,13 +41,23 @@ function SettingsPage() {
     const [testOpen, setTestOpen] = useState(false)
     const busy = useRef(false)
     const [form, setForm] = useState<SmtpSettingsInput>({ host: '', port: 587, username: '', password: '', use_tls: true, use_ssl: false, from_email: '' })
+    const [savedForm, setSavedForm] = useState('')
+    const dirty = savedForm !== '' && JSON.stringify(form) !== savedForm
+    const draftState = useRef({ form, savedForm })
+    useEffect(() => { draftState.current = { form, savedForm } }, [form, savedForm])
+    const draft = useDraftGuard({ dirty, busy: saving, active: !!status, onClose: () => {} })
+    const formLocked = saving || (!!gate && !dirty)
     const load = useCallback(async () => {
         setLoading(true)
         setMessage(null)
         try {
             const data = await settingsApi.getSmtpSettings()
             setStatus(data)
-            setForm({ host: data.host, port: data.port, username: data.username, password: '', use_tls: data.use_tls, use_ssl: data.use_ssl, from_email: data.from_email })
+            const loaded = { host: data.host, port: data.port, username: data.username, password: '', use_tls: data.use_tls, use_ssl: data.use_ssl, from_email: data.from_email }
+            if (!draftState.current.savedForm || JSON.stringify(draftState.current.form) === draftState.current.savedForm) {
+                setForm(loaded)
+                setSavedForm(JSON.stringify(loaded))
+            }
             setGate(data.reauthentication_required ? data.mfa_enabled ? 'mfa_verification_required' : 'reauthentication_required' : null)
         } catch { setMessage({ type: 'error', text: t('settings.smtp.loadFailed') }) }
         finally { setLoading(false) }
@@ -54,7 +65,7 @@ function SettingsPage() {
     useEffect(() => { void load() }, [load])
     const save = async (event: React.FormEvent) => {
         event.preventDefault()
-        if (busy.current) return
+        if (busy.current || gate) return
         busy.current = true
         setSaving(true)
         setFields({})
@@ -63,7 +74,9 @@ function SettingsPage() {
             const data = await settingsApi.updateSmtpSettings(form)
             setStatus(data)
             setGate(null)
-            setForm(current => ({ ...current, password: '' }))
+            const saved = { ...form, password: '' }
+            setForm(saved)
+            setSavedForm(JSON.stringify(saved))
             setShowPassword(false)
             setMessage({ type: 'success', text: t('settings.smtp.saveSuccess') })
         } catch (error) {
@@ -81,7 +94,7 @@ function SettingsPage() {
     }
     const transport = form.use_tls ? 'tls' : form.use_ssl ? 'ssl' : 'none'
     const input = (key: 'host' | 'username' | 'from_email', type = 'text') => <FormField label={t(`settings.smtp.${key === 'from_email' ? 'fromEmail' : key}`)} error={fields[key]} help={key === 'username' ? t('settings.smtp.usernameHelp') : undefined} required={key !== 'username'}>
-        <input type={type} className={formControlClass} value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })} disabled={saving} required={key !== 'username'} autoComplete="off" />
+        <input type={type} className={formControlClass} value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })} disabled={formLocked} required={key !== 'username'} autoComplete="off" />
     </FormField>
     return <div className="w-full min-w-0 max-w-4xl space-y-5">
         <PageHeader icon={<Settings size={22} />} title={t('settings.title')} subtitle={t('settings.subtitle')} />
@@ -91,6 +104,7 @@ function SettingsPage() {
             <SecurityGate gate={gate} />
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('settings.smtp.mfaOptional')} <Link to="/account/authenticators" className="font-medium text-blue-700 underline dark:text-blue-300">{t('settings.smtp.securitySettings')}</Link></p>
             <form onSubmit={save}>
+                <fieldset disabled={formLocked} className="min-w-0">
                 <Card><div className="flex items-center gap-3 border-b border-slate-200 p-5 dark:border-slate-700"><Mail size={20} className="text-blue-700 dark:text-blue-300" aria-hidden /><div><h2 className="font-semibold text-slate-900 dark:text-white">{t('settings.smtp.title')}</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('settings.smtp.description')}</p></div></div>
                 <div className="space-y-6 p-5">
                     <FormSection title={t('settings.smtp.sectionSender')}>{input('from_email', 'email')}</FormSection>
@@ -100,10 +114,12 @@ function SettingsPage() {
                         <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">{t('settings.smtp.appPasswordHelp')}</p>
                         <div><p className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">{t('settings.smtp.security')}</p><div role="group" aria-label={t('settings.smtp.security')} className="flex flex-wrap gap-2">{(['tls', 'ssl'] as const).map(value => <Button key={value} variant={transport === value ? 'primary' : 'secondary'} aria-pressed={transport === value} disabled={saving} onClick={() => setForm(current => ({ ...current, use_tls: value === 'tls', use_ssl: value === 'ssl', port: [465, 587].includes(current.port) ? value === 'tls' ? 587 : 465 : current.port }))}>{value === 'tls' ? 'STARTTLS (587)' : 'SSL/TLS (465)'}</Button>)}</div><p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{t('settings.smtp.securityHelp')}</p>{transport === 'none' && <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">{t('settings.smtp.secureRequired')}</p>}{fields.use_tls && <p role="alert" className="text-sm text-red-700">{fields.use_tls}</p>}{fields.use_ssl && <p role="alert" className="text-sm text-red-700">{fields.use_ssl}</p>}</div>
                     </FormSection>
-                </div><div className="flex justify-end border-t border-slate-200 p-4 dark:border-slate-700"><Button type="submit" loading={saving} disabled={transport === 'none'}>{t(saving ? 'settings.smtp.saving' : 'common.save')}</Button></div></Card>
+                </div><div className="flex justify-end border-t border-slate-200 p-4 dark:border-slate-700"><Button type="submit" loading={saving} disabled={transport === 'none' || !!gate}>{t(saving ? 'settings.smtp.saving' : 'common.save')}</Button></div></Card>
+                </fieldset>
             </form>
             <TestConnectionDialog isOpen={testOpen} onClose={() => setTestOpen(false)} onResult={setMessage} />
         </>}
+        {draft.confirmation}
     </div>
 }
 
@@ -115,6 +131,10 @@ function TestConnectionDialog({ isOpen, onClose, onResult }: { isOpen: boolean; 
     const [fieldError, setFieldError] = useState<string | undefined>()
     const [gate, setGate] = useState<Gate>(null)
     const busy = useRef(false)
+    const draft = useDraftGuard({
+        dirty: !!email.trim() && message?.type !== 'success', busy: testing, active: isOpen,
+        onClose: () => { setEmail(''); onClose() },
+    })
     useEffect(() => { if (isOpen) { setMessage(null); setFieldError(undefined); setGate(null) } }, [isOpen])
     const test = async (event: React.FormEvent) => {
         event.preventDefault()
@@ -136,7 +156,7 @@ function TestConnectionDialog({ isOpen, onClose, onResult }: { isOpen: boolean; 
             setMessage({ type: 'error', text: t('settings.smtp.testFailed') })
         } finally { busy.current = false; setTesting(false) }
     }
-    return <Modal isOpen={isOpen} onClose={onClose} closeDisabled={testing} title={t('settings.smtp.testConnection')} size="md" footer={<FormFooter asSubmit formId="smtp-test-form" primaryLabel={t('settings.smtp.testConnection')} icon={<Send size={16} />} loading={testing} disabled={!email.trim()} onCancel={onClose} />}>
+    return <><Modal isOpen={isOpen} onClose={draft.requestClose} closeDisabled={testing} title={t('settings.smtp.testConnection')} size="md" footer={<FormFooter asSubmit formId="smtp-test-form" primaryLabel={t('settings.smtp.testConnection')} icon={<Send size={16} />} loading={testing} disabled={!email.trim()} onCancel={draft.requestClose} />}>
         <form id="smtp-test-form" onSubmit={test} className="space-y-4"><Result message={message} /><SecurityGate gate={gate} /><FormField label={t('settings.smtp.testEmail')} help={t(testing ? 'settings.smtp.testing' : 'settings.smtp.testHelp')} error={fieldError} required><input type="email" className={formControlClass} value={email} onChange={event => setEmail(event.target.value)} disabled={testing} required autoFocus /></FormField></form>
-    </Modal>
+    </Modal>{draft.confirmation}</>
 }

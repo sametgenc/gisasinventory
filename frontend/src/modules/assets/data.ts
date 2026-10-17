@@ -1,5 +1,5 @@
 import api from '@/api/client';
-import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, AssetSharingInput, ColumnMapping, ImportPreview, ImportPreviewOptions, ImportSafetyOptions, RawImportResult, SharedEquipmentFilters, SharedEquipmentPage } from './types';
+import type { AssetType, AssetTypeCreateInput, Asset, AssetCreateInput, AssetSharingInput, BatchCreateInput, BatchCreateResult, ColumnMapping, ImportPreview, ImportPreviewOptions, ImportSafetyOptions, RawImportResult, SharedEquipmentFilters, SharedEquipmentPage } from './types';
 
 export interface BulkImportResult {
     message: string;
@@ -75,6 +75,11 @@ export const assetsApi = {
 
     createAsset: async (data: AssetCreateInput): Promise<Asset> => {
         const response = await api.post('/api/assets/items/', data);
+        return response.data;
+    },
+
+    batchCreate: async (data: BatchCreateInput): Promise<BatchCreateResult> => {
+        const response = await api.post('/api/assets/items/batch_create/', data);
         return response.data;
     },
 

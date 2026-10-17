@@ -85,6 +85,46 @@ test('confirmation falls back to the full record identifier when no code is defi
     await expect(page.getByRole('dialog', { name: 'Delete equipment' })).toContainText(`${equipment.id} · Forklift · Test Yard`)
 })
 
+for (const viewport of [
+    { width: 1280, height: 720, theme: 'light' },
+    { width: 390, height: 640, theme: 'dark' },
+    { width: 320, height: 640, theme: 'light' },
+]) {
+    test(`delete remains clickable over feedback at ${viewport.width}px in ${viewport.theme} mode`, async ({ page }) => {
+        await page.setViewportSize(viewport)
+        await session(page)
+        await page.addInitScript(theme => localStorage.setItem('theme', theme), viewport.theme)
+        await page.goto('/assets')
+        await page.getByRole('button', { name: 'Open Forklift equipment' }).click()
+        const trigger = page.getByRole('button', { name: 'Actions: TEST-001', exact: true })
+        await trigger.click()
+        const deletion = page.getByRole('button', { name: 'Delete: TEST-001', exact: true })
+        const feedback = page.getByRole('button', { name: 'Proposal or development request', exact: true })
+        const initialDelete = await deletion.boundingBox()
+        const bubble = await feedback.boundingBox()
+        expect(initialDelete).not.toBeNull()
+        expect(bubble).not.toBeNull()
+        await page.evaluate(offset => window.scrollBy(0, offset), initialDelete!.y + initialDelete!.height / 2 - bubble!.y - bubble!.height / 2)
+        const target = (await deletion.boundingBox())!
+        const left = Math.max(target.x, bubble!.x)
+        const right = Math.min(target.x + target.width, bubble!.x + bubble!.width)
+        const top = Math.max(target.y, bubble!.y)
+        const bottom = Math.min(target.y + target.height, bubble!.y + bubble!.height)
+        expect(right - left).toBeGreaterThan(0)
+        expect(bottom - top).toBeGreaterThan(0)
+        expect(await deletion.evaluate((button, point) => button.contains(document.elementFromPoint(point.x, point.y)), { x: (left + right) / 2, y: (top + bottom) / 2 })).toBe(true)
+        await deletion.click({ position: { x: (left + right) / 2 - target.x, y: (top + bottom) / 2 - target.y }, timeout: 2000 })
+        const dialog = page.getByRole('dialog', { name: 'Delete equipment', exact: true })
+        await expect(dialog).toContainText('TEST-001 · Forklift · Test Yard')
+        await expect(page.getByRole('dialog', { name: 'New proposal or development request', exact: true })).toHaveCount(0)
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(trigger).toBeFocused()
+        await feedback.click()
+        await expect(page.getByRole('dialog', { name: 'New proposal or development request', exact: true })).toBeVisible()
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    })
+}
+
 test('Excel file layout is optional, labelled and preserves edits in the import request', async ({ page }) => {
     await session(page)
     let previewBody = ''

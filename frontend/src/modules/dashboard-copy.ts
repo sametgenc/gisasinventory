@@ -10,6 +10,9 @@ export const dashboardCopy = {
         notificationsHelp: 'Hesabınıza gelen bildirimler.',
         notificationsError: 'Bildirimler yüklenemedi.', noNotifications: 'Henüz bildirim yok.',
         unknownCode: 'Kod belirtilmemiş', quickHelp: 'Yeni başlayanlar için',
+        administration: 'Genel yönetim', administrationHelp: 'Tersane atamalarını, kullanıcıları ve ortak ekipman kataloğunu yönetin. Kullanım taleplerini ilgili tersaneler yürütür.',
+        manageTenants: 'Tersaneleri yönet', manageUsers: 'Kullanıcıları yönet', manageCatalog: 'Kataloğu yönet',
+        platformIntroTitle: 'Merkez genelinde yönetim', platformIntroBody: 'Bu görünüm tüm tersanelerin envanter kayıtlarını kapsar. Tersane yöneticileri kendi paylaşım kararlarını, onaylarını, teslim ve iadelerini yönetir.',
     },
     en: {
         inventory: 'Open inventory', openGuide: 'User guide',
@@ -22,5 +25,8 @@ export const dashboardCopy = {
         notificationsHelp: 'Notifications for your account.',
         notificationsError: 'Notifications could not be loaded.', noNotifications: 'No notifications yet.',
         unknownCode: 'No code specified', quickHelp: 'For new users',
+        administration: 'Administration', administrationHelp: 'Manage shipyard assignments, users and the shared equipment catalog. Participating shipyards handle usage requests.',
+        manageTenants: 'Manage shipyards', manageUsers: 'Manage users', manageCatalog: 'Manage catalog',
+        platformIntroTitle: 'Administration across shipyards', platformIntroBody: 'This view covers inventory records across all shipyards. Shipyard administrators manage their own publication decisions, approvals, handovers and returns.',
     },
 }

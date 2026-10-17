@@ -1,3 +1,5 @@
+import type { CredentialCreationOptionsJSON, CredentialRequestOptionsJSON } from '@github/webauthn-json/browser-ponyfill';
+
 export interface User {
     id: string;
     username: string;
@@ -20,26 +22,32 @@ export interface Flow {
     id: string;
     is_pending?: boolean;
     types?: string[];
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
-export interface AuthResponse {
+export interface AuthData {
+    user?: User;
+    methods?: Array<{
+        method: string;
+        at: number;
+        [key: string]: unknown;
+    }>;
+    flows?: Flow[];
+    request_options?: CredentialRequestOptionsJSON;
+    creation_options?: CredentialCreationOptionsJSON;
+    unused_codes?: string[];
+    email?: string;
+    [key: string]: unknown;
+}
+
+export interface AuthResponse<TData = AuthData> {
     status: number;
-    data?: {
-        user?: User;
-        methods?: Array<{
-            method: string;
-            at: number;
-            [key: string]: any;
-        }>;
-        flows?: Flow[];
-        [key: string]: any;
-    };
+    data?: TData;
     meta?: {
         is_authenticated: boolean;
         flows?: Array<{
             id: string;
-            [key: string]: any;
+            [key: string]: unknown;
         }>;
     };
     errors?: Array<{
@@ -65,6 +73,16 @@ export interface SignupData {
     password2?: string;
 }
 
+export interface ChangePasswordData {
+    current_password?: string;
+    new_password: string;
+}
+
+export interface ProviderSignupData {
+    email: string;
+    username?: string;
+}
+
 export interface Authenticator {
     type: 'totp' | 'recovery_codes' | 'webauthn';
     id: string;
@@ -80,7 +98,7 @@ export interface TOTPSetup {
 export interface MFAAuthenticateResponse extends AuthResponse {
     data: {
         authenticators: Authenticator[];
-        [key: string]: any;
+        [key: string]: unknown;
     };
 }
 
@@ -89,6 +107,12 @@ export interface SocialProvider {
     name: string;
     client_id: string;
     auth_url: string;
+}
+
+export interface ProviderAccount {
+    uid: string;
+    display?: string;
+    provider: { id: string; name: string };
 }
 
 export interface ConfigResponse {

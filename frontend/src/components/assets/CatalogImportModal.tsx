@@ -7,6 +7,7 @@ import { Badge, Button, DataTable, FormField, Modal, formControlClass, type Colu
 import { getApiErrorMessage } from '@/api/errors'
 import { assetKeys } from '@/modules/assets/hooks'
 import { catalogApi, type CatalogMode, type CatalogPreview, type CatalogRow, type CatalogSummary } from '@/modules/assets/catalog'
+import { useDraftGuard } from '@/hooks/useDraftGuard'
 
 export function CatalogImportModal({ onClose }: { onClose: () => void }) {
     const { t } = useTranslation()
@@ -18,7 +19,7 @@ export function CatalogImportModal({ onClose }: { onClose: () => void }) {
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState('')
     const [onlyErrors, setOnlyErrors] = useState(false)
-    const close = () => { if (!busy) onClose() }
+    const { requestClose: close, confirmation } = useDraftGuard({ dirty: !result && (!!file || mode !== 'create'), busy, onClose })
     const displayedValues = (row: CatalogRow) => row.operation === 'skip' && row.current_values ? row.current_values : row.values
     const changeLabels: Record<string, string> = {
         name: 'assetTypes.typeName', description: 'common.description', catalog_code: 'catalog.code',
@@ -74,6 +75,7 @@ export function CatalogImportModal({ onClose }: { onClose: () => void }) {
             {!result && preview && <Button disabled={busy || !preview.preview_token || preview.summary.error > 0 || preview.summary.create + preview.summary.update === 0} onClick={commit} icon={<Upload size={16} />}>{t('catalog.confirm', { count: preview.summary.create + preview.summary.update })}</Button>}
         </div>
     }>
+        {confirmation}
         <div className="space-y-5" aria-busy={busy}>
             <ol className="flex flex-wrap gap-5 border-b border-slate-200 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400" aria-label={t('catalog.steps')}>
                 {['file', 'review', 'done'].map((step, index) => <li key={step} aria-current={(result ? 2 : preview ? 1 : 0) === index ? 'step' : undefined} className="border-b-2 border-transparent pb-3 aria-[current=step]:border-blue-700 aria-[current=step]:font-semibold aria-[current=step]:text-slate-900 dark:aria-[current=step]:border-blue-400 dark:aria-[current=step]:text-white">{index + 1}. {t(`catalog.stepsLabel.${step}`)}</li>)}

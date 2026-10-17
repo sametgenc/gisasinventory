@@ -26,6 +26,7 @@ import {
 } from '@/components/ui'
 import { useTranslation } from 'react-i18next'
 import { getApiErrorMessage } from '@/api/errors'
+import { tenantTrustCopy } from '@/modules/tenants/trust-copy'
 
 export const Route = createFileRoute('/_secured/platform/tenants/$slug')({
     component: TenantDetailPage,
@@ -67,10 +68,11 @@ function UserAvatar({ user, tone = 'primary' }: { user: TenantUser; tone?: 'prim
 
 function TenantDetailPage() {
     const { slug } = Route.useParams()
-    const { t } = useTranslation()
-    const { data: tenant, isLoading: tenantLoading } = useTenant(slug)
-    const { data: tenantUsers = [], isLoading: usersLoading } = useTenantUsers(slug)
-    const { data: availableUsers = [], isLoading: availableLoading } = useAvailableUsers()
+    const { t, i18n } = useTranslation()
+    const copy = tenantTrustCopy(i18n.language)
+    const { data: tenant, isLoading: tenantLoading, error: tenantError, refetch: refetchTenant } = useTenant(slug)
+    const { data: tenantUsers = [], isLoading: usersLoading, error: usersError, refetch: refetchUsers } = useTenantUsers(slug)
+    const { data: availableUsers = [], isLoading: availableLoading, error: availableError, refetch: refetchAvailable } = useAvailableUsers()
     const assignMutation = useAssignUser()
     const removeMutation = useRemoveUser()
     const createUserMutation = useCreateUser()
@@ -88,6 +90,7 @@ function TenantDetailPage() {
     const [userToRemove, setUserToRemove] = useState<TenantUser | null>(null)
     const [bannerError, setBannerError] = useState<string | null>(null)
     const [tenantSaveError, setTenantSaveError] = useState<string | null>(null)
+    const [removeError, setRemoveError] = useState<string | null>(null)
 
     const filteredUsers = useMemo(
         () => tenantUsers.filter((u: TenantUser) =>
@@ -113,17 +116,18 @@ function TenantDetailPage() {
 
     const handleRemove = (user: TenantUser) => {
         setBannerError(null)
+        setRemoveError(null)
         setUserToRemove(user)
     }
 
     const confirmRemove = async () => {
         if (!userToRemove) return
+        setRemoveError(null)
         try {
             await removeMutation.mutateAsync({ slug, userId: userToRemove.id })
             setUserToRemove(null)
         } catch (err) {
-            setUserToRemove(null)
-            setBannerError(getApiErrorMessage(err, t('tenants.removeFailed')))
+            setRemoveError(getApiErrorMessage(err, t('tenants.removeFailed')))
         }
     }
 
@@ -157,6 +161,10 @@ function TenantDetailPage() {
         } catch (err) {
             setTenantSaveError(getApiErrorMessage(err, t('tenants.tenantUpdateFailed')))
         }
+    }
+
+    if (!tenant && (tenantError || !tenantLoading)) {
+        return <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(tenantError, copy.tenantLoadFailed)}</p><Button variant="secondary" onClick={() => void refetchTenant()}>{copy.retry}</Button></div>
     }
 
     if (tenantLoading || !tenant) {
@@ -280,17 +288,18 @@ function TenantDetailPage() {
                 }
             />
 
+            {tenantError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(tenantError, copy.tenantLoadFailed)}</p><Button variant="secondary" onClick={() => void refetchTenant()}>{copy.retry}</Button></div>}
             {bannerError && (
                 <div className="mb-4 p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm" role="alert">
                     {bannerError}
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {!usersError && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <StatCard tone="info" icon={<Users size={18} />} value={tenantUsers.length} label={t('tenants.totalUsers')} />
                 <StatCard tone="success" icon={<Users size={18} />} value={activeUsers} label={t('tenants.activeUsers')} />
                 <StatCard tone="warning" icon={<Users size={18} />} value={tenantUsers.length - activeUsers} label={t('tenants.inactiveUsers')} />
-            </div>
+            </div>}
 
             {/* Tabs */}
             <div className="flex items-center gap-1 mb-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-1.5">
@@ -362,7 +371,8 @@ function TenantDetailPage() {
                         </Button>
                     </div>
 
-                    <DataTable
+                    {usersError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(usersError, copy.usersLoadFailed)}</p><Button variant="secondary" onClick={() => void refetchUsers()}>{copy.retry}</Button></div>}
+                    {!usersError && <DataTable
                         data={filteredUsers}
                         columns={userColumns}
                         isLoading={usersLoading}
@@ -375,7 +385,7 @@ function TenantDetailPage() {
                                 description={t('tenants.addUsersHint')}
                             />
                         }
-                    />
+                    />}
                 </div>
             )}
 
@@ -392,14 +402,15 @@ function TenantDetailPage() {
                         />
                     </div>
 
-                    <DataTable
+                    {availableError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(availableError, copy.availableLoadFailed)}</p><Button variant="secondary" onClick={() => void refetchAvailable()}>{copy.retry}</Button></div>}
+                    {!availableError && <DataTable
                         data={filteredAvailable}
                         columns={availableColumns}
                         isLoading={availableLoading}
                         getRowId={(u) => u.id}
                         pageSize={25}
                         emptyState={<EmptyState icon={<Users size={40} />} title={t('tenants.noAvailableUsers')} />}
-                    />
+                    />}
                 </div>
             )}
 
@@ -420,7 +431,7 @@ function TenantDetailPage() {
                 isLoading={createUserMutation.isPending}
                 error={createUserError}
                 allowedRoles={['tenant_user', 'tenant_admin']}
-                context={tenant.name}
+                assignment={{ tenants: [tenant], fixedTenantSlug: tenant.slug }}
             />
 
             <UserFormModal
@@ -436,12 +447,13 @@ function TenantDetailPage() {
 
             <ConfirmationModal
                 isOpen={!!userToRemove}
-                onClose={() => setUserToRemove(null)}
+                onClose={() => { setUserToRemove(null); setRemoveError(null) }}
                 onConfirm={confirmRemove}
                 title={t('tenants.removeUser')}
-                message={t('tenants.removeConfirm')}
+                message={copy.removal(userToRemove?.username ?? '', tenant.name, userToRemove?.role === 'tenant_admin')}
                 type="danger"
                 isLoading={removeMutation.isPending}
+                error={removeError}
             />
         </div>
     )

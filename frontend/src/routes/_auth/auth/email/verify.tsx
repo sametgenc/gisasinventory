@@ -1,7 +1,8 @@
 import { useCaptcha } from '@/hooks/useCaptcha'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { pathForPendingFlow } from '@/modules/allauth/routing'
 import { useAuth } from '@/auth/context'
@@ -23,16 +24,18 @@ function VerifyEmail() {
     const [error, setError] = useState<string | null>(null)
     const [code, setCode] = useState('')
     const [verifyingCode, setVerifyingCode] = useState(false)
+    const busy = useRef(false)
 
     const showCodeInput = config?.account?.email_verification_by_code_enabled ?? true
 
     const handleVerifyCode = async (e?: React.FormEvent) => {
         e?.preventDefault()
-        if (!captcha.ready) return
+        if (!captcha.ready || busy.current) return
         if (code.length !== CODE_LENGTH) {
             setError(t('emailVerify.codeLengthError', { length: CODE_LENGTH }))
             return
         }
+        busy.current = true
         setVerifyingCode(true)
         setError(null)
         try {
@@ -46,11 +49,12 @@ function VerifyEmail() {
             if (res.status === 200) {
                 setStatus('success')
             } else {
-                setError(res.errors?.[0]?.message || t('emailVerify.errorMessage'))
+                setError(t(accountErrorKey(res, 'emailVerify.errorMessage')))
             }
-        } catch (err: any) {
-            setError(err.message)
+        } catch (err: unknown) {
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
+            busy.current = false
             setVerifyingCode(false)
             captcha.reset()
         }
@@ -74,7 +78,7 @@ function VerifyEmail() {
                         </div>
 
                         {error && (
-                            <div className="mb-5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium">
+                            <div role="alert" className="mb-5 p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/50 text-red-600 dark:text-red-400 rounded-lg text-xs font-medium">
                                 {error}
                             </div>
                         )}
@@ -89,8 +93,9 @@ function VerifyEmail() {
                                         value={code}
                                         onChange={setCode}
                                         length={CODE_LENGTH}
+                                        label={t('emailVerify.codeLabel')}
+                                        getCellLabel={position => t('loginCodeConfirm.digitLabel', { position })}
                                         disabled={verifyingCode}
-                                        onComplete={() => handleVerifyCode()}
                                     />
                                 </div>
                                 {captcha.widget}

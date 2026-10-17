@@ -124,7 +124,7 @@ test('print includes every task and answer while hiding an open screenshot dialo
     await page.emulateMedia({ media: 'print' })
     await expect(page.getByRole('dialog')).not.toBeVisible()
     await expect(page.locator('.guide-print')).toBeVisible()
-    await expect(page.locator('.guide-print section')).toHaveCount(7)
+    await expect(page.locator('.guide-print section')).toHaveCount(8)
     await expect(page.locator('.guide-print').getByText('New fields start optional. Making a field required notifies owners of incomplete records. Renaming a field preserves existing values.', { exact: true })).toBeVisible()
     expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('visible')
 })

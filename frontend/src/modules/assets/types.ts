@@ -125,6 +125,25 @@ export interface AssetTypeCreateInput extends CatalogMetadata {
     schema: SchemaField[];
 }
 
+export interface BatchCreateRow {
+    asset_type: string;
+    quantity: number;
+    custom_data: Record<string, unknown>;
+    tenant?: number;
+}
+
+export interface BatchCreateInput {
+    operation_id: string;
+    rows: BatchCreateRow[];
+}
+
+export interface BatchCreateResult {
+    created_count: number;
+    record_count: number;
+    unit_count: number;
+    operation_id: string;
+}
+
 export type SharingAvailability = 'by_arrangement' | 'available' | 'unavailable'
 
 /** Owner-entered publication fields, independent of private inventory values. */

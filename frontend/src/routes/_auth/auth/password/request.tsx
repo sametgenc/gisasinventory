@@ -1,6 +1,7 @@
 import { useCaptcha } from '@/hooks/useCaptcha'
 import React, { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { accountErrorKey } from '@/modules/allauth/account-errors'
 import { ALLAUTH_API } from '@/modules/allauth/data'
 import { pathForPendingFlow } from '@/modules/allauth/routing'
 import { useAuth } from '@/auth/context'
@@ -40,11 +41,10 @@ function RequestPasswordReset() {
                     setError(t('passwordRequest.authRequired'))
                 }
             } else {
-                setError(res.errors?.[0]?.message || t('passwordRequest.requestFailed'))
+                setError(t(accountErrorKey(res, 'passwordRequest.requestFailed')))
             }
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : t('login.unexpectedError')
-            setError(message)
+            setError(t(accountErrorKey(err, 'account.errors.connection')))
         } finally {
             setLoading(false)
             captcha.reset()
@@ -93,7 +93,7 @@ function RequestPasswordReset() {
                                 </div>
 
                                 {error && (
-                                    <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-sm">
+                                    <div role="alert" className="mb-6 p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-800/30 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-2 text-sm">
                                         <AlertCircle size={16} />
                                         <span>{error}</span>
                                     </div>

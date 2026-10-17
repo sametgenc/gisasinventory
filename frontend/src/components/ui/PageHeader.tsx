@@ -11,6 +11,7 @@ export interface PageHeaderProps {
     /** Tabs / breadcrumbs / secondary nav placed above the title. */
     before?: React.ReactNode
     className?: string
+    density?: 'comfortable' | 'compact'
 }
 
 /**
@@ -23,8 +24,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     actions,
     before,
     className,
+    density = 'comfortable',
 }) => (
-    <div className={cn('mb-6 flex flex-col gap-3', className)}>
+    <div className={cn('flex flex-col', density === 'compact' ? 'mb-4 gap-2' : 'mb-6 gap-3', className)}>
         {before}
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <div className="flex items-start gap-3 min-w-0">
@@ -34,11 +36,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     </div>
                 )}
                 <div className="min-w-0">
-                    <h1 className="text-[22px] sm:text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight leading-8 break-words">
+                    <h1 className={cn('font-semibold text-slate-900 dark:text-slate-100 tracking-tight break-words', density === 'compact' ? 'text-lg leading-6' : 'text-[22px] sm:text-2xl leading-8')}>
                         {title}
                     </h1>
                     {subtitle && (
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-6 max-w-2xl">{subtitle}</p>
+                        <p className={cn('text-slate-500 dark:text-slate-400 mt-1 max-w-2xl', density === 'compact' ? 'text-xs leading-5' : 'text-sm leading-6')}>{subtitle}</p>
                     )}
                 </div>
             </div>

@@ -19,7 +19,7 @@ test('asset form stays open with entered values when the API rejects a save', as
         const request = route.request()
         const url = new URL(request.url())
         if (url.pathname.endsWith('/stream/')) return route.abort()
-        if (url.pathname === '/api/assets/items/' && request.method() === 'POST') {
+        if (url.pathname === '/api/assets/items/batch_create/' && request.method() === 'POST') {
             return route.fulfill({ status: 400, json: { detail: 'This equipment needs a valid serial number.' } })
         }
         let data: unknown = []
@@ -34,9 +34,9 @@ test('asset form stays open with entered values when the API rejects a save', as
     await page.goto('/assets')
     await page.getByRole('button', { name: 'Add equipment', exact: true }).first().click()
     const dialog = page.getByRole('dialog')
-    await dialog.getByRole('combobox').selectOption(typeId)
+    await dialog.getByRole('option').filter({ hasText: 'Forklift' }).click()
     await dialog.getByRole('textbox', { name: 'Serial', exact: true }).fill('MY-SERIAL')
-    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Add to inventory', exact: true }).click()
     await expect(dialog.getByText('This equipment needs a valid serial number.')).toBeVisible()
     await expect(dialog.getByRole('textbox', { name: 'Serial', exact: true })).toHaveValue('MY-SERIAL')
     await expect(dialog).toBeVisible()

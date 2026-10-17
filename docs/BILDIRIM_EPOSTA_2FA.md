@@ -1,6 +1,6 @@
 # Bildirim, canlı e-posta ve isteğe bağlı 2FA
 
-14 Ekim 2026
+17 Ekim 2026
 
 Bildirimler uygulamada kalır; e-posta kopyaları canlı ortamın SMTP ayarlarıyla gönderilir. Yerel test ortamı dışarıya e-posta göndermez ve canlı SMTP bilgilerini devralmaz. İki faktörlü giriş bütün kullanıcılarda isteğe bağlıdır.
 
@@ -19,7 +19,7 @@ Her e-postada kurumsal HTML ve düz metin sürümü bulunur. Türkçe/İngilizce
 
 ## Canlı SMTP'yi aç
 
-1. Canlı uygulamada platform yönetici hesabıyla giriş yapın; **Hesap → Ayarlar** üzerinden SMTP ekranını açın.
+1. Canlı uygulamada platform yönetici hesabıyla giriş yapın; **Yönetim → Uygulama Ayarları → SMTP / E-posta Ayarları** üzerinden SMTP ekranını açın.
 2. Gönderen e-posta adresini, SMTP sunucusunu, portunu ve sağlayıcı kullanıcı adını girin. Bu bilgiler sağlayıcınızdan alınır; projede gerçek hesap veya parola varsayılmaz.
 3. Sağlayıcıya göre **TLS** veya **SSL** seçin. Yaygın portlar TLS için 587, SSL için 465'tir; sağlayıcının verdiği değer önceliklidir. İkisi birlikte açılmaz; canlıda şifresiz bağlantı kabul edilmez.
 4. SMTP parolasını bu ekrana girin. Sağlayıcı iki faktörlü giriş kullanıyorsa desteklediği **uygulama parolası** gerekebilir. Geçici doğrulama kodu SMTP parolası değildir.

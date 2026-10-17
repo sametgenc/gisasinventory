@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Users, Search, Shield, Clock, UserPlus, Pencil, FileText } from 'lucide-react'
+import { Users, Search, Shield, Clock, Pencil, FileText } from 'lucide-react'
 import { exportReport } from '@/utils/report'
 import {
     useMyUsers,
     useCurrentTenant,
-    useCreateUser,
     useUpdateUser,
 } from '@/modules/tenants'
-import type { TenantUser, UserCreateInput } from '@/modules/tenants'
+import type { TenantUser } from '@/modules/tenants'
 import { UserFormModal, type UserFormPayload } from '@/components/users/UserFormModal'
 import {
     PageHeader,
@@ -23,6 +22,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/auth/context'
 import { getApiErrorMessage } from '@/api/errors'
+import { tenantTrustCopy } from '@/modules/tenants/trust-copy'
 
 export const Route = createFileRoute('/_secured/tenant/users')({
     component: MyUsersPage,
@@ -62,19 +62,15 @@ function UserAvatar({ user }: { user: TenantUser }) {
 function MyUsersPage() {
     const { t, i18n } = useTranslation()
     const { user: authUser } = useAuth()
-    const { data: users = [], isLoading } = useMyUsers()
+    const copy = tenantTrustCopy(i18n.language)
+    const { data: users = [], isLoading, error, refetch } = useMyUsers()
     const { data: currentTenant } = useCurrentTenant()
-    const createUserMutation = useCreateUser()
     const updateUserMutation = useUpdateUser()
     const locale = i18n.language === 'tr' ? 'tr-TR' : 'en-US'
 
     const [searchQuery, setSearchQuery] = useState('')
-    const [isCreateOpen, setIsCreateOpen] = useState(false)
-    const [createError, setCreateError] = useState<string | null>(null)
     const [editingUser, setEditingUser] = useState<TenantUser | null>(null)
     const [editError, setEditError] = useState<string | null>(null)
-
-    const tenantSlug = authUser?.tenant_slug || currentTenant?.slug || ''
 
     const filteredUsers = useMemo(
         () =>
@@ -89,20 +85,6 @@ function MyUsersPage() {
             }),
         [users, searchQuery],
     )
-
-    const handleCreate = async (data: UserCreateInput) => {
-        if (!tenantSlug) {
-            setCreateError(t('tenants.createUserFailed'))
-            return
-        }
-        try {
-            setCreateError(null)
-            await createUserMutation.mutateAsync({ slug: tenantSlug, data })
-            setIsCreateOpen(false)
-        } catch (err: unknown) {
-            setCreateError(getApiErrorMessage(err, t('tenants.createUserFailed')))
-        }
-    }
 
     const handleEditSave = async (payload: UserFormPayload) => {
         if (payload.mode !== 'edit' || !editingUser) return
@@ -165,7 +147,9 @@ function MyUsersPage() {
             key: 'actions',
             header: '',
             align: 'right',
-            cell: (u) => (
+            cell: (u) => u.is_superuser || u.role === 'platform_admin' ? (
+                <span className="text-xs text-slate-500">{copy.managedByPlatform}</span>
+            ) : (
                 <Button
                     variant="ghost"
                     size="sm"
@@ -207,18 +191,17 @@ function MyUsersPage() {
                         >
                             {t('common.exportReport')}
                         </Button>
-                        <Button icon={<UserPlus size={16} />} onClick={() => { setCreateError(null); setIsCreateOpen(true) }}>
-                            {t('tenants.createUser')}
-                        </Button>
                     </>
                 }
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">{copy.createUserGuidance}</p>
+            {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-200"><p>{getApiErrorMessage(error, copy.usersLoadFailed)}</p><Button variant="secondary" onClick={() => void refetch()}>{copy.retry}</Button></div>}
+            {!error && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <StatCard tone="neutral" icon={<Users size={18} />} value={users.length} label={t('tenants.totalUsers')} />
                 <StatCard tone="success" icon={<Users size={18} />} value={activeUsers} label={t('tenants.activeUsers')} />
                 <StatCard tone="warning" icon={<Users size={18} />} value={users.length - activeUsers} label={t('tenants.inactiveUsers')} />
-            </div>
+            </div>}
 
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 mb-6">
                 <div className="relative max-w-md">
@@ -233,25 +216,14 @@ function MyUsersPage() {
                 </div>
             </div>
 
-            <DataTable
+            {!error && <DataTable
                 data={filteredUsers}
                 columns={columns}
                 isLoading={isLoading}
                 getRowId={(u) => u.id}
                 pageSize={25}
                 emptyState={<EmptyState icon={<Users size={40} />} title={t('users.noUsers')} />}
-            />
-
-            <UserFormModal
-                mode="create"
-                isOpen={isCreateOpen}
-                onClose={() => { setIsCreateOpen(false); setCreateError(null) }}
-                onSave={(p) => p.mode === 'create' ? handleCreate(p.data) : undefined}
-                isLoading={createUserMutation.isPending}
-                error={createError}
-                allowedRoles={['tenant_user', 'tenant_admin']}
-                context={currentTenant?.name || authUser?.tenant_name || undefined}
-            />
+            />}
 
             <UserFormModal
                 mode="edit"
