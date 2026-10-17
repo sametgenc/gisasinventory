@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from allauth.mfa.models import Authenticator
 from django.db import DatabaseError, connection
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils.dateparse import parse_datetime
 from rest_framework.test import APITestCase
 
@@ -242,7 +242,7 @@ class DiskMetricsTests(SimpleTestCase):
                         self.assertEqual(disk_metrics(directory), UNAVAILABLE_DISK)
 
 
-class DatabaseMetricsTests(SimpleTestCase):
+class DatabaseMetricsTests(TestCase):
     def connection(self, vendor, name="private-database-name"):
         connection = MagicMock()
         connection.vendor = vendor

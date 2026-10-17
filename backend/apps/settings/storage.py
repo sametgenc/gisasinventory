@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from django.conf import settings
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -44,9 +44,12 @@ def database_metrics() -> dict[str, object]:
     }
     try:
         if engine == "postgresql":
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT pg_database_size(current_database())")
-                row = cursor.fetchone()
+            # Keep an optional metric failure inside its own savepoint so the
+            # surrounding request can still persist its security audit event.
+            with transaction.atomic():
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT pg_database_size(current_database())")
+                    row = cursor.fetchone()
             size = row[0] if row else None
         elif engine == "sqlite":
             name = connection.settings_dict.get("NAME")
