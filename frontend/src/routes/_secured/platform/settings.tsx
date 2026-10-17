@@ -6,6 +6,7 @@ import axios from 'axios'
 import { settingsApi, type SmtpSettingsData, type SmtpSettingsInput } from '@/modules/settings/data'
 import { Modal, FormField, FormSection, FormFooter, PageHeader, Button, Card, formControlClass } from '@/components/ui'
 import { useDraftGuard } from '@/hooks/useDraftGuard'
+import { StorageUsagePanel } from '@/modules/settings/StorageUsagePanel'
 
 export const Route = createFileRoute('/_secured/platform/settings')({ component: SettingsPage })
 type Gate = 'mfa_verification_required' | 'reauthentication_required' | null
@@ -98,6 +99,7 @@ function SettingsPage() {
     </FormField>
     return <div className="w-full min-w-0 max-w-4xl space-y-5">
         <PageHeader icon={<Settings size={22} />} title={t('settings.title')} subtitle={t('settings.subtitle')} />
+        <StorageUsagePanel />
         <Result message={message} />
         {loading ? <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{t('settings.smtp.loading')}</p> : !status ? <Button onClick={load}>{t('mfa.retry')}</Button> : <>
             <Card className="p-5"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-base font-semibold text-slate-900 dark:text-white">{t(status.delivery_mode === 'preview' ? 'settings.smtp.previewTitle' : status.is_configured ? 'settings.smtp.configured' : 'settings.smtp.notConfigured')}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">{t(status.delivery_mode === 'preview' ? 'settings.smtp.previewDescription' : 'settings.smtp.deliveryDescription')}</p></div><Button variant="secondary" icon={<Send size={16} />} onClick={() => setTestOpen(true)} disabled={saving || !status.is_configured}>{t('settings.smtp.testConnection')}</Button></div></Card>

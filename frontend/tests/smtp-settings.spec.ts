@@ -5,6 +5,7 @@ async function mock(page: Page, patch: Partial<typeof settings> = {}) {
     await page.addInitScript(() => localStorage.setItem('language', 'tr'))
     await page.route('**/_allauth/browser/v1/**', route => route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/config') ? { status: 200, data: { account: {}, socialaccount: { providers: [] }, mfa: { supported_types: ['totp'] } } } : { status: 200, data: { user: { id: 'admin', username: 'admin', email: 'admin@shipyard.test', role: 'platform_admin', is_superuser: true, has_usable_password: true }, methods: [{ method: 'password', at: Date.now() / 1000 }], flows: [] }, meta: { is_authenticated: true } } }))
     await page.route('**/api/**', route => new URL(route.request().url()).pathname.startsWith('/api/') ? route.fulfill({ json: { count: 0, results: [] } }) : route.continue())
+    await page.route('**/api/settings/storage/', route => route.fulfill({ json: { checked_at: '2026-10-17T09:30:00Z', application_disk: { status: 'unavailable', total_bytes: null, used_bytes: null, free_bytes: null, used_percent: null }, media_disk: { status: 'unavailable', total_bytes: null, used_bytes: null, free_bytes: null, used_percent: null }, database: { status: 'unavailable', engine: 'other', size_bytes: null, capacity_bytes: null, used_percent: null } } }))
     await page.route(`**${path}`, route => route.fulfill({ json: { ...settings, ...patch } }))
 }
 test('SMTP preview explains no external mail and MFA setup link; password reveal keyboard works', async ({ page }) => {

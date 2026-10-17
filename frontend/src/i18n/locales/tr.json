@@ -1020,7 +1020,40 @@
     },
     "settings": {
         "title": "Uygulama Ayarları",
-        "subtitle": "Platform genelinde ayarları yönetin",
+        "subtitle": "Depolama durumunu görüntüleyin ve giden e-posta ayarlarını yönetin",
+        "storage": {
+            "title": "Depolama durumu",
+            "description": "Uygulamanın çalıştığı ortamdan alınan, yalnızca okunabilen ölçümler. Güncel kullanım için yenileyin.",
+            "applicationTitle": "Uygulamanın kullandığı disk",
+            "applicationDescription": "Uygulamanın eriştiği dosya sistemi; uygulama klasörünün veya sunucunun tamamının boyutu değildir.",
+            "applicationProgress": "Uygulama diski kullanımı",
+            "mediaTitle": "Yüklenen dosyaların diski",
+            "mediaDescription": "Yüklenen dosyaların bulunduğu dosya sistemi; yükleme klasörünün boyutu değildir.",
+            "mediaProgress": "Yüklenen dosyalar diski kullanımı",
+            "databaseTitle": "Veritabanı boyutu",
+            "databaseDescription": {
+                "postgresql": "Yalnızca mevcut veritabanı. İşlem günlükleri, diğer veritabanları ve yedekler dahil değil.",
+                "sqlite": "SQLite ana dosyası; geçici günlük dosyaları dahil değil.",
+                "other": "Mevcut veritabanı boyutu; depolama sınırı bilinmiyor."
+            },
+            "capacityUnknown": "Kapasite bilinmiyor",
+            "databaseCapacityHelp": "Veritabanı boyutu, bulunduğu diskte ne kadar boş alan olduğunu göstermez.",
+            "sharedDiskHelp": "Bu ölçümler aynı diske ait olabilir; değerleri toplamayın. Disk kullanımı, yedek veya geri yükleme kontrolü değildir.",
+            "used": "{{size}} kullanılıyor",
+            "free": "{{size}} boş",
+            "total": "{{size}} toplam",
+            "status": {
+                "ok": "Boş alan var",
+                "warning": "Boş alan azalıyor",
+                "critical": "Disk dolmak üzere",
+                "unavailable": "Ölçüm alınamadı"
+            },
+            "updated": "Güncelleme:",
+            "refresh": "Depolama bilgisini yenile",
+            "retry": "Tekrar dene",
+            "loading": "Depolama bilgisi yükleniyor…",
+            "loadFailed": "Depolama bilgisi yüklenemedi. Tekrar deneyin."
+        },
         "smtp": {
             "title": "SMTP / E-posta Ayarları",
             "description": "Uygulama için giden e-posta sunucusunu yapılandırın",

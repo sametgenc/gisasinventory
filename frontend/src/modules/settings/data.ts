@@ -30,7 +30,33 @@ export interface SmtpStatus {
     is_configured: boolean;
 }
 
+export interface StorageDiskUsage {
+    status: 'ok' | 'warning' | 'critical' | 'unavailable';
+    total_bytes: number | null;
+    used_bytes: number | null;
+    free_bytes: number | null;
+    used_percent: number | null;
+}
+
+export interface StorageUsageData {
+    checked_at: string;
+    application_disk: StorageDiskUsage;
+    media_disk: StorageDiskUsage;
+    database: {
+        status: 'ok' | 'unavailable';
+        engine: 'postgresql' | 'sqlite' | 'other';
+        size_bytes: number | null;
+        capacity_bytes: null;
+        used_percent: null;
+    };
+}
+
 export const settingsApi = {
+    getStorageUsage: async (): Promise<StorageUsageData> => {
+        const response = await api.get<StorageUsageData>('/api/settings/storage/');
+        return response.data;
+    },
+
     getSmtpSettings: async (): Promise<SmtpSettingsData> => {
         const response = await api.get('/api/settings/smtp/');
         return response.data;

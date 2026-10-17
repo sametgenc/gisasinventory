@@ -17,6 +17,19 @@ Komutları mevcut depo klasöründe, sırayla çalıştırın; bir adım başar�
 
 Uygulamada yedek oluşturma veya geri yükleme ekranı yoktur. **Envanter çıktısı tam sistem yedeği değildir.** Tam yedek; veritabanı, medya, mevcut şifreleme anahtarları ve sunucu ayarlarını birlikte kapsar. SMTP kaydı yapılandırılmışsa uygulama bunu kullanır; kayıt yoksa ortamın `EMAIL_*` değerlerine döner. Bu önceliğin test ve normal gönderimde geçerli olması için aşağıdaki `DatabaseEmailBackend` ayarı gerekir.
 
+**Yönetim → Uygulama Ayarları → Depolama durumu** bölümünü yalnız platform yöneticisi görebilir. Uygulamanın ve ek dosyaların bulunduğu dosya sistemlerinin toplam/kullanılan/boş alanı ile mevcut veritabanının boyutunu gösterir. Disk kullanımı %85'ten itibaren uyarı, %95'ten itibaren kritik olarak işaretlenir. Aynı diske bağlı iki alanın değerleri toplanmaz. Veritabanının kapasite sınırı veya bulunduğu diskin boş alanı bu ölçümden çıkarılamaz; yüzde gösterilmez. Ölçülemeyen alan **Ölçüm alınamadı** görünür; sıfır kabul edilmez. **Depolama bilgisini yenile** yeni ölçüm alır; ekran envanter, kullanıcı, yetki veya SMTP ayarı değiştirmez. Mevcut denetim katmanı erişimi kaydetmeye devam eder.
+
+Bu ekran bütün sunucu disklerini, diğer veritabanlarını, işlem günlüklerini veya yedekleri kapsamaz; yedek ve geri yükleme kabulünün yerine geçmez. Sunucuda tüm depolama kapsamını ayrıca salt okunur kontrol edin:
+
+```bash
+df -h .
+docker system df
+docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'df -h "$PGDATA"'
+docker compose -f docker-compose.prod.yml exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT pg_size_pretty(pg_database_size(current_database()));"'
+```
+
+`df` ilgili dosya sisteminin boş alanını, `docker system df` Docker nesnelerinin tüketimini, SQL ise yalnız mevcut veritabanının boyutunu ölçer. Özellikle yedek için ayrı diskiniz varsa onun boş alanını da kontrol edin. Bu komutlar temizlik veya silme yapmaz.
+
 ## 1. Mevcut ayarları ve sürümü koruyun
 
 ```bash

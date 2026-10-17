@@ -1023,7 +1023,40 @@
     },
     "settings": {
         "title": "Application Settings",
-        "subtitle": "Manage platform-wide settings",
+        "subtitle": "View storage usage and manage outgoing email settings",
+        "storage": {
+            "title": "Storage usage",
+            "description": "Read-only measurements from the application environment. Refresh to check current usage.",
+            "applicationTitle": "Application disk",
+            "applicationDescription": "Filesystem available to the application; this is not the size of the application folder or the entire server.",
+            "applicationProgress": "Application disk usage",
+            "mediaTitle": "Uploaded files disk",
+            "mediaDescription": "Filesystem containing uploaded files; this is not the size of the uploads folder.",
+            "mediaProgress": "Uploaded files disk usage",
+            "databaseTitle": "Database size",
+            "databaseDescription": {
+                "postgresql": "Current database only. Transaction logs, other databases and backups are excluded.",
+                "sqlite": "SQLite main file only. Temporary journal files are excluded.",
+                "other": "Current database size; a storage limit is not available."
+            },
+            "capacityUnknown": "Capacity unknown",
+            "databaseCapacityHelp": "Database size does not show how much space is free on its disk.",
+            "sharedDiskHelp": "These may share one disk; do not add the measurements together. Disk usage is not a backup or restore check.",
+            "used": "{{size}} used",
+            "free": "{{size}} free",
+            "total": "{{size}} total",
+            "status": {
+                "ok": "Space available",
+                "warning": "Low free space",
+                "critical": "Almost full",
+                "unavailable": "Measurement unavailable"
+            },
+            "updated": "Updated:",
+            "refresh": "Refresh storage usage",
+            "retry": "Try again",
+            "loading": "Loading storage usage…",
+            "loadFailed": "Storage usage could not be loaded. Try again."
+        },
         "smtp": {
             "title": "SMTP / Email Settings",
             "description": "Configure the outgoing email server for the application",

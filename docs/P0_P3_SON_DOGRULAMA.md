@@ -59,6 +59,22 @@ Yerel kanıtlar: [SQLite](/private/tmp/learnwithai-release-backend.log), [Postgr
 
 Bu koşullar tamamlanmadan canlı yayın için **GO** kararı verilmez. Yerel kod/imaj kabulü tamamlanmıştır; yeni ürün aşamasına veya yayına geçilmemiştir.
 
+## 17 Ekim: depolama görünürlüğü
+
+Kullanıcının isteğiyle **Yönetim → Uygulama Ayarları → Depolama durumu** eklendi. Mevcut global yönetici sınırını kullanır; diğer hesaplara yeni yetki vermez. Uygulama ve yüklenen dosyaların bulunduğu dosya sistemlerinin toplam/kullanılan/boş alanı ve mevcut veritabanının boyutu okunur. %85 disk uyarısı ve %95 kritik durumu metinle gösterilir. Veritabanı kotası veya diskinin boş alanı bilinmediği için doluluk yüzdesi üretilmez. Ölçülemeyen değer sıfır sayılmaz; başarısız yenilemede eski sayılar kaldırılır ve tekrar deneme sunulur. SMTP formu ölçüm hatasından bağımsız çalışır.
+
+- Testler önce yazıldı: eksik API 404 ve eksik arayüz bölümü beklenen başarısızlıkları verdi; ardından aynı hedefler geçti.
+- Yeni backend senaryoları **20/20**; ayarlar/güvenlik regresyonu **73/73**. Yeni backend modülünde stdlib trace ile **64/64 çalıştırılabilir satır** kapsandı.
+- Yeni arayüz senaryoları **10/10**, mevcut SMTP senaryoları **12/12**. Yeni panelin Chromium V8 çalıştırılmış byte aralıkları kapsamı **%98,59**; bütün uygulama için kapsam iddiası değildir.
+- Tam Chromium arayüz paketi **413/413**, tek koşu, 4,1 dakika; tekrar veya atlama yok.
+- Gerçek yerel uygulamada masaüstü/mobil/klavye yönetici okuma-yenileme ve personel/tersane yöneticisi erişim engelleri **5/5** geçti. İlk test kurulumunun yanlış geliştirme adresi düzeltildi; son temiz koşu 11,1 saniyede tamamlandı. Canlı veri kullanılmadı.
+- Tam SQLite paketi **526 senaryo: 522 geçti, 4 PostgreSQL'e özel atlama**; tam PostgreSQL 16 paketi **526 senaryo: 511 geçti, 15 SQLite demo hazırlamasına özel atlama**. Gerçek PostgreSQL boyut sorgusu da ayrıca geçti.
+- Güncel TypeScript ve genel lint temiz. Python, TypeScript ve güvenlik incelemelerinde engelleyici bulgu yok. Depolama özelliği migration, yeni bağımlılık, host mount veya Docker socket erişimi gerektirmez.
+
+Bu ekran envanter, kullanıcı, yetki veya SMTP ayarlarını değiştirmez; mevcut denetim katmanı GET erişimini kaydeder. Uygulama/medya aynı diski gösterebilir; değerler toplanmaz. PostgreSQL işlem günlükleri, diğer veritabanları, yedekler ve başka sunucu diskleri bu boyut ölçümünün kapsamı dışındadır. SQLite yalnız ana dosyayı ölçer. Gerçek sunucunun kapasite kontrolü ve yedekten dönüş kabulü açık kalır; depolama ekranı canlı yayın onayı sağlamaz.
+
+Kanıtlar: [SQLite](/private/tmp/learnwithai-storage-sqlite.log), [PostgreSQL](/private/tmp/learnwithai-storage-postgres.log), [gerçek arayüz](/private/tmp/learnwithai-storage-real-final.log), [panel kapsamı](/private/tmp/learnwithai-storage-ui-proof/coverage-summary.json). Bunlar geçici yerel doğrulama çıktılarıdır.
+
 ## Kapsam sınırları
 
 17 Ekim ek kontrolü: TypeScript, genel lint, Django sistem ve migration tutarlılığı yeniden geçti. GitHub'a gönderilecek değişiklikler sır ve kişisel veri açısından incelendi; gerçek üretim ayarları/yedekleri gönderime eklenmedi. Kullanıcı sunucu adımlarını ve gerçek SMTP kontrolünü kendisi üstlendi. SMTP ekranının güncel menü yolu, ayarların saklandığı yerler, zorunlu Traefik iletişim adresi ve migration öncesi ayrı geri yükleme kabulü canlı güncelleme rehberinde netleştirildi. Bu kontrol canlı HTTPS/CAPTCHA/SMTP veya gerçek yedekten dönüş kanıtı sağlamaz; yukarıdaki 15 Ekim tam test sonuçlarını değiştirmez.

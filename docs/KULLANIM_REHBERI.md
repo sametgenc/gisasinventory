@@ -1,6 +1,6 @@
 # GİSAŞ · Kullanım rehberi
 
-Son güncelleme: 15 Ekim 2026.
+Son güncelleme: 17 Ekim 2026.
 
 Tersanenizin kayıtlarını ortak ekipman türleri altında toplayın. Diğer tersaneler yalnızca ayrıca paylaşıma açtığınız bilgileri görür. Ortak kullanım bedelsizdir; talebi ekipmanın sahibi tersanenin yöneticisi onaylar.
 
@@ -199,5 +199,9 @@ Bu akış yalnız yetkili genel yönetim hesabındadır. Tersane yöneticisinin 
 **Talep düğmesi yok:** Kendi tersanenizin ilanı, paylaşım adedi belirtilmemiş kayıt veya kullanıma kapalı ilan için talep gönderilemez. Ortak kullanım ortamda henüz açılmamışsa sistem yöneticisi yapılandırmayı kontrol eder.
 
 **Adet değişikliği engellendi:** Önce açık kullanım taleplerini inceleyin. Teslim edileni iade almadan onun adedini yeniden kullanılabilir saymayın.
+
+**Depolama durumunu nereden kontrol ederim?** Yetkili platform yöneticisi **Yönetim → Uygulama Ayarları → Depolama durumu** alanında uygulamanın eriştiği ve yüklenen dosyaların bulunduğu dosya sistemlerinin toplam, kullanılan ve boş alanını; kullanım yüzdesini görür. Güncel ölçüm için **Depolama bilgisini yenile** seçin. Aynı dosya sistemini gösteren değerleri toplamayın. Bunlar klasör boyutları veya sunucunun bütün disklerinin dökümü değildir.
+
+Veritabanında yalnız güncel boyut gösterilir; kota, veritabanı diskinin boş alanı ve doluluk yüzdesi çıkarılmaz. **Kapasite bilinmiyor** veya **Ölçüm alınamadı**, sıfır kullanım anlamına gelmez. Bu salt okunur alan mevcut genel yönetim yetkisini kullanır; tersane hesabına yeni erişim vermez. Ölçümler yedekleme veya yedekten geri yükleme doğrulaması değildir.
 
 Kurmaca hesaplar ve deneme adımları: [TEST_ORTAMI.md](TEST_ORTAMI.md). Veri modeli ve kalan ihtiyaçlar: [GISBIR_SSRP_GAP_ANALIZI.md](GISBIR_SSRP_GAP_ANALIZI.md).

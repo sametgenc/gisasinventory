@@ -1,14 +1,27 @@
 import { expect, test, type Page } from '@playwright/test'
+import { writeFile } from 'node:fs/promises'
+import type { StorageDiskUsage, StorageUsageData } from '../src/modules/settings/data'
 
 const gib = 1024 ** 3
-const normalDisk = { status: 'ok', total_bytes: 100 * gib, used_bytes: 40 * gib, free_bytes: 60 * gib, used_percent: 40 }
-const snapshot = {
+const normalDisk: StorageDiskUsage = { status: 'ok', total_bytes: 100 * gib, used_bytes: 40 * gib, free_bytes: 60 * gib, used_percent: 40 }
+const snapshot: StorageUsageData = {
     checked_at: '2026-10-17T09:30:00Z',
     application_disk: normalDisk,
     media_disk: { ...normalDisk, status: 'warning', used_bytes: 87 * gib, free_bytes: 13 * gib, used_percent: 87 },
     database: { status: 'ok', engine: 'postgresql', size_bytes: 2 * gib, capacity_bytes: null, used_percent: null },
 }
 const smtp = { host: 'smtp.example.test', port: 587, username: 'operator@example.test', password_set: true, use_tls: true, use_ssl: false, from_email: 'platform@example.test', is_configured: true, updated_at: null, delivery_mode: 'smtp', mfa_enabled: false, mfa_verified_recently: false, reauthentication_required: false }
+
+test.beforeEach(async ({ page }) => {
+    if (process.env.STORAGE_COVERAGE) await page.coverage.startJSCoverage({ resetOnNavigation: false })
+})
+test.afterEach(async ({ page }, testInfo) => {
+    if (!process.env.STORAGE_COVERAGE) return
+    const coverage = (await page.coverage.stopJSCoverage()).filter(entry => entry.url.includes('/src/modules/settings/StorageUsagePanel.tsx'))
+    const output = testInfo.outputPath('storage-coverage.json')
+    await writeFile(output, JSON.stringify(coverage))
+    await testInfo.attach('storage-coverage', { path: output, contentType: 'application/json' })
+})
 
 async function mockSettings(page: Page, options: { language?: 'tr' | 'en'; role?: 'global' | 'tenant_admin' | 'tenant_user' | 'unassigned' | 'bound_superuser'; smtpFailed?: boolean } = {}) {
     const role = options.role ?? 'global'
@@ -37,7 +50,7 @@ async function mockSettings(page: Page, options: { language?: 'tr' | 'en'; role?
     return state
 }
 
-test('global administrator reads separate disk and database measurements without writes', async ({ page }) => {
+test('global administrator reads separate disk and database measurements without writes', async ({ page }, testInfo) => {
     const state = await mockSettings(page)
     await page.setViewportSize({ width: 1440, height: 1100 })
     await page.goto('/platform/settings')
@@ -56,7 +69,8 @@ test('global administrator reads separate disk and database measurements without
     await expect(storage).toContainText('These may share one disk; do not add the measurements together.')
     await expect(storage).toContainText('Updated:')
     await expect(storage.getByRole('progressbar')).toHaveCount(2)
-    await expect(page.getByLabel('SMTP Server', { exact: true })).toHaveValue('smtp.example.test')
+    await expect(page.getByRole('textbox', { name: /SMTP Host/ })).toHaveValue('smtp.example.test')
+    await storage.screenshot({ path: testInfo.outputPath('storage-desktop-en.png') })
     expect(state.writes).toEqual([])
     expect(state.storageCalls).toBe(1)
 })
@@ -81,13 +95,13 @@ test('Turkish mobile view fits screen and refresh works by keyboard without subm
 
 test('critical disk and unavailable measurements remain explicit without fabricated database percent', async ({ page }) => {
     const state = await mockSettings(page)
-    state.snapshot = { ...snapshot, application_disk: { ...normalDisk, status: 'critical', used_bytes: 98 * gib, free_bytes: 2 * gib, used_percent: 98 }, media_disk: { status: 'unavailable', total_bytes: null, used_bytes: null, free_bytes: null, used_percent: null }, database: { ...snapshot.database, status: 'unavailable', size_bytes: null } } as typeof snapshot
+    state.snapshot = { ...snapshot, application_disk: { ...normalDisk, status: 'critical', used_bytes: 98 * gib, free_bytes: 2 * gib, used_percent: 98 }, media_disk: { status: 'unavailable', total_bytes: null, used_bytes: null, free_bytes: null, used_percent: null }, database: { ...snapshot.database, status: 'unavailable', size_bytes: null } }
     await page.goto('/platform/settings')
     const storage = page.getByRole('region', { name: 'Storage usage', exact: true })
     await expect(storage.getByText('Almost full', { exact: true })).toBeVisible()
     await expect(storage.getByRole('progressbar')).toHaveCount(1)
     await expect(storage.getByText('Measurement unavailable', { exact: true })).toHaveCount(2)
-    await expect(storage).not.toContainText('0 GiB')
+    await expect(storage).not.toContainText('0 GiB used')
     await expect(storage).not.toContainText('NaN')
 })
 
@@ -120,15 +134,31 @@ test('pending measurement shows loading and prevents overlapping refreshes', asy
         await expect(storage.getByRole('status')).toContainText('Loading storage usage')
         await expect(storage.getByRole('button', { name: 'Refresh storage usage', exact: true })).toBeDisabled()
         expect(calls).toBe(1)
-        await expect(page.getByLabel('SMTP Server', { exact: true })).toHaveValue('smtp.example.test')
+        await expect(page.getByRole('textbox', { name: /SMTP Host/ })).toHaveValue('smtp.example.test')
     } finally { finish() }
     await expect(page.getByRole('progressbar')).toHaveCount(2)
+})
+
+test('empty SQLite file remains a valid size and an invalid measurement timestamp becomes retryable', async ({ page }) => {
+    const state = await mockSettings(page)
+    state.snapshot = { ...snapshot, application_disk: { ...normalDisk, used_bytes: 0, free_bytes: 100 * gib, used_percent: 0 }, database: { ...snapshot.database, engine: 'sqlite', size_bytes: 0 } }
+    await page.goto('/platform/settings')
+    const storage = page.getByRole('region', { name: 'Storage usage', exact: true })
+    await expect(storage.getByRole('progressbar', { name: 'Application disk usage', exact: true })).toHaveAttribute('aria-valuenow', '0')
+    await expect(storage).toContainText('SQLite main file only. Temporary journal files are excluded.')
+    await expect(storage.getByText('0 B', { exact: true })).toBeVisible()
+    await expect(storage).toContainText('Capacity unknown')
+    state.snapshot = { ...snapshot, checked_at: 'invalid' }
+    await storage.getByRole('button', { name: 'Refresh storage usage', exact: true }).click()
+    await expect(storage.getByRole('alert')).toContainText('Storage usage could not be loaded. Try again.')
+    await expect(storage.getByRole('progressbar')).toHaveCount(0)
 })
 
 for (const role of ['tenant_admin', 'tenant_user', 'unassigned', 'bound_superuser'] as const) {
     test(`${role} cannot open platform storage measurements`, async ({ page }) => {
         const state = await mockSettings(page, { role })
         await page.goto('/platform/settings')
+        await expect(page).toHaveURL(/\/dashboard\/?$/)
         await expect(page.getByRole('region', { name: 'Storage usage', exact: true })).toHaveCount(0)
         await expect(page.getByRole('heading', { name: 'Application Settings', exact: true })).toHaveCount(0)
         expect(state.storageCalls).toBe(0)
