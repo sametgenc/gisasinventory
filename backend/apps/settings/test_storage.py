@@ -4,10 +4,11 @@ import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import skipUnless
 from unittest.mock import MagicMock, patch
 
 from allauth.mfa.models import Authenticator
-from django.db import DatabaseError
+from django.db import DatabaseError, connection
 from django.test import SimpleTestCase, override_settings
 from django.utils.dateparse import parse_datetime
 from rest_framework.test import APITestCase
@@ -147,6 +148,42 @@ class StorageAccessTests(APITestCase):
         response = self.client.get("/api/settings/storage/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(list(User.objects.order_by("pk").values()), before)
+        self.assertEqual(list(SmtpSettings.objects.values()), before_settings)
+
+    @skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL transaction-abort semantics")
+    def test_database_sql_failure_preserves_disk_snapshot_and_audit_event(self):
+        from apps.audit.models import AuditEvent
+        from .models import SmtpSettings
+
+        before_users = list(User.objects.order_by("pk").values())
+        before_settings = list(SmtpSettings.objects.values())
+        failed_size_queries = []
+
+        def fail_database_size(execute, sql, params, many, context):
+            if sql == "SELECT pg_database_size(current_database())":
+                failed_size_queries.append(sql)
+                return execute("SELECT 1/0", params, many, context)
+            return execute(sql, params, many, context)
+
+        with tempfile.TemporaryDirectory() as directory:
+            with override_settings(BASE_DIR=directory, MEDIA_ROOT=directory):
+                with connection.execute_wrapper(fail_database_size):
+                    response = self.client.get("/api/settings/storage/")
+
+        self.assertEqual(failed_size_queries, ["SELECT pg_database_size(current_database())"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["database"], {
+            "status": "unavailable", "engine": "postgresql", "size_bytes": None,
+            "capacity_bytes": None, "used_percent": None,
+        })
+        for key in ("application_disk", "media_disk"):
+            self.assertIn(response.data[key]["status"], ("ok", "warning", "critical"))
+            self.assertGreater(response.data[key]["total_bytes"], 0)
+        self.assertTrue(AuditEvent.objects.filter(
+            request_id=response["X-Request-ID"], action="http.read", outcome="success",
+            route="api/settings/storage/", status_code=200,
+        ).exists())
+        self.assertEqual(list(User.objects.order_by("pk").values()), before_users)
         self.assertEqual(list(SmtpSettings.objects.values()), before_settings)
 
 
